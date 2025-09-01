@@ -4,11 +4,21 @@ const app = express();
 app.use(express.json());
 
 app.get('/', (req, res) => {
-  res.send('Hello from Express backend on Vercel!');
+  try {
+    res.send('Hello from Express backend on Vercel!');
+  } catch (error) {
+    console.error('Error in / route:', error);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.get('/users', (req, res) => {
-  res.json([{ id: 1, name: 'Admin', role: 'admin' }]);
+  try {
+    res.json([{ id: 1, name: 'Admin', role: 'admin' }]);
+  } catch (error) {
+    console.error('Error in /users route:', error);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
-module.exports = app;  // 이 줄은 유지
+module.exports = app;
