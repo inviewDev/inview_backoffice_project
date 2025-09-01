@@ -1,5 +1,10 @@
+console.log('Script started!');  // 맨 위에 추가 (스크립트 시작 확인)
+
 const express = require('express');
+console.log('Express required');  // require 후 추가 (express 로드 확인)
+
 const app = express();
+console.log('App created');  // app 생성 후 추가 (app 객체 생성 확인)
 
 app.use(express.json());
 
@@ -29,3 +34,8 @@ app.get('/users', (req, res) => {
 });
 
 module.exports = app;
+
+const PORT = 3000;
+app.listen(PORT, () => console.log(`Express server running on port ${PORT}`));
+
+console.log('Script ended');

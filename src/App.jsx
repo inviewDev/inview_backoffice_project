@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 function App() {
   const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetch('/api/users')
@@ -18,15 +19,17 @@ function App() {
       .then(jsonData => {
         console.log('Received data:', jsonData);
         setData(jsonData);
+        setError(null);
       })
       .catch(err => {
         console.error('Fetch error:', err);
+        setError(err.message);
       });
   }, []);
 
   return (
     <div>
-      <h1>백오피스 데이터: {data ? JSON.stringify(data) : 'Loading...'}</h1>
+      <h1>Data: {error ? `Error: ${error}` : (data ? JSON.stringify(data) : 'Loading...')}</h1>
     </div>
   );
 }
