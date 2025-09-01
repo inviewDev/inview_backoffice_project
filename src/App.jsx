@@ -5,7 +5,12 @@ function App() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetch('/api/users')
+    console.log('Fetching /api/users');
+    fetch('/api/users', {
+      headers: {
+        'Accept': 'application/json'
+      }
+    })
       .then(res => {
         console.log('Response status:', res.status);
         console.log('Response headers:', res.headers);
@@ -29,7 +34,9 @@ function App() {
 
   return (
     <div>
-      <h1>Data: {error ? `Error: ${error}` : (data ? JSON.stringify(data) : 'Loading...')}</h1>
+      <h1>
+        {error ? `에러: ${error}` : data ? JSON.stringify(data) : '로딩 중...'}
+      </h1>
     </div>
   );
 }
