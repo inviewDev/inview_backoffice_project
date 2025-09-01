@@ -11,7 +11,4 @@ app.get('/users', (req, res) => {
   res.json([{ id: 1, name: 'Admin', role: 'admin' }]);
 });
 
-module.exports = app;
-
-const port = 3000;
-app.listen(port, () => console.log(`Express server running on port ${port}`));
+module.exports = app;  // 이 줄은 유지
