@@ -22,8 +22,3 @@ app.get('/users', (req, res) => {
 });
 
 module.exports = app;
-
-if (process.env.NODE_ENV !== 'production') {
-  const PORT = 3000;
-  app.listen(PORT, () => console.log(`Express server running on port ${PORT}`));
-}
