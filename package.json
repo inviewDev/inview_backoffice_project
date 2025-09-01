@@ -12,6 +12,7 @@
   "dependencies": {
     "aos": "^2.3.4",
     "apexcharts": "^5.3.4",
+    "express": "^5.1.0",
     "gsap": "^3.13.0",
     "react": "^19.1.1",
     "react-apexcharts": "^1.7.0",
