@@ -3,12 +3,12 @@ const app = express();
 
 app.use(express.json());
 
+// 글로벌 에러 핸들러
 app.use((err, req, res, next) => {
   console.error('Global error:', err.stack);
   res.status(500).send('Internal Server Error');
 });
 
-// 기본 route (테스트용)
 app.get('/', (req, res) => {
   try {
     res.send('Hello from Express backend on Vercel!');
@@ -18,8 +18,7 @@ app.get('/', (req, res) => {
   }
 });
 
-// /api/users route 추가 (Vercel req.path와 맞춤)
-app.get('/api/users', (req, res) => {
+app.get('/api/users', (req, res) => {  // /api/users로 변경
   try {
     console.log('Accessing /api/users endpoint');
     res.json([{ id: 1, name: 'Admin', role: 'admin' }]);
