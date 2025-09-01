@@ -8,8 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "dev-backend": "NODE_ENV=development node api/index.js",
-    "dev": "vite dev"
+    "dev-backend": "NODE_ENV=development node api/index.js"
   },
   "dependencies": {
     "aos": "^2.3.4",
