@@ -1,6 +1,10 @@
 const express = require('express');
 const app = express();
-
+const apiRouter = express.Router();
+apiRouter.get('/users', (req, res) => {
+  res.json([{ id: 1, name: 'Admin', role: 'admin' }]);
+});
+app.use('/api', apiRouter);
 app.use(express.json());
 
 // 글로벌 에러 핸들러
@@ -18,7 +22,7 @@ app.get('/', (req, res) => {
   }
 });
 
-app.get('/api/users', (req, res) => {  // /api/users로 변경
+app.get('/api/users', (req, res) => {
   try {
     console.log('Accessing /api/users endpoint');
     res.json([{ id: 1, name: 'Admin', role: 'admin' }]);
