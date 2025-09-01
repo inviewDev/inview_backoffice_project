@@ -6,21 +6,21 @@ function App() {
   useEffect(() => {
     fetch('/api/users')
       .then(res => {
-        console.log('Response status:', res.status);  // 응답 상태 로그 (200이 나와야 함)
-        console.log('Response headers:', res.headers);  // 헤더 로그 (디버깅용)
+        console.log('Response status:', res.status);
+        console.log('Response headers:', res.headers);
         if (!res.ok) {
           return res.text().then(text => {
-            throw new Error(`API error ${res.status}: ${text}`);  // 에러 시 응답 텍스트 출력
+            throw new Error(`API error ${res.status}: ${text}`);
           });
         }
         return res.json();
       })
       .then(jsonData => {
-        console.log('Received data:', jsonData);  // 성공 시 데이터 로그
+        console.log('Received data:', jsonData);
         setData(jsonData);
       })
       .catch(err => {
-        console.error('Fetch error:', err);  // 전체 에러 로그 (ECONNREFUSED 등 상세)
+        console.error('Fetch error:', err);
       });
   }, []);
 
