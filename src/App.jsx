@@ -6,7 +6,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/users')  // 꼭 /api 붙여서 호출
+    fetch('/api/users')
       .then(res => {
         if (!res.ok) {
           return res.text().then(text => { throw new Error(`API 에러 ${res.status}: ${text}`); });
