@@ -49,12 +49,6 @@ apiRouter.get('/users', (req, res) => {
 
 app.use('/api', apiRouter);
 
-// 루트 경로 제거 또는 SPA로 리디렉션
-// app.get('/', (req, res) => {
-//   res.send('Hello from Express backend on Vercel!');
-// });
-
-// 에러 핸들링
 app.use((err, req, res, next) => {
   console.error('Global error:', err.stack);
   res.status(500).send('Internal Server Error');

@@ -1,42 +1,19 @@
-import { useEffect, useState } from 'react';
+import { Routes, Route, Link } from 'react-router-dom';
+import UserList from './UserList.jsx';  // 기존 App.jsx 내용을 UserList.jsx로 분리
+import Signup from './Signup.jsx';
 
 function App() {
-  const [data, setData] = useState(null);
-  const [error, setError] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    fetch('/api/users')
-      .then(res => {
-        if (!res.ok) {
-          return res.text().then(text => { throw new Error(`API 에러 ${res.status}: ${text}`); });
-        }
-        return res.json();
-      })
-      .then(json => {
-        setData(json);
-        setError(null);
-      })
-      .catch(err => {
-        setError(err.message);
-        setData(null);
-      })
-      .finally(() => setIsLoading(false));
-  }, []);
-
-  if (isLoading) return <p>로딩중...</p>;
-  if (error) return <p style={{ color: 'red' }}>에러: {error}</p>;
-
   return (
     <div>
-      <h1>사용자 목록</h1>
-      <ul>
-        {data && data.length > 0 ? data.map(user => (
-          <li key={user.id}>
-            ID: {user.id} / 이름: {user.name} / 역할: {user.role}
-          </li>
-        )) : <li>사용자가 없습니다.</li>}
-      </ul>
+      <nav style={{ padding: '20px', backgroundColor: '#f5f5f5', marginBottom: '20px' }}>
+        <Link to="/" style={{ marginRight: '20px' }}>사용자 목록</Link>
+        <Link to="/signup">회원가입</Link>
+      </nav>
+      
+      <Routes>
+        <Route path="/" element={<UserList />} />
+        <Route path="/signup" element={<Signup />} />
+      </Routes>
     </div>
   );
 }
