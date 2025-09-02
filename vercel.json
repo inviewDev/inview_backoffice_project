@@ -10,15 +10,27 @@
       "use": "@vercel/static-build",
       "config": {
         "distDir": "dist",
-        "installCommand": "npm install --omit=optional",
+        "installCommand": "npm install --no-optional",
         "buildCommand": "npm run build",
         "nodeVersion": "22.x"
       }
     }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "/api/index.js" },
-    { "src": "/(.*\\.(js|css|ico|png|jpg|jpeg|svg|woff|woff2))$", "dest": "/dist/$1" },
-    { "src": "/(.*)", "dest": "/" }
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/index.js"
+    },
+    {
+      "src": "/assets/(.*\\.(js|css|ico|png|jpg|jpeg|svg|woff|woff2))",
+      "dest": "/dist/assets/$1",
+      "headers": {
+        "Content-Type": "application/javascript"
+      }
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/dist/index.html"
+    }
   ]
 }
