@@ -16,17 +16,28 @@
       }
     }
   ],
-  "routes": [
+"routes": [
     {
       "src": "/api/(.*)",
       "dest": "/api/index.js"
     },
     {
-      "src": "/assets/(.*\\.(js|css|ico|png|jpg|jpeg|svg|woff|woff2))",
+      "src": "/assets/(.*\\.js)",
       "dest": "/dist/assets/$1",
       "headers": {
         "Content-Type": "application/javascript"
       }
+    },
+    {
+      "src": "/assets/(.*\\.css)",
+      "dest": "/dist/assets/$1",
+      "headers": {
+        "Content-Type": "text/css"
+      }
+    },
+    {
+      "src": "/assets/(.*\\.(ico|png|jpg|jpeg|svg|woff|woff2))",
+      "dest": "/dist/assets/$1"
     },
     {
       "src": "/(.*)",
