@@ -1,29 +1,15 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig(({ mode }) => {
-  const isProduction = mode === 'production';
-  return {
-    plugins: [react({
-      babel: {
-        plugins: isProduction ? [] : ['@babel/plugin-transform-react-jsx-dev']
-      }
-    })],
-    base: isProduction ? '/' : '',
-    server: {
-      port: 5173,
-      proxy: {
-        '/api': {
-          target: 'http://127.0.0.1:3000',
-          changeOrigin: true,
-          secure: false
-        }
-      }
-    },
-    build: {
-      outDir: 'dist',
-      assetsDir: 'assets',
-      sourcemap: false
+export default defineConfig(({ mode }) => ({
+  plugins: [react()],
+  base: mode === 'production' ? '/' : '',
+  server: {
+    proxy: {
+      '/api': 'http://127.0.0.1:3000'
     }
-  };
-});
+  },
+  build: {
+    outDir: 'dist'
+  }
+}));
