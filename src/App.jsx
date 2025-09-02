@@ -3,40 +3,64 @@ import { useEffect, useState } from 'react';
 function App() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    console.log('Fetching /api/users');
-    fetch('/api/users', {
-      headers: {
-        'Accept': 'application/json'
-      }
-    })
-      .then(res => {
-        console.log('Response status:', res.status);
-        console.log('Response headers:', res.headers);
-        if (!res.ok) {
-          return res.text().then(text => {
-            throw new Error(`API error ${res.status}: ${text}`);
-          });
+    const fetchData = async () => {
+      console.log('Fetching /api/users');
+      try {
+        const response = await fetch('/api/users', {
+          headers: {
+            'Accept': 'application/json',
+          },
+        });
+
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`API 에러 ${response.status}: ${text}`);
         }
-        return res.json();
-      })
-      .then(jsonData => {
+
+        const jsonData = await response.json();
         console.log('Received data:', jsonData);
         setData(jsonData);
         setError(null);
-      })
-      .catch(err => {
+      } catch (err) {
         console.error('Fetch error:', err);
         setError(err.message);
-      });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
 
   return (
-    <div>
-      <h1>
-        {error ? `에러: ${error}` : data ? JSON.stringify(data) : '로딩 중...'}
-      </h1>
+    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
+      <h1>사용자 데이터</h1>
+      {isLoading ? (
+        <p>로딩 중...</p>
+      ) : error ? (
+        <p style={{ color: 'red' }}>에러: {error}</p>
+      ) : (
+        <>
+          <p style={{ color: 'green' }}>Complete: 데이터 로드 성공!</p>
+          <ul>
+            {data && data.length > 0 ? (
+              data.map(user => (
+                <li key={user.id}>
+                  ID: {user.id}, 이름: {user.name}, 역할: {user.role}
+                </li>
+              ))
+            ) : (
+              <p>데이터 없음</p>
+            )}
+          </ul>
+        </>
+      )}
     </div>
   );
 }
