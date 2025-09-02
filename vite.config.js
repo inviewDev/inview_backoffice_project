@@ -1,15 +1,32 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig({
   plugins: [react()],
-  base: mode === 'production' ? '/' : '',
+  base: '/',
   server: {
     proxy: {
-      '/api': 'http://127.0.0.1:3000'
+      '/api': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+        secure: false
+      }
     }
   },
   build: {
-    outDir: 'dist'
+    outDir: 'dist',
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: false
+      }
+    },
+    css: {
+      devSourcemap: true,
+      modules: {
+        generateScopedName: '[name]__[local]__[hash:base64:5]' 
+      }
+    },
+    assetsInlineLimit: 0 
   }
-}));
+});
