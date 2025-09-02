@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "installCommand": "pnpm install",
   "builds": [
     {
       "src": "api/index.js",
@@ -11,8 +10,8 @@
       "use": "@vercel/static-build",
       "config": {
         "distDir": "dist",
-        "installCommand": "npm install --no-optional",
-        "buildCommand": "npm run build",
+        "installCommand": "pnpm install && pnpm add @rollup/rollup-linux-x64-gnu",
+        "buildCommand": "pnpm run build",
         "nodeVersion": "22.x"
       }
     }
