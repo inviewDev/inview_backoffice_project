@@ -35,8 +35,8 @@ li {
 .signup-container button {
   width: 100%;
   padding: 10px;
-  background-color: navy;
-  color: white;
+  background-color: #232323;
+  color: #fff;
   border: none;
   border-radius: 4px;
   cursor: pointer;
