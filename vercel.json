@@ -1,19 +1,52 @@
 {
   "version": 2,
   "builds": [
-    { "src": "api/index.js", "use": "@vercel/node" },
-    { "src": "package.json", "use": "@vercel/static-build" }
+    {
+      "src": "api/index.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist",
+        "installCommand": "npm install",
+        "buildCommand": "npm run build",
+        "nodeVersion": "22.x"
+      }
+    }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "/api/index.js" },
     {
-      "src": "/assets/(.*)",
+      "src": "/api/(.*)",
+      "dest": "/api/index.js"
+    },
+    {
+      "src": "/assets/(.*\\.js)",
       "dest": "/dist/assets/$1",
       "headers": {
-        "Cache-Control": "public,max-age=31536000,immutable"
+        "Content-Type": "application/javascript"
       }
     },
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/dist/index.html" }
-  ]
+    {
+      "src": "/assets/(.*\\.css)",
+      "dest": "/dist/assets/$1",
+      "headers": {
+        "Content-Type": "text/css"
+      }
+    },
+    {
+      "src": "/assets/(.*\\.(ico|png|jpg|jpeg|svg|woff|woff2))",
+      "dest": "/dist/assets/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/dist/index.html",
+      "headers": { "Cache-Control": "no-cache" }
+    }
+  ],
+  "dev": {
+    "command": "vite",
+    "port": 5173
+  }
 }
