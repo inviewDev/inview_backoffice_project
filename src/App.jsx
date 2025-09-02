@@ -1,5 +1,5 @@
 import { Routes, Route, Link } from 'react-router-dom';
-import UserList from './UserList.jsx';  // 기존 App.jsx 내용을 UserList.jsx로 분리
+import UserList from './UserList.jsx';
 import Signup from './Signup.jsx';
 
 function App() {
