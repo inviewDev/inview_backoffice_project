@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import App from './App.jsx';
 import Signup from './Signup.jsx';
 import './index.css';
+import './main.css';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

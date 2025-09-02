@@ -1,0 +1,80 @@
+/* Signup 컴포넌트 전체 컨테이너 */
+.signup-container {
+  max-width: 400px;
+  margin: 40px auto;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  font-family: 'Noto Sans', sans-serif;
+  background-color: #fff;
+}
+
+/* 제목 스타일 */
+.signup-title {
+  text-align: center;
+  margin-bottom: 24px;
+  color: #333;
+  font-weight: 600;
+  font-size: 1.8rem;
+}
+
+/* 폼 내부 레이아웃 */
+.signup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 입력 필드 기본 스타일 */
+.signup-input {
+  padding: 12px 10px;
+  font-size: 16px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+/* 입력 필드 포커스 시 */
+.signup-input:focus {
+  border-color: #5b79f7;
+}
+
+/* 버튼 기본 스타일 */
+.signup-button {
+  padding: 12px;
+  font-size: 16px;
+  border-radius: 4px;
+  border: none;
+  background-color: #5b79f7;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+/* 버튼 호버 */
+.signup-button:hover:not(:disabled) {
+  background-color: #4261d8;
+}
+
+/* 버튼 로딩 상태 */
+.signup-button.loading {
+  background-color: #a1b1f7;
+  cursor: not-allowed;
+}
+
+/* 제출 메시지 스타일(성공) */
+.signup-message.success {
+  color: green;
+  margin-top: 16px;
+  text-align: center;
+}
+
+/* 제출 메시지 스타일(오류) */
+.signup-message.error {
+  color: red;
+  margin-top: 16px;
+  text-align: center;
+}

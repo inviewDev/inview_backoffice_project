@@ -22,6 +22,6 @@
     { "src": "/assets/(.*\\.css)", "dest": "/dist/assets/$1", "headers": { "Content-Type": "text/css" } },
     { "src": "/assets/(.*\\.(ico|png|jpg|jpeg|svg|woff|woff2))", "dest": "/dist/assets/$1" },
     { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/dist/index.html" }
+    { "src": "/[^.]+", "dest": "/", "status": 200 }
   ]
 }
