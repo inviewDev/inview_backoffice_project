@@ -10,8 +10,8 @@
       "use": "@vercel/static-build",
       "config": {
         "distDir": "dist",
-        "installCommand": "pnpm install --no-optional",
-        "buildCommand": "pnpm run build",
+        "installCommand": "npm install --no-optional",
+        "buildCommand": "npm run build",
         "nodeVersion": "22.x"
       }
     }
