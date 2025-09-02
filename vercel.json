@@ -16,6 +16,7 @@
       }
     }
   ],
+  "rewrites": [{ "source": "/(.*)", "destination": "/" }],
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/index.js" },
     { "src": "/assets/(.*\\.js)", "dest": "/dist/assets/$1", "headers": { "Content-Type": "application/javascript" } },
