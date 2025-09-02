@@ -10,7 +10,7 @@
       "use": "@vercel/static-build",
       "config": {
         "distDir": "dist",
-        "installCommand": "npm install --no-optional",
+        "installCommand": "npm install --no-optional && npm install @rollup/rollup-linux-x64-gnu@4.24.0",
         "buildCommand": "npm run build",
         "nodeVersion": "22.x"
       }
