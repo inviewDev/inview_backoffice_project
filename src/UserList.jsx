@@ -6,7 +6,11 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/users')
+    fetch('/api/users', {
+      headers: {
+        'x-user-role': 'MASTER'
+      }
+    })
       .then(res => {
         if (!res.ok) {
           return res.text().then(text => { throw new Error(`API 에러 ${res.status}: ${text}`); });
