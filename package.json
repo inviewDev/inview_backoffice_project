@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "postinstall": "prisma generate",
     "serve": "vite preview",
     "start": "node api/index.js"
   },
