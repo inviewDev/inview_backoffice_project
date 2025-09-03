@@ -5,9 +5,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "postinstall": "prisma generate",
     "serve": "vite preview",
-    "start": "node api/index.js"
+    "start": "node api/index.js",
+    "supabase": "supabase"
   },
   "dependencies": {
     "@prisma/client": "^6.15.0",
@@ -17,7 +17,6 @@
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "gsap": "^3.13.0",
-    "prisma": "^6.15.0",
     "react": "^19.1.1",
     "react-apexcharts": "^1.7.0",
     "react-dom": "^19.1.1",
@@ -32,6 +31,8 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.12",
     "globals": "^15.10.0",
+    "prisma": "^6.15.0",
+    "supabase": "^2.39.2",
     "vite": "^5.4.8"
   },
   "engines": {
