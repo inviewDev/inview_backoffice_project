@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
 
-function App() {
+function UserList() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    const token = localStorage.getItem('access_token'); // 로그인 시 저장된 JWT 토큰 읽기
+
     fetch('/api/users', {
       headers: {
-        'x-user-role': 'MASTER'
+        'Authorization': `Bearer ${token}`, // 서버에 JWT 토큰 전달
       }
     })
       .then(res => {
@@ -45,4 +47,4 @@ function App() {
   );
 }
 
-export default App;
+export default UserList;
