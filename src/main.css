@@ -11,7 +11,7 @@
 .signup_input:focus { border-color: #ff2174; } 
 .signup_button { padding: 12px; font-size: 16px; border-radius: 4px; border: none; background-color: #ff2174; color: #fff; font-weight: 600; cursor: pointer; transition: background-color 0.3s; } 
 .signup_button:hover:not(:disabled) { background-color: #d13e75; } 
-.signup_button.loading { background-color: #a1b1f7; cursor: not-allowed; } 
+.signup_button.loading { background-color: #ff2174; cursor: not-allowed; } 
 
 .signup_message.success { color: green; margin-top: 16px; text-align: center; } 
 .signup_message.error { color: red; margin-top: 16px; text-align: center; } 
