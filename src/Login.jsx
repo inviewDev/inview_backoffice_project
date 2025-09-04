@@ -25,7 +25,7 @@ function Login({ onLoginSuccess }) {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} className='login_box'>
       <h2>로그인</h2>
       <input
         type="email"

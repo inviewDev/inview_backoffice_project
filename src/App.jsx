@@ -4,6 +4,7 @@ import UserList from './UserList.jsx';
 import Signup from './Signup.jsx';
 import Login from './Login.jsx';
 
+// jwt-decode 없이 토큰 페이로드 디코딩 함수
 function parseJwt(token) {
   try {
     const base64Url = token.split('.')[1];
@@ -22,6 +23,7 @@ function parseJwt(token) {
 
 function App() {
   const [user, setUser] = useState(null);
+  const [tab, setTab] = useState('login'); // 'login' or 'signup'
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
@@ -33,7 +35,6 @@ function App() {
         return;
       }
       const currentTime = Date.now() / 1000;
-
       if (decoded.exp && decoded.exp < currentTime) {
         localStorage.removeItem('access_token');
         setUser(null);
@@ -51,12 +52,34 @@ function App() {
     return (
       <div>
         <h1>아이앤뷰커뮤니케이션_Backoffice</h1>
-        <Login onLoginSuccess={setUser} />
-        <Signup />
+
+        <div className="sign_in_wrap">
+          <div className="in_box">
+            <div className="tabs">
+              <button
+                className={`tab_button ${tab === 'login' ? 'active' : ''}`}
+                onClick={() => setTab('login')}
+              >
+                로그인
+              </button>
+              <button
+                className={`tab_button ${tab === 'signup' ? 'active' : ''}`}
+                onClick={() => setTab('signup')}
+              >
+                회원가입
+              </button>
+            </div>
+          </div>
+          <div className="tab_content">
+            {tab === 'login' && <Login onLoginSuccess={setUser} />}
+            {tab === 'signup' && <Signup />}
+          </div>
+        </div>
       </div>
     );
   }
 
+  // 로그인 상태일 때
   return (
     <div>
       <h1>아이앤뷰커뮤니케이션_Backoffice</h1>
