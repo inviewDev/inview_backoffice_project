@@ -17,6 +17,7 @@
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "gsap": "^3.13.0",
+    "jsonwebtoken": "^9.0.2",
     "react": "^19.1.1",
     "react-apexcharts": "^1.7.0",
     "react-dom": "^19.1.1",

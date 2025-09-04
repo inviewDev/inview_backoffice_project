@@ -1,12 +1,28 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const { PrismaClient } = require('@prisma/client');
-
+const jwt = require('jsonwebtoken');
+const SECRET = process.env.JWT_SECRET;
 const prisma = new PrismaClient();
 const app = express();
 const apiRouter = express.Router();
 
 app.use(express.json());
+
+// JWT 인증 및 MASTER 역할 미들웨어
+function verifyMasterRole(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // "Bearer TOKEN값"
+  if (!token) return res.status(401).json({ error: '토큰이 필요합니다.' });
+  jwt.verify(token, SECRET, (err, decoded) => {
+    if (err) return res.status(403).json({ error: '유효하지 않은 토큰입니다.' });
+    if (decoded.role !== 'MASTER') {
+      return res.status(403).json({ error: '마스터 계정만 접근 가능합니다.' });
+    }
+    req.user = decoded; // 인증 정보 요청에 전달
+    next();
+  });
+}
 
 // 회원가입 엔드포인트
 apiRouter.post('/signup', async (req, res) => {
@@ -15,17 +31,11 @@ apiRouter.post('/signup', async (req, res) => {
     if (!email || !password || !name) {
       return res.status(400).json({ error: '이메일, 비밀번호, 이름은 필수입니다.' });
     }
-
-    // 중복 이메일 확인 (DB 조회)
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return res.status(400).json({ error: '이미 존재하는 이메일입니다.' });
     }
-
-    // 비밀번호 해시 생성
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // DB에 사용자 생성
     const newUser = await prisma.user.create({
       data: {
         email,
@@ -35,7 +45,6 @@ apiRouter.post('/signup', async (req, res) => {
         status: 'ACTIVE',
       },
     });
-
     res.status(201).json({
       message: '회원가입 성공',
       user: {
@@ -51,30 +60,34 @@ apiRouter.post('/signup', async (req, res) => {
   }
 });
 
-// 로그인 엔드포인트 추가
+// 로그인 엔드포인트 (JWT 토큰 발급)
 apiRouter.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-
     if (!email || !password) {
       return res.status(400).json({ error: '이메일과 비밀번호가 필요합니다.' });
     }
-
-    // 사용자 이메일로 조회
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       return res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
     }
-
-    // 비밀번호 해시 비교
     const isValid = await bcrypt.compare(password, user.passwordHash);
     if (!isValid) {
       return res.status(401).json({ error: '비밀번호가 틀렸습니다.' });
     }
-
-    // 로그인 성공 시 사용자 정보 반환 (토큰 생성 예정)
+    // JWT 토큰 발급
+    const token = jwt.sign(
+      {
+        id: user.id,
+        email: user.email,
+        role: user.role
+      },
+      SECRET,
+      { expiresIn: '1h' }
+    );
     res.json({
       message: '로그인 성공',
+      token, // 클라이언트에 전달
       user: {
         id: user.id,
         email: user.email,
@@ -89,16 +102,9 @@ apiRouter.post('/login', async (req, res) => {
   }
 });
 
-// 사용자 목록 조회 (마스터 계정만 접근 가능하도록 간단한 권한 체크 포함)
-apiRouter.get('/users', async (req, res) => {
+// 사용자 목록 조회 - JWT 인증+마스터 권한 필요하게 변경!
+apiRouter.get('/users', verifyMasterRole, async (req, res) => {
   try {
-    // 임시: 헤더 'x-user-role'에서 권한 확인 (실제론 JWT 등 인증방식 적용 권장)
-    const userRole = req.headers['x-user-role'];
-
-    if (userRole !== 'MASTER') {
-      return res.status(403).json({ error: '마스터 계정만 접근 가능합니다.' });
-    }
-
     const users = await prisma.user.findMany({
       select: { id: true, email: true, name: true, role: true, status: true },
     });
