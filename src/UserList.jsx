@@ -39,7 +39,7 @@ function UserList() {
       <ul>
         {data && data.length > 0 ? data.map(user => (
           <li key={user.id}>
-            ID: {user.id} / 이름: {user.name} / 역할: {user.role}
+            <p>ID: {user.id}</p> 이메일: {user.email}, 이름: {user.name}, 역할: {user.role}, 팀: {user.team}, 부서: {user.department}
           </li>
         )) : <li>사용자가 없습니다.</li>}
       </ul>

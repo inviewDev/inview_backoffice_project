@@ -9,6 +9,9 @@
 .signup_form { display: flex; flex-direction: column; gap: 16px; } 
 .signup_input { padding: 12px 10px; font-size: 16px; border-radius: 4px; border: 1px solid #ccc; outline: none; transition: border-color 0.2s; } 
 .signup_input:focus { border-color: #ff2174; } 
+.signup_label { width: 100%; display: flex; align-items: center; gap: 0 10px; } 
+.signup_label select { padding: 12px 10px; font-size: 16px; border-radius: 4px; border: 1px solid #ccc; outline: none; transition: border-color 0.2s; width:100%;} 
+.signup_label select:focus { border-color: #ff2174; } 
 .signup_button { padding: 12px; font-size: 16px; border-radius: 4px; border: none; background-color: #ff2174; color: #fff; font-weight: 600; cursor: pointer; transition: background-color 0.3s; } 
 .signup_button:hover:not(:disabled) { background-color: #d13e75; } 
 .signup_button.loading { background-color: #ff2174; cursor: not-allowed; } 

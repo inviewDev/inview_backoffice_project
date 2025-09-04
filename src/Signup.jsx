@@ -2,28 +2,51 @@ import { useState } from 'react';
 import './main.css'; // CSS 파일 임포트
 
 function Signup() {
-  const [formData, setFormData] = useState({ email: '', password: '', name: '' });
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    passwordConfirm: '', // 추가
+    name: '',
+    team: '1팀',
+  });
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleChange = e => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = e =>
+    setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleSubmit = async e => {
     e.preventDefault();
-    setIsLoading(true);
     setMessage('');
     setError('');
+
+    // 비밀번호 일치 여부 검사
+    if (formData.password !== formData.passwordConfirm) {
+      setError('비밀번호가 일치하지 않습니다.');
+      return;
+    }
+
+    setIsLoading(true);
     try {
+      // 비밀번호 확인 필드는 전송하지 않도록 별도 객체 생성
+      const { passwordConfirm, ...submitData } = formData;
+
       const response = await fetch('/api/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(submitData),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || '회원가입 실패');
       setMessage(data.message);
-      setFormData({ email: '', password: '', name: '' });
+      setFormData({
+        email: '',
+        password: '',
+        passwordConfirm: '',
+        name: '',
+        team: '1팀',
+      });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -56,6 +79,16 @@ function Signup() {
           disabled={isLoading}
         />
         <input
+          name="passwordConfirm"
+          type="password"
+          value={formData.passwordConfirm}
+          onChange={handleChange}
+          placeholder="비밀번호 확인"
+          required
+          className="signup_input"
+          disabled={isLoading}
+        />
+        <input
           name="name"
           type="text"
           value={formData.name}
@@ -65,6 +98,26 @@ function Signup() {
           className="signup_input"
           disabled={isLoading}
         />
+        <label className="signup_label" htmlFor="team_select">
+          소속팀:
+          <select
+            id="team_select"
+            name="team"
+            value={formData.team}
+            onChange={handleChange}
+            required
+            className="signup_select"
+            disabled={isLoading}
+          >
+            <option value="1팀">1팀</option>
+            <option value="2팀">2팀</option>
+            <option value="3팀">3팀</option>
+            <option value="4팀">4팀</option>
+            <option value="5팀">5팀</option>
+            <option value="6팀">6팀</option>
+            <option value="개발관리부">개발관리부</option>
+          </select>
+        </label>
         <button
           type="submit"
           disabled={isLoading}

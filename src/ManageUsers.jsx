@@ -41,7 +41,7 @@ function ManageUsers() {
         <ul>
           {users.map(user => (
             <li key={user.id}>
-              ID: {user.id}, 이메일: {user.email}, 이름: {user.name}, 역할: {user.role}, 마스터: {user.isMaster ? '예' : '아니오'}
+              <p>ID: {user.id}</p> 이메일: {user.email}, 이름: {user.name}, 역할: {user.role}, 팀: {user.team}, 부서: {user.department}
             </li>
           ))}
         </ul>

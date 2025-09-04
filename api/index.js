@@ -24,23 +24,38 @@ function verifyMasterRole(req, res, next) {
   });
 }
 
+const teamDepartmentMapping = {
+  '1팀': '1부서',
+  '3팀': '1부서',
+  '4팀': '1부서',
+  '2팀': '2부서',
+  '5팀': '2부서',
+  '6팀': '2부서',
+  '개발관리부': '운영부서',
+};
+
 // 회원가입 엔드포인트
 apiRouter.post('/signup', async (req, res) => {
   try {
-    const { email, password, name } = req.body;
-    if (!email || !password || !name) {
-      return res.status(400).json({ error: '이메일, 비밀번호, 이름은 필수입니다.' });
+    const { email, password, name, team } = req.body;
+    if (!email || !password || !name || !team) {
+      return res.status(400).json({ error: '이메일, 비밀번호, 이름, 소속팀은 필수입니다.' });
     }
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return res.status(400).json({ error: '이미 존재하는 이메일입니다.' });
     }
+
     const hashedPassword = await bcrypt.hash(password, 10);
+    const mappedDepartment = teamDepartmentMapping[team] || '기타부서';
+
     const newUser = await prisma.user.create({
       data: {
         email,
         passwordHash: hashedPassword,
         name,
+        team,           // 선택한 팀명 그대로 저장
+        department: mappedDepartment, // 매핑된 부서명 저장 (스키마에 이 컬럼 있어야 함)
         role: 'USER',
         status: 'ACTIVE',
       },
@@ -51,6 +66,8 @@ apiRouter.post('/signup', async (req, res) => {
         id: newUser.id,
         email: newUser.email,
         name: newUser.name,
+        team: newUser.team,
+        department: newUser.department,
         role: newUser.role,
       },
     });
@@ -92,6 +109,8 @@ apiRouter.post('/login', async (req, res) => {
         id: user.id,
         email: user.email,
         name: user.name,
+        team: user.team,
+        department: user.department,
         role: user.role,
         status: user.status,
       }
@@ -106,7 +125,7 @@ apiRouter.post('/login', async (req, res) => {
 apiRouter.get('/users', verifyMasterRole, async (req, res) => {
   try {
     const users = await prisma.user.findMany({
-      select: { id: true, email: true, name: true, role: true, status: true },
+      select: { id: true, email: true, name: true, role: true, status: true, team: true, department: true },
     });
     res.json(users);
   } catch (error) {
