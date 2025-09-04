@@ -32,9 +32,9 @@ function Signup() {
   };
 
   return (
-    <div className="signup-container">
-      <h2 className="signup-title">회원가입</h2>
-      <form onSubmit={handleSubmit} className="signup-form">
+    <div className="signup_container">
+      <h2 className="signup_title">회원가입</h2>
+      <form onSubmit={handleSubmit} className="signup_form">
         <input
           name="email"
           type="email"
@@ -42,7 +42,7 @@ function Signup() {
           onChange={handleChange}
           placeholder="이메일"
           required
-          className="signup-input"
+          className="signup_input"
           disabled={isLoading}
         />
         <input
@@ -52,7 +52,7 @@ function Signup() {
           onChange={handleChange}
           placeholder="비밀번호"
           required
-          className="signup-input"
+          className="signup_input"
           disabled={isLoading}
         />
         <input
@@ -62,19 +62,19 @@ function Signup() {
           onChange={handleChange}
           placeholder="이름"
           required
-          className="signup-input"
+          className="signup_input"
           disabled={isLoading}
         />
         <button
           type="submit"
           disabled={isLoading}
-          className={`signup-button ${isLoading ? 'loading' : ''}`}
+          className={`signup_button ${isLoading ? 'loading' : ''}`}
         >
           {isLoading ? '처리 중...' : '가입'}
         </button>
       </form>
-      {message && <p className="signup-message success">{message}</p>}
-      {error && <p className="signup-message error">{error}</p>}
+      {message && <p className="signup_message success">{message}</p>}
+      {error && <p className="signup_message error">{error}</p>}
     </div>
   );
 }

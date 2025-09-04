@@ -50,9 +50,8 @@ function App() {
 
   if (!user) {
     return (
-      <div>
-        <h1>아이앤뷰커뮤니케이션_Backoffice</h1>
-
+      <div className='basic_wrap'>
+        <div className="img_box"><img src="img/logo/logo.svg" alt="" /></div>
         <div className="sign_in_wrap">
           <div className="in_box">
             <div className="tabs">

@@ -25,25 +25,29 @@ function Login({ onLoginSuccess }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className='login_box'>
-      <h2>로그인</h2>
-      <input
-        type="email"
-        placeholder="이메일"
-        value={email}
-        onChange={e => setEmail(e.target.value)}
-        required
-      />
-      <input
-        type="password"
-        placeholder="비밀번호"
-        value={password}
-        onChange={e => setPassword(e.target.value)}
-        required
-      />
-      <button type="submit">로그인</button>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-    </form>
+    <div className="signup_container">
+      <h2 className="signup_title">로그인</h2>
+      <form onSubmit={handleSubmit} className="signup_form">
+        <input
+          type="email"
+          placeholder="이메일"
+          className="signup_input"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          required
+        />
+        <input
+          type="password"
+          placeholder="비밀번호"
+          className="signup_input"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          required
+        />
+        <button type="submit" className="signup_button">로그인</button>
+        {error && <p style={{ color: 'red' }}>{error}</p>}
+      </form>
+    </div>
   );
 }
 
