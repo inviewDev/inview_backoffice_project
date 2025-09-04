@@ -3,6 +3,23 @@ import { Routes, Route, Link, Navigate } from 'react-router-dom';
 import UserList from './UserList.jsx';
 import Signup from './Signup.jsx';
 
+// jwt-decode 없이 토큰 페이로드 디코딩 함수
+function parseJwt(token) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map(c => '%' + c.charCodeAt(0).toString(16).padStart(2, '0'))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
+  }
+}
+
 function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,10 +37,7 @@ function Login({ onLoginSuccess }) {
       if (!res.ok) throw new Error('로그인 실패');
       const data = await res.json();
 
-      // JWT 토큰 localStorage 저장
       localStorage.setItem('access_token', data.token);
-
-      // 로그인 사용자 정보 App 컴포넌트에 전달
       onLoginSuccess(data.user);
     } catch (err) {
       setError(err.message);
@@ -56,10 +70,28 @@ function Login({ onLoginSuccess }) {
 function App() {
   const [user, setUser] = useState(null);
 
-  // 새로고침 등 시도 시 기존 토큰이 있으면 사용자 정보 유지(선택사항)
   useEffect(() => {
-    // 토큰 존재 시 사용자 정보 복구 로직 필요하면 구현
-    // 예) 토큰 디코딩 후 user 상태 재설정 등
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      const decoded = parseJwt(token);
+      if (!decoded) {
+        localStorage.removeItem('access_token');
+        setUser(null);
+        return;
+      }
+      const currentTime = Date.now() / 1000;
+
+      if (decoded.exp && decoded.exp < currentTime) {
+        localStorage.removeItem('access_token');
+        setUser(null);
+      } else {
+        setUser({
+          id: decoded.id,
+          email: decoded.email,
+          role: decoded.role,
+        });
+      }
+    }
   }, []);
 
   if (!user) {
@@ -76,11 +108,17 @@ function App() {
     <div>
       <h1>아이앤뷰커뮤니케이션_Backoffice</h1>
       <nav style={{ padding: '20px', backgroundColor: '#f5f5f5', marginBottom: '20px' }}>
-        <Link to="/" style={{ marginRight: '20px' }}>사용자 목록</Link>
-        <button onClick={() => {
-          localStorage.removeItem('access_token'); // 로그아웃 시 토큰 삭제
-          setUser(null);
-        }}>로그아웃</button>
+        <Link to="/" style={{ marginRight: '20px' }}>
+          사용자 목록
+        </Link>
+        <button
+          onClick={() => {
+            localStorage.removeItem('access_token');
+            setUser(null);
+          }}
+        >
+          로그아웃
+        </button>
       </nav>
 
       <Routes>
