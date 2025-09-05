@@ -54,8 +54,8 @@ apiRouter.post('/signup', async (req, res) => {
         email,
         passwordHash: hashedPassword,
         name,
-        team,           // 선택한 팀명 그대로 저장
-        department: mappedDepartment, // 매핑된 부서명 저장 (스키마에 이 컬럼 있어야 함)
+        team,
+        department: mappedDepartment,
         role: 'USER',
         status: 'ACTIVE',
       },
