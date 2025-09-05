@@ -12,48 +12,9 @@ import {
 
 const columnHelper = createColumnHelper();
 
-// 컬럼 정의
-const columns = [
-  {
-    id: 'select',
-    header: ({ table }) => (
-      <input
-        type="checkbox"
-        checked={table.getIsAllRowsSelected()}
-        onChange={table.getToggleAllRowsSelectedHandler()}
-      />
-    ),
-    cell: ({ row }) => (
-      <input
-        type="checkbox"
-        checked={row.getIsSelected()}
-        disabled={!row.getCanSelect()}
-        onChange={row.getToggleSelectedHandler()}
-      />
-    ),
-    size: 32,
-    enableSorting: false,
-  },
-  columnHelper.accessor('id', { header: 'ID', size: 60 }),
-  columnHelper.accessor('name', { header: '이름', size: 90 }),
-  columnHelper.accessor('email', { header: '이메일', size: 180 }),
-  columnHelper.accessor('team', {
-    header: '팀',
-    size: 110,
-    enableFiltering: true,
-    filterFn: 'includesString',
-  }),
-  columnHelper.accessor('department', {
-    header: '부서',
-    size: 120,
-    enableFiltering: true,
-    filterFn: 'includesString',
-  }),
-];
-
-export default function UserList() {
-  // 상태 관리
+function UserList() {
   const [data, setData] = useState([]);
+  const [pendingData, setPendingData] = useState([]);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [globalFilter, setGlobalFilter] = useState('');
@@ -62,34 +23,174 @@ export default function UserList() {
   const [rowSelection, setRowSelection] = useState({});
   const [expanded, setExpanded] = useState({});
   const [columnOrder, setColumnOrder] = useState([]);
+  const [tab, setTab] = useState('users'); // users or pending
 
   // 데이터 fetch
   useEffect(() => {
     const token = localStorage.getItem('access_token');
-    fetch('/api/users', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => {
-        if (!res.ok) return res.text().then(text => { throw new Error(text); });
-        return res.json();
-      })
-      .then(json => {
-        console.log('Fetched data:', json); // 디버깅용 로그
+    if (!token) {
+      setError('토큰이 없습니다.');
+      setIsLoading(false);
+      return;
+    }
+
+    const fetchUsers = async () => {
+      try {
+        const res = await fetch('/api/users', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const json = await res.json();
+        console.log('Fetched users:', json);
         setData(json);
-        setError(null);
-      })
-      .catch(err => {
-        console.error('Fetch error:', err.message); // 디버깅용 로그
+      } catch (err) {
+        console.error('Fetch users error:', err.message);
         setError(err.message);
         setData([]);
-      })
-      .finally(() => setIsLoading(false));
+      }
+    };
+
+    const fetchPendingUsers = async () => {
+      try {
+        const res = await fetch('/api/users/pending', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const json = await res.json();
+        console.log('Fetched pending users:', json);
+        setPendingData(json);
+      } catch (err) {
+        console.error('Fetch pending users error:', err.message);
+        setError(err.message);
+        setPendingData([]);
+      }
+    };
+
+    Promise.all([fetchUsers(), fetchPendingUsers()]).finally(() => setIsLoading(false));
   }, []);
+
+  // 승인/거절 핸들러
+  const handleApprove = async (id) => {
+    const token = localStorage.getItem('access_token');
+    try {
+      const res = await fetch(`/api/users/${id}/approve`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const result = await res.json();
+      console.log('Approve result:', result);
+      setPendingData(pendingData.filter(user => user.id !== id));
+      setData([...data, result.user]);
+      setError(null);
+    } catch (err) {
+      console.error('Approve error:', err.message);
+      setError(err.message);
+    }
+  };
+
+  const handleReject = async (id) => {
+    const token = localStorage.getItem('access_token');
+    try {
+      const res = await fetch(`/api/users/${id}/reject`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(await res.text());
+      console.log('Reject result:', await res.json());
+      setPendingData(pendingData.filter(user => user.id !== id));
+      setError(null);
+    } catch (err) {
+      console.error('Reject error:', err.message);
+      setError(err.message);
+    }
+  };
+
+  // 컬럼 정의
+  const userColumns = [
+    {
+      id: 'select',
+      header: ({ table }) => (
+        <input
+          type="checkbox"
+          checked={table.getIsAllRowsSelected()}
+          onChange={table.getToggleAllRowsSelectedHandler()}
+        />
+      ),
+      cell: ({ row }) => (
+        <input
+          type="checkbox"
+          checked={row.getIsSelected()}
+          disabled={!row.getCanSelect()}
+          onChange={row.getToggleSelectedHandler()}
+        />
+      ),
+      size: 32,
+      enableSorting: false,
+    },
+    columnHelper.accessor('id', { header: 'ID', size: 60 }),
+    columnHelper.accessor('name', { header: '이름', size: 90 }),
+    columnHelper.accessor('email', { header: '이메일', size: 180 }),
+    columnHelper.accessor('team', {
+      header: '팀',
+      size: 110,
+      enableFiltering: true,
+      filterFn: 'includesString',
+    }),
+    columnHelper.accessor('department', {
+      header: '부서',
+      size: 120,
+      enableFiltering: true,
+      filterFn: 'includesString',
+    }),
+    columnHelper.accessor('status', { header: '상태', size: 100 }),
+  ];
+
+  const pendingColumns = [
+    columnHelper.accessor('id', { header: 'ID', size: 60 }),
+    columnHelper.accessor('name', { header: '이름', size: 90 }),
+    columnHelper.accessor('email', { header: '이메일', size: 180 }),
+    columnHelper.accessor('team', {
+      header: '팀',
+      size: 110,
+      enableFiltering: true,
+      filterFn: 'includesString',
+    }),
+    columnHelper.accessor('department', {
+      header: '부서',
+      size: 120,
+      enableFiltering: true,
+      filterFn: 'includesString',
+    }),
+    {
+      id: 'actions',
+      header: '액션',
+      cell: ({ row }) => (
+        <div>
+          <button
+            onClick={() => handleApprove(row.original.id)}
+            style={{ marginRight: '8px', padding: '4px 8px', background: '#4caf50', color: 'white' }}
+          >
+            승인
+          </button>
+          <button
+            onClick={() => handleReject(row.original.id)}
+            style={{ padding: '4px 8px', background: '#f44336', color: 'white' }}
+          >
+            거절
+          </button>
+        </div>
+      ),
+      size: 120,
+      enableSorting: false,
+      enableFiltering: false,
+    },
+  ];
 
   // 테이블 인스턴스 생성
   const table = useReactTable({
-    data,
-    columns,
+    data: tab === 'users' ? data : pendingData,
+    columns: tab === 'users' ? userColumns : pendingColumns,
     state: {
       sorting,
       globalFilter,
@@ -102,7 +203,7 @@ export default function UserList() {
     onGlobalFilterChange: setGlobalFilter,
     onColumnFiltersChange: updater => {
       setColumnFilters(updater);
-      console.log('Column Filters:', updater); // 디버깅용 로그
+      console.log('Column Filters:', updater);
     },
     onRowSelectionChange: setRowSelection,
     onExpandedChange: setExpanded,
@@ -118,7 +219,7 @@ export default function UserList() {
     enableRowSelection: true,
     enableColumnOrdering: true,
     enableExpanding: true,
-    debugTable: true, // 디버깅용
+    debugTable: true,
   });
 
   if (isLoading) return <p>로딩 중...</p>;
@@ -126,7 +227,21 @@ export default function UserList() {
 
   return (
     <div style={{ padding: 20 }}>
-      <h1>사용자 목록</h1>
+      <h1>사용자 관리</h1>
+      <div style={{ marginBottom: 16 }}>
+        <button
+          onClick={() => setTab('users')}
+          style={{ marginRight: 8, padding: '8px 16px', background: tab === 'users' ? '#ddd' : '#fff' }}
+        >
+          사용자 목록
+        </button>
+        <button
+          onClick={() => setTab('pending')}
+          style={{ padding: '8px 16px', background: tab === 'pending' ? '#ddd' : '#fff' }}
+        >
+          가입 신청 목록
+        </button>
+      </div>
       <div style={{ marginBottom: 16 }}>
         <input
           value={globalFilter ?? ''}
@@ -232,3 +347,5 @@ export default function UserList() {
     </div>
   );
 }
+
+export default UserList;

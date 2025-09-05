@@ -9,19 +9,24 @@ const apiRouter = express.Router();
 
 app.use(express.json());
 
-// JWT 인증 및 MASTER 역할 미들웨어
-function verifyMasterRole(req, res, next) {
+// JWT 인증 미들웨어
+function verifyToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
   if (!token) return res.status(401).json({ error: '토큰이 필요합니다.' });
   jwt.verify(token, SECRET, (err, decoded) => {
     if (err) return res.status(403).json({ error: '유효하지 않은 토큰입니다.' });
-    if (decoded.role !== 'MASTER') {
-      return res.status(403).json({ error: '마스터 계정만 접근 가능합니다.' });
-    }
-    req.user = decoded; // 인증 정보 요청에 전달
+    req.user = decoded;
     next();
   });
+}
+
+// 마스터 역할 체크 미들웨어
+function verifyMasterRole(req, res, next) {
+  if (req.user.role !== 'MASTER') {
+    return res.status(403).json({ error: '마스터 계정만 접근 가능합니다.' });
+  }
+  next();
 }
 
 const teamDepartmentMapping = {
@@ -34,7 +39,7 @@ const teamDepartmentMapping = {
   '개발관리부': '운영부서',
 };
 
-// 회원가입 엔드포인트
+// 회원가입 엔드포인트 (PENDING 상태로 생성)
 apiRouter.post('/signup', async (req, res) => {
   try {
     const { email, password, name, team } = req.body;
@@ -57,11 +62,11 @@ apiRouter.post('/signup', async (req, res) => {
         team,
         department: mappedDepartment,
         role: 'USER',
-        status: 'ACTIVE',
+        status: 'PENDING', // PENDING 상태로 생성
       },
     });
     res.status(201).json({
-      message: '회원가입 성공',
+      message: '회원가입 신청이 완료되었습니다. 관리자 승인을 기다려 주세요.',
       user: {
         id: newUser.id,
         email: newUser.email,
@@ -69,15 +74,16 @@ apiRouter.post('/signup', async (req, res) => {
         team: newUser.team,
         department: newUser.department,
         role: newUser.role,
+        status: newUser.status,
       },
     });
   } catch (error) {
-    console.error(error);
+    console.error('Signup error:', error);
     res.status(500).json({ error: '서버 오류가 발생했습니다.' });
   }
 });
 
-// 로그인 엔드포인트 (JWT 토큰 발급)
+// 로그인 엔드포인트 (PENDING 상태 사용자 로그인 차단)
 apiRouter.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -88,23 +94,28 @@ apiRouter.post('/login', async (req, res) => {
     if (!user) {
       return res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
     }
+    if (user.status === 'PENDING') {
+      return res.status(403).json({ error: '회원가입 승인 대기중입니다.' });
+    }
+    if (user.status === 'SUSPENDED') {
+      return res.status(403).json({ error: '계정이 정지되었습니다.' });
+    }
     const isValid = await bcrypt.compare(password, user.passwordHash);
     if (!isValid) {
       return res.status(401).json({ error: '비밀번호가 틀렸습니다.' });
     }
-    // JWT 토큰 발급
     const token = jwt.sign(
       {
         id: user.id,
         email: user.email,
-        role: user.role
+        role: user.role,
       },
       SECRET,
       { expiresIn: '1h' }
     );
     res.json({
       message: '로그인 성공',
-      token, // 클라이언트에 전달
+      token,
       user: {
         id: user.id,
         email: user.email,
@@ -113,23 +124,79 @@ apiRouter.post('/login', async (req, res) => {
         department: user.department,
         role: user.role,
         status: user.status,
-      }
+      },
     });
   } catch (error) {
-    console.error(error);
+    console.error('Login error:', error);
     res.status(500).json({ error: '서버 오류가 발생했습니다.' });
   }
 });
 
-// 사용자 목록 조회 - JWT 인증+마스터 권한 필요하게 변경!
-apiRouter.get('/users', verifyMasterRole, async (req, res) => {
+// 대기중 사용자 목록 조회 (마스터 전용)
+apiRouter.get('/users/pending', verifyToken, verifyMasterRole, async (req, res) => {
+  try {
+    const pendingUsers = await prisma.user.findMany({
+      where: { status: 'PENDING' },
+      select: { id: true, email: true, name: true, role: true, status: true, team: true, department: true },
+    });
+    res.json(pendingUsers);
+  } catch (error) {
+    console.error('Fetch pending users error:', error);
+    res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+  }
+});
+
+// 사용자 승인 (마스터 전용)
+apiRouter.post('/users/:id/approve', verifyToken, verifyMasterRole, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const user = await prisma.user.findUnique({ where: { id: parseInt(id) } });
+    if (!user) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+    if (user.status !== 'PENDING') {
+      return res.status(400).json({ error: '이미 처리된 사용자입니다.' });
+    }
+    const updatedUser = await prisma.user.update({
+      where: { id: parseInt(id) },
+      data: { status: 'ACTIVE' },
+      select: { id: true, email: true, name: true, role: true, status: true, team: true, department: true },
+    });
+    res.json({ message: '사용자 승인 완료', user: updatedUser });
+  } catch (error) {
+    console.error('Approve user error:', error);
+    res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+  }
+});
+
+// 사용자 거절 (마스터 전용)
+apiRouter.post('/users/:id/reject', verifyToken, verifyMasterRole, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const user = await prisma.user.findUnique({ where: { id: parseInt(id) } });
+    if (!user) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+    if (user.status !== 'PENDING') {
+      return res.status(400).json({ error: '이미 처리된 사용자입니다.' });
+    }
+    const updatedUser = await prisma.user.update({
+      where: { id: parseInt(id) },
+      data: { status: 'SUSPENDED' },
+      select: { id: true, email: true, name: true, role: true, status: true, team: true, department: true },
+    });
+    res.json({ message: '사용자 거절 완료', user: updatedUser });
+  } catch (error) {
+    console.error('Reject user error:', error);
+    res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+  }
+});
+
+apiRouter.get('/users', verifyToken, verifyMasterRole, async (req, res) => {
   try {
     const users = await prisma.user.findMany({
+      where: { status: { in: ['ACTIVE', 'SUSPENDED'] } }, // PENDING 제외
       select: { id: true, email: true, name: true, role: true, status: true, team: true, department: true },
     });
     res.json(users);
   } catch (error) {
-    console.error(error);
+    console.error('Fetch users error:', error);
     res.status(500).json({ error: '서버 오류가 발생했습니다.' });
   }
 });

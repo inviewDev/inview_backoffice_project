@@ -81,7 +81,6 @@ function App() {
   // 로그인 상태일 때
   return (
     <div>
-      <h1>아이앤뷰커뮤니케이션_Backoffice</h1>
       <nav style={{ padding: '20px', backgroundColor: '#f5f5f5', marginBottom: '20px' }}>
         <Link to="/" style={{ marginRight: '20px' }}>
           사용자 목록

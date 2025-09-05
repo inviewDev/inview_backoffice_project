@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import './main.css'; // CSS 파일 임포트
+import './main.css';
 
 function Signup() {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    passwordConfirm: '', // 추가
+    passwordConfirm: '',
     name: '',
     team: '1팀',
   });
@@ -21,7 +21,6 @@ function Signup() {
     setMessage('');
     setError('');
 
-    // 비밀번호 일치 여부 검사
     if (formData.password !== formData.passwordConfirm) {
       setError('비밀번호가 일치하지 않습니다.');
       return;
@@ -29,17 +28,15 @@ function Signup() {
 
     setIsLoading(true);
     try {
-      // 비밀번호 확인 필드는 전송하지 않도록 별도 객체 생성
       const { passwordConfirm, ...submitData } = formData;
-
       const response = await fetch('/api/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(submitData),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || '회원가입 실패');
-      setMessage(data.message);
+      if (!response.ok) throw new Error(data.error || '회원가입 신청 실패');
+      setMessage(data.message); // "회원가입 신청이 완료되었습니다. 관리자 승인을 기다려 주세요."
       setFormData({
         email: '',
         password: '',
@@ -56,7 +53,7 @@ function Signup() {
 
   return (
     <div className="signup_container">
-      <h2 className="signup_title">회원가입</h2>
+      <h2 className="signup_title">회원가입 신청</h2>
       <form onSubmit={handleSubmit} className="signup_form">
         <input
           name="email"
@@ -123,7 +120,7 @@ function Signup() {
           disabled={isLoading}
           className={`signup_button ${isLoading ? 'loading' : ''}`}
         >
-          {isLoading ? '처리 중...' : '가입'}
+          {isLoading ? '처리 중...' : '신청'}
         </button>
       </form>
       {message && <p className="signup_message success">{message}</p>}
