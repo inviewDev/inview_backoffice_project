@@ -21,8 +21,8 @@ async function main() {
           email: process.env.MASTER_EMAIL,
           passwordHash: hashedPassword,
           name: process.env.MASTER_NAME,
-          role: 'MASTER',
-          status: 'ACTIVE',
+          role: '전체관리자',
+          status: '재직',
         },
       });
 

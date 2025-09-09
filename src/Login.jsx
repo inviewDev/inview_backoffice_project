@@ -14,10 +14,11 @@ function Login({ onLoginSuccess }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-      if (!res.ok) throw new Error('로그인 실패');
+      if (!res.ok) throw new Error('이메일 또는 비밀번호를 확인해주세요.');
       const data = await res.json();
 
       localStorage.setItem('access_token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
       onLoginSuccess(data.user);
     } catch (err) {
       setError(err.message);

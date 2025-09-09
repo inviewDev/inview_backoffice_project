@@ -10,7 +10,11 @@ import {
   createColumnHelper,
 } from '@tanstack/react-table';
 
+const teamOptions = ['전체', '1팀', '2팀', '3팀', '4팀', '5팀', '6팀', '개발관리부'];
+const departmentOptions = ['전체', '1부서', '2부서', '운영부서', '기타부서'];
 const columnHelper = createColumnHelper();
+
+const statusOptions = ['재직', '퇴사', '가입대기'];
 
 function UserList() {
   const [data, setData] = useState([]);
@@ -23,7 +27,7 @@ function UserList() {
   const [rowSelection, setRowSelection] = useState({});
   const [expanded, setExpanded] = useState({});
   const [columnOrder, setColumnOrder] = useState([]);
-  const [tab, setTab] = useState('users'); // users or pending
+  const [tab, setTab] = useState('users');
 
   // 데이터 fetch
   useEffect(() => {
@@ -41,10 +45,9 @@ function UserList() {
         });
         if (!res.ok) throw new Error(await res.text());
         const json = await res.json();
-        console.log('Fetched users:', json);
         setData(json);
+        setError(null);
       } catch (err) {
-        console.error('Fetch users error:', err.message);
         setError(err.message);
         setData([]);
       }
@@ -57,10 +60,9 @@ function UserList() {
         });
         if (!res.ok) throw new Error(await res.text());
         const json = await res.json();
-        console.log('Fetched pending users:', json);
         setPendingData(json);
+        setError(null);
       } catch (err) {
-        console.error('Fetch pending users error:', err.message);
         setError(err.message);
         setPendingData([]);
       }
@@ -69,7 +71,7 @@ function UserList() {
     Promise.all([fetchUsers(), fetchPendingUsers()]).finally(() => setIsLoading(false));
   }, []);
 
-  // 승인/거절 핸들러
+  // 승인 핸들러
   const handleApprove = async (id) => {
     const token = localStorage.getItem('access_token');
     try {
@@ -79,16 +81,15 @@ function UserList() {
       });
       if (!res.ok) throw new Error(await res.text());
       const result = await res.json();
-      console.log('Approve result:', result);
       setPendingData(pendingData.filter(user => user.id !== id));
       setData([...data, result.user]);
       setError(null);
     } catch (err) {
-      console.error('Approve error:', err.message);
       setError(err.message);
     }
   };
 
+  // 거절 핸들러
   const handleReject = async (id) => {
     const token = localStorage.getItem('access_token');
     try {
@@ -97,16 +98,14 @@ function UserList() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error(await res.text());
-      console.log('Reject result:', await res.json());
       setPendingData(pendingData.filter(user => user.id !== id));
       setError(null);
     } catch (err) {
-      console.error('Reject error:', err.message);
       setError(err.message);
     }
   };
 
-  // 컬럼 정의
+  // userColumns 정의
   const userColumns = [
     {
       id: 'select',
@@ -131,37 +130,62 @@ function UserList() {
     columnHelper.accessor('id', { header: 'ID', size: 60 }),
     columnHelper.accessor('name', { header: '이름', size: 90 }),
     columnHelper.accessor('email', { header: '이메일', size: 180 }),
-    columnHelper.accessor('team', {
-      header: '팀',
-      size: 110,
-      enableFiltering: true,
-      filterFn: 'includesString',
+    columnHelper.accessor('team', { header: '팀', size: 110, enableFiltering: true, filterFn: 'includesString', }),
+    columnHelper.accessor('department', { header: '부서', size: 120, enableFiltering: true, filterFn: 'includesString', }),
+    columnHelper.accessor('role', { header: '권한', size: 180 }),
+    columnHelper.accessor('status', {
+      header: '상태',
+      size: 100,
+      cell: ({ row, getValue }) => {
+        const currentStatus = getValue();
+        const [saving, setSaving] = React.useState(false);
+
+        const handleChange = async (e) => {
+          const newStatus = e.target.value;
+          setSaving(true);
+          try {
+            const token = localStorage.getItem('access_token');
+            const res = await fetch(`/api/users/${row.original.id}/status`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ status: newStatus }),
+            });
+            if (!res.ok) throw new Error(await res.text());
+            setData(prev =>
+              prev.map(u =>
+                u.id === row.original.id ? { ...u, status: newStatus } : u
+              )
+            );
+          } catch (err) {
+            alert('상태 변경 실패: ' + err.message);
+          } finally {
+            setSaving(false);
+          }
+        };
+
+        return (
+          <select value={currentStatus} onChange={handleChange} disabled={saving}>
+            {statusOptions.map(opt => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+        );
+      },
     }),
-    columnHelper.accessor('department', {
-      header: '부서',
-      size: 120,
-      enableFiltering: true,
-      filterFn: 'includesString',
-    }),
-    columnHelper.accessor('status', { header: '상태', size: 100 }),
   ];
 
+  // pendingColumns 정의
   const pendingColumns = [
     columnHelper.accessor('id', { header: 'ID', size: 60 }),
     columnHelper.accessor('name', { header: '이름', size: 90 }),
     columnHelper.accessor('email', { header: '이메일', size: 180 }),
-    columnHelper.accessor('team', {
-      header: '팀',
-      size: 110,
-      enableFiltering: true,
-      filterFn: 'includesString',
-    }),
-    columnHelper.accessor('department', {
-      header: '부서',
-      size: 120,
-      enableFiltering: true,
-      filterFn: 'includesString',
-    }),
+    columnHelper.accessor('team', { header: '팀', size: 110, enableFiltering: true, filterFn: 'includesString' }),
+    columnHelper.accessor('department', { header: '부서', size: 120, enableFiltering: true, filterFn: 'includesString' }),
     {
       id: 'actions',
       header: '액션',
@@ -201,10 +225,7 @@ function UserList() {
     },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
-    onColumnFiltersChange: updater => {
-      setColumnFilters(updater);
-      console.log('Column Filters:', updater);
-    },
+    onColumnFiltersChange: setColumnFilters,
     onRowSelectionChange: setRowSelection,
     onExpandedChange: setExpanded,
     onColumnOrderChange: setColumnOrder,
@@ -250,18 +271,34 @@ function UserList() {
           style={{ width: '100%', maxWidth: 400, padding: 4, marginBottom: 8, boxSizing: 'border-box' }}
         />
         <div style={{ display: 'flex', gap: 8 }}>
-          <input
-            value={table.getColumn('team')?.getFilterValue() || ''}
-            onChange={e => table.getColumn('team')?.setFilterValue(e.target.value)}
-            placeholder="팀 필터"
+          <select
+            value={table.getColumn('team')?.getFilterValue() || '전체'}
+            onChange={e =>
+              table.getColumn('team')?.setFilterValue(
+                e.target.value === '전체' ? undefined : e.target.value
+              )
+            }
             style={{ width: 200, padding: 4, fontSize: '12px' }}
-          />
-          <input
-            value={table.getColumn('department')?.getFilterValue() || ''}
-            onChange={e => table.getColumn('department')?.setFilterValue(e.target.value)}
-            placeholder="부서 필터"
+          >
+            {teamOptions.map(option => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+          <select
+            value={table.getColumn('department')?.getFilterValue() || '전체'}
+            onChange={e =>
+              table.getColumn('department')?.setFilterValue(e.target.value === '전체' ? undefined : e.target.value)
+            }
             style={{ width: 200, padding: 4, fontSize: '12px' }}
-          />
+          >
+            {departmentOptions.map(option => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>

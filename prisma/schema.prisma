@@ -3,31 +3,47 @@ datasource db {
   url      = env("DATABASE_URL")
   directUrl = env("DATABASE_URL")
 }
+
 generator client {
   provider = "prisma-client-js"
   binaryTargets = ["native", "linux-arm64-openssl-3.0.x"]
 }
+
 model User {
-  id              Int      @id @default(autoincrement())
-  email           String   @unique
-  passwordHash    String
-  name            String
-  team            String
-  department      String?  
-  role            Role     @default(USER)
-  status          Status   @default(PENDING)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  name         String
+  team         String
+  department   String
+  role         Role     @default(사용자)
+  status       Status   @default(가입대기)
+  level        Level @default(사원)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@map("User")
 }
+
 enum Role {
-  MASTER
-  ADMIN
-  USER
+  전체관리자
+  관리자
+  팀장
+  사용자
 }
+
 enum Status {
-  PENDING
-  ACTIVE
-  SUSPENDED
+  가입대기
+  재직
+  퇴사
+}
+
+enum Level {
+  대표
+  파트장
+  팀장
+  과장
+  대리
+  주임
+  사원
 }
