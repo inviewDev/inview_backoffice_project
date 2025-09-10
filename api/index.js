@@ -23,6 +23,14 @@ function verifyToken(req, res, next) {
   });
 }
 
+// 마스터 또는 관리자 역할 체크 미들웨어
+function verifyAdminRole(req, res, next) {
+  if (req.user.role !== '전체관리자' && req.user.role !== '관리자') {
+    return res.status(403).json({ error: '전체관리자 또는 관리자 계정만 접근 가능합니다.' });
+  }
+  next();
+}
+
 // 마스터 역할 체크 미들웨어
 function verifyMasterRole(req, res, next) {
   if (req.user.role !== '전체관리자') {
@@ -41,13 +49,13 @@ const teamDepartmentMapping = {
   '개발관리부': '운영부서',
 };
 
-// 회원가입 엔드포인트 (가입대기 상태로 생성)
+// 회원가입 엔드포인트
 apiRouter.post('/signup', async (req, res) => {
   try {
-    const { email, password, name, team, level } = req.body;
+    const { email, password, name, team, level, phoneNumber, birthDate } = req.body;
 
-    if (!email || !password || !name || !team) {
-      return res.status(400).json({ error: '이메일, 비밀번호, 이름, 소속팀은 필수입니다.' });
+    if (!email || !password || !name || !team || !phoneNumber || !birthDate) {
+      return res.status(400).json({ error: '이메일, 비밀번호, 이름, 소속팀, 휴대전화번호, 생년월일은 필수입니다.' });
     }
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -56,7 +64,6 @@ apiRouter.post('/signup', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const mappedDepartment = teamDepartmentMapping[team] || '기타부서';
 
-    // 직급에 따른 역할 자동 변경 로직 제거되어 user 채우기
     const role = '사용자';
 
     const newUser = await prisma.user.create({
@@ -69,6 +76,9 @@ apiRouter.post('/signup', async (req, res) => {
         role,
         status: '가입대기',
         level,
+        phoneNumber,
+        birthDate: new Date(birthDate),
+        officePhoneNumber: null,
       },
     });
 
@@ -83,6 +93,9 @@ apiRouter.post('/signup', async (req, res) => {
         role: newUser.role,
         status: newUser.status,
         level: newUser.level,
+        phoneNumber: newUser.phoneNumber,
+        birthDate: newUser.birthDate,
+        officePhoneNumber: newUser.officePhoneNumber,
       },
     });
   } catch (error) {
@@ -91,7 +104,7 @@ apiRouter.post('/signup', async (req, res) => {
   }
 });
 
-// 로그인 엔드포인트 (가입대기, 퇴사 사용자 로그인 차단)
+// 로그인 엔드포인트
 apiRouter.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -105,7 +118,20 @@ apiRouter.post('/login', async (req, res) => {
     const isValid = await bcrypt.compare(password, user.passwordHash);
     if (!isValid) return res.status(401).json({ error: '비밀번호가 틀렸습니다.' });
 
-    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, SECRET, { expiresIn: '1h' });
+    const payload = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      name: user.name,
+      level: user.level || '미지정',
+      team: user.team || '미지정',
+      department: user.department || '미지정',
+      phoneNumber: user.phoneNumber || '미지정',
+      birthDate: user.birthDate.toISOString(),
+      officePhoneNumber: user.officePhoneNumber || null,
+    };
+    console.log('JWT payload:', payload); // 디버깅
+    const token = jwt.sign(payload, SECRET, { expiresIn: '1h' });
 
     res.json({
       message: '로그인 성공',
@@ -114,11 +140,14 @@ apiRouter.post('/login', async (req, res) => {
         id: user.id,
         email: user.email,
         name: user.name,
-        team: user.team,
-        department: user.department,
+        team: user.team || '미지정',
+        department: user.department || '미지정',
         role: user.role,
         status: user.status,
-        level: user.level,
+        level: user.level || '미지정',
+        phoneNumber: user.phoneNumber || '미지정',
+        birthDate: user.birthDate.toISOString(),
+        officePhoneNumber: user.officePhoneNumber || '미지정',
       },
     });
   } catch (error) {
@@ -127,12 +156,58 @@ apiRouter.post('/login', async (req, res) => {
   }
 });
 
-// 대기중 사용자 목록 조회 (마스터 전용)
-apiRouter.get('/users/pending', verifyToken, verifyMasterRole, async (req, res) => {
+// 사내전화번호 수정 API
+apiRouter.post('/users/:id/officePhoneNumber', verifyToken, async (req, res) => {
+  const { id } = req.params;
+  const { officePhoneNumber } = req.body;
+
+  if (parseInt(id) !== req.user.id && req.user.role !== '전체관리자') {
+    return res.status(403).json({ error: '본인 또는 마스터 계정만 사내전화번호를 수정할 수 있습니다.' });
+  }
+
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id: parseInt(id) },
+      data: { officePhoneNumber },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+        team: true,
+        department: true,
+        level: true,
+        phoneNumber: true,
+        birthDate: true,
+        officePhoneNumber: true,
+      },
+    });
+    res.json({ message: '사내전화번호 수정 완료', user: updatedUser });
+  } catch (error) {
+    console.error('Change officePhoneNumber error:', error);
+    res.status(500).json({ error: '사내전화번호 수정 중 오류가 발생했습니다.' });
+  }
+});
+
+// 대기중 사용자 목록 조회
+apiRouter.get('/users/pending', verifyToken, verifyAdminRole, async (req, res) => {
   try {
     const pendingUsers = await prisma.user.findMany({
       where: { status: '가입대기' },
-      select: { id: true, email: true, name: true, role: true, status: true, team: true, department: true, level: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+        team: true,
+        department: true,
+        level: true,
+        phoneNumber: true,
+        birthDate: true,
+        officePhoneNumber: true,
+      },
     });
     res.json(pendingUsers);
   } catch (error) {
@@ -141,7 +216,7 @@ apiRouter.get('/users/pending', verifyToken, verifyMasterRole, async (req, res) 
   }
 });
 
-// 사용자 승인 (마스터 전용)
+// 사용자 승인
 apiRouter.post('/users/:id/approve', verifyToken, verifyMasterRole, async (req, res) => {
   const { id } = req.params;
   try {
@@ -152,7 +227,19 @@ apiRouter.post('/users/:id/approve', verifyToken, verifyMasterRole, async (req, 
     const updatedUser = await prisma.user.update({
       where: { id: parseInt(id) },
       data: { status: '재직' },
-      select: { id: true, email: true, name: true, role: true, status: true, team: true, department: true, level: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+        team: true,
+        department: true,
+        level: true,
+        phoneNumber: true,
+        birthDate: true,
+        officePhoneNumber: true,
+      },
     });
     res.json({ message: '사용자 승인 완료', user: updatedUser });
   } catch (error) {
@@ -161,7 +248,7 @@ apiRouter.post('/users/:id/approve', verifyToken, verifyMasterRole, async (req, 
   }
 });
 
-// 사용자 거절 (마스터 전용)
+// 사용자 거절
 apiRouter.post('/users/:id/reject', verifyToken, verifyMasterRole, async (req, res) => {
   const { id } = req.params;
   try {
@@ -172,7 +259,19 @@ apiRouter.post('/users/:id/reject', verifyToken, verifyMasterRole, async (req, r
     const updatedUser = await prisma.user.update({
       where: { id: parseInt(id) },
       data: { status: '퇴사' },
-      select: { id: true, email: true, name: true, role: true, status: true, team: true, department: true, level: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+        team: true,
+        department: true,
+        level: true,
+        phoneNumber: true,
+        birthDate: true,
+        officePhoneNumber: true,
+      },
     });
     res.json({ message: '사용자 거절 완료', user: updatedUser });
   } catch (error) {
@@ -181,7 +280,7 @@ apiRouter.post('/users/:id/reject', verifyToken, verifyMasterRole, async (req, r
   }
 });
 
-// 상태 변경 API (전체관리자만 가능)
+// 상태 변경 API
 apiRouter.post('/users/:id/status', verifyToken, verifyMasterRole, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
@@ -190,7 +289,19 @@ apiRouter.post('/users/:id/status', verifyToken, verifyMasterRole, async (req, r
     const updatedUser = await prisma.user.update({
       where: { id: parseInt(id) },
       data: { status },
-      select: { id: true, email: true, name: true, role: true, status: true, team: true, department: true, level: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+        team: true,
+        department: true,
+        level: true,
+        phoneNumber: true,
+        birthDate: true,
+        officePhoneNumber: true,
+      },
     });
     res.json({ message: '상태 변경 완료', user: updatedUser });
   } catch (error) {
@@ -199,7 +310,7 @@ apiRouter.post('/users/:id/status', verifyToken, verifyMasterRole, async (req, r
   }
 });
 
-// 권한(role) 변경 API (전체관리자만 가능)
+// 권한 변경 API
 const ROLE_OPTIONS = ['전체관리자', '관리자', '팀장', '사용자'];
 
 apiRouter.post('/users/:id/role', verifyToken, verifyMasterRole, async (req, res) => {
@@ -214,7 +325,19 @@ apiRouter.post('/users/:id/role', verifyToken, verifyMasterRole, async (req, res
     const updatedUser = await prisma.user.update({
       where: { id: parseInt(id) },
       data: { role },
-      select: { id: true, email: true, name: true, role: true, status: true, team: true, department: true, level: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+        team: true,
+        department: true,
+        level: true,
+        phoneNumber: true,
+        birthDate: true,
+        officePhoneNumber: true,
+      },
     });
     res.json({ message: '권한 변경 완료', user: updatedUser });
   } catch (error) {
@@ -223,7 +346,7 @@ apiRouter.post('/users/:id/role', verifyToken, verifyMasterRole, async (req, res
   }
 });
 
-// 직급(level) 변경 API (권한 변경은 따로 안 함)
+// 직급 변경 API
 const LEVEL_OPTIONS = ['대표', '파트장', '팀장', '과장', '대리', '주임', '사원'];
 
 apiRouter.post('/users/:id/level', verifyToken, verifyMasterRole, async (req, res) => {
@@ -238,7 +361,19 @@ apiRouter.post('/users/:id/level', verifyToken, verifyMasterRole, async (req, re
     const updatedUser = await prisma.user.update({
       where: { id: parseInt(id) },
       data: { level },
-      select: { id: true, email: true, name: true, role: true, status: true, level: true, team: true, department: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+        level: true,
+        team: true,
+        department: true,
+        phoneNumber: true,
+        birthDate: true,
+        officePhoneNumber: true,
+      },
     });
     res.json({ message: '직급 변경 완료', user: updatedUser });
   } catch (error) {
@@ -247,12 +382,24 @@ apiRouter.post('/users/:id/level', verifyToken, verifyMasterRole, async (req, re
   }
 });
 
-// 사용자 목록 조회 (가입대기 제외, 전체관리자 전용)
-apiRouter.get('/users', verifyToken, verifyMasterRole, async (req, res) => {
+// 사용자 목록 조회
+apiRouter.get('/users', verifyToken, verifyAdminRole, async (req, res) => {
   try {
     const users = await prisma.user.findMany({
       where: { status: { in: ['재직', '퇴사'] } },
-      select: { id: true, email: true, name: true, role: true, status: true, level: true, team: true, department: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+        level: true,
+        team: true,
+        department: true,
+        phoneNumber: true,
+        birthDate: true,
+        officePhoneNumber: true,
+      },
     });
     res.json(users);
   } catch (error) {

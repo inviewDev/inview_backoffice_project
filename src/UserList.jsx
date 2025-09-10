@@ -9,12 +9,13 @@ import {
   flexRender,
   createColumnHelper,
 } from '@tanstack/react-table';
+import { Container, Row, Col, Table, Tabs, Tab, Form, Button } from 'react-bootstrap';
 
 const teamOptions = ['전체', '1팀', '2팀', '3팀', '4팀', '5팀', '6팀', '개발관리부'];
 const departmentOptions = ['전체', '1부서', '2부서', '운영부서', '기타부서'];
-const columnHelper = createColumnHelper();
-
 const statusOptions = ['재직', '퇴사', '가입대기'];
+const levelOptions = ['대표', '파트장', '팀장', '과장', '대리', '주임', '사원'];
+const columnHelper = createColumnHelper();
 
 function UserList() {
   const [data, setData] = useState([]);
@@ -110,32 +111,32 @@ function UserList() {
     {
       id: 'select',
       header: ({ table }) => (
-        <input
+        <Form.Check
           type="checkbox"
           checked={table.getIsAllRowsSelected()}
           onChange={table.getToggleAllRowsSelectedHandler()}
         />
       ),
       cell: ({ row }) => (
-        <input
+        <Form.Check
           type="checkbox"
           checked={row.getIsSelected()}
           disabled={!row.getCanSelect()}
           onChange={row.getToggleSelectedHandler()}
         />
       ),
-      size: 32,
+      size: 50,
       enableSorting: false,
     },
     columnHelper.accessor('id', { header: 'ID', size: 60 }),
-    columnHelper.accessor('name', { header: '이름', size: 90 }),
-    columnHelper.accessor('email', { header: '이메일', size: 180 }),
-    columnHelper.accessor('team', { header: '팀', size: 110, enableFiltering: true, filterFn: 'includesString', }),
-    columnHelper.accessor('department', { header: '부서', size: 120, enableFiltering: true, filterFn: 'includesString', }),
-    columnHelper.accessor('role', { header: '권한', size: 180 }),
+    columnHelper.accessor('name', { header: '이름', size: 100 }),
+    columnHelper.accessor('email', { header: '이메일', size: 200 }),
+    columnHelper.accessor('team', { header: '팀', size: 120, enableFiltering: true, filterFn: 'includesString' }),
+    columnHelper.accessor('department', { header: '부서', size: 120, enableFiltering: true, filterFn: 'includesString' }),
+    columnHelper.accessor('role', { header: '권한', size: 150 }),
     columnHelper.accessor('status', {
       header: '상태',
-      size: 100,
+      size: 120,
       cell: ({ row, getValue }) => {
         const currentStatus = getValue();
         const [saving, setSaving] = React.useState(false);
@@ -167,13 +168,57 @@ function UserList() {
         };
 
         return (
-          <select value={currentStatus} onChange={handleChange} disabled={saving}>
+          <Form.Select value={currentStatus} onChange={handleChange} disabled={saving}>
             {statusOptions.map(opt => (
               <option key={opt} value={opt}>
                 {opt}
               </option>
             ))}
-          </select>
+          </Form.Select>
+        );
+      },
+    }),
+    columnHelper.accessor('level', {
+      header: '직급',
+      size: 120,
+      cell: ({ row, getValue }) => {
+        const currentLevel = getValue();
+        const [saving, setSaving] = React.useState(false);
+
+        const handleChange = async (e) => {
+          const newLevel = e.target.value;
+          setSaving(true);
+          try {
+            const token = localStorage.getItem('access_token');
+            const res = await fetch(`/api/users/${row.original.id}/level`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ level: newLevel }),
+            });
+            if (!res.ok) throw new Error(await res.text());
+            setData(prev =>
+              prev.map(u =>
+                u.id === row.original.id ? { ...u, level: newLevel } : u
+              )
+            );
+          } catch (err) {
+            alert('직급 변경 실패: ' + err.message);
+          } finally {
+            setSaving(false);
+          }
+        };
+
+        return (
+          <Form.Select value={currentLevel} onChange={handleChange} disabled={saving}>
+            {levelOptions.map(opt => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </Form.Select>
         );
       },
     }),
@@ -182,30 +227,34 @@ function UserList() {
   // pendingColumns 정의
   const pendingColumns = [
     columnHelper.accessor('id', { header: 'ID', size: 60 }),
-    columnHelper.accessor('name', { header: '이름', size: 90 }),
-    columnHelper.accessor('email', { header: '이메일', size: 180 }),
-    columnHelper.accessor('team', { header: '팀', size: 110, enableFiltering: true, filterFn: 'includesString' }),
+    columnHelper.accessor('name', { header: '이름', size: 100 }),
+    columnHelper.accessor('email', { header: '이메일', size: 200 }),
+    columnHelper.accessor('team', { header: '팀', size: 120, enableFiltering: true, filterFn: 'includesString' }),
     columnHelper.accessor('department', { header: '부서', size: 120, enableFiltering: true, filterFn: 'includesString' }),
+    columnHelper.accessor('level', { header: '직급', size: 120 }),
     {
       id: 'actions',
       header: '액션',
       cell: ({ row }) => (
         <div>
-          <button
+          <Button
+            variant="success"
+            size="sm"
             onClick={() => handleApprove(row.original.id)}
-            style={{ marginRight: '8px', padding: '4px 8px', background: '#4caf50', color: 'white' }}
+            className="me-2"
           >
             승인
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
             onClick={() => handleReject(row.original.id)}
-            style={{ padding: '4px 8px', background: '#f44336', color: 'white' }}
           >
             거절
-          </button>
+          </Button>
         </div>
       ),
-      size: 120,
+      size: 150,
       enableSorting: false,
       enableFiltering: false,
     },
@@ -243,145 +292,142 @@ function UserList() {
     debugTable: true,
   });
 
-  if (isLoading) return <p>로딩 중...</p>;
-  if (error) return <p style={{ color: 'red' }}>에러: {error}</p>;
+  if (isLoading) return <Container><p>로딩 중...</p></Container>;
+  if (error) return <Container><p className="text-danger">에러: {error}</p></Container>;
 
   return (
-    <div style={{ padding: 20 }}>
-      <h1>사용자 관리</h1>
-      <div style={{ marginBottom: 16 }}>
-        <button
-          onClick={() => setTab('users')}
-          style={{ marginRight: 8, padding: '8px 16px', background: tab === 'users' ? '#ddd' : '#fff' }}
-        >
-          사용자 목록
-        </button>
-        <button
-          onClick={() => setTab('pending')}
-          style={{ padding: '8px 16px', background: tab === 'pending' ? '#ddd' : '#fff' }}
-        >
-          가입 신청 목록
-        </button>
-      </div>
-      <div style={{ marginBottom: 16 }}>
-        <input
-          value={globalFilter ?? ''}
-          onChange={e => setGlobalFilter(e.target.value)}
-          placeholder="전체 검색"
-          style={{ width: '100%', maxWidth: 400, padding: 4, marginBottom: 8, boxSizing: 'border-box' }}
-        />
-        <div style={{ display: 'flex', gap: 8 }}>
-          <select
-            value={table.getColumn('team')?.getFilterValue() || '전체'}
-            onChange={e =>
-              table.getColumn('team')?.setFilterValue(
-                e.target.value === '전체' ? undefined : e.target.value
-              )
-            }
-            style={{ width: 200, padding: 4, fontSize: '12px' }}
-          >
-            {teamOptions.map(option => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-          <select
-            value={table.getColumn('department')?.getFilterValue() || '전체'}
-            onChange={e =>
-              table.getColumn('department')?.setFilterValue(e.target.value === '전체' ? undefined : e.target.value)
-            }
-            style={{ width: 200, padding: 4, fontSize: '12px' }}
-          >
-            {departmentOptions.map(option => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          {table.getHeaderGroups().map(headerGroup => (
-            <tr key={headerGroup.id}>
-              {headerGroup.headers.map(header => (
-                <th
-                  key={header.id}
-                  style={{
-                    border: '1px solid #b1b1b1',
-                    padding: '8px',
-                    cursor: header.column.getCanSort() ? 'pointer' : 'default',
-                    width: header.getSize(),
-                  }}
-                  onClick={header.column.getCanSort() ? header.column.getToggleSortingHandler() : undefined}
-                >
-                  {flexRender(header.column.columnDef.header, header.getContext())}
-                  {header.column.getCanSort() && (
-                    <span>
-                      {header.column.getIsSorted() === 'asc' && ' ▲'}
-                      {header.column.getIsSorted() === 'desc' && ' ▼'}
-                    </span>
-                  )}
-                </th>
-              ))}
-            </tr>
-          ))}
-        </thead>
-        <tbody>
-          {table.getRowModel().rows.map(row => (
-            <React.Fragment key={row.id}>
-              <tr>
-                {row.getVisibleCells().map(cell => (
-                  <td
-                    key={cell.id}
-                    style={{
-                      border: '1px solid #eee',
-                      padding: '4px',
-                      textAlign: 'center',
-                      width: cell.column.getSize(),
-                    }}
+
+    <section className='userlist_block'>
+      <Container>
+            <Tabs
+              activeKey={tab}
+              onSelect={(k) => setTab(k)}
+              className="mb-3"
+            >
+              <Tab eventKey="users" title="직원목록" />
+              <Tab eventKey="pending" title="대기목록" />
+            </Tabs>
+            <Form className="mb-4">
+              <Row className="g-2">
+                <Col md={6} lg={4}>
+                  <Form.Control
+                    type="text"
+                    value={globalFilter ?? ''}
+                    onChange={e => setGlobalFilter(e.target.value)}
+                    placeholder="전체 검색"
+                  />
+                </Col>
+                <Col md={3} lg={2}>
+                  <Form.Select
+                    value={table.getColumn('team')?.getFilterValue() || '전체'}
+                    onChange={e =>
+                      table.getColumn('team')?.setFilterValue(
+                        e.target.value === '전체' ? undefined : e.target.value
+                      )
+                    }
                   >
-                    {row.getCanExpand() && cell.column.id === 'name' ? (
-                      <span
-                        style={{ cursor: 'pointer', marginRight: 4 }}
-                        onClick={() => row.toggleExpanded()}
+                    {teamOptions.map(option => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </Col>
+                <Col md={3} lg={2}>
+                  <Form.Select
+                    value={table.getColumn('department')?.getFilterValue() || '전체'}
+                    onChange={e =>
+                      table.getColumn('department')?.setFilterValue(
+                        e.target.value === '전체' ? undefined : e.target.value
+                      )
+                    }
+                  >
+                    {departmentOptions.map(option => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </Col>
+              </Row>
+            </Form>
+            <Table striped bordered hover responsive>
+              <thead>
+                {table.getHeaderGroups().map(headerGroup => (
+                  <tr key={headerGroup.id}>
+                    {headerGroup.headers.map(header => (
+                      <th
+                        key={header.id}
+                        style={{ width: header.getSize(), cursor: header.column.getCanSort() ? 'pointer' : 'default' }}
+                        onClick={header.column.getCanSort() ? header.column.getToggleSortingHandler() : undefined}
                       >
-                        {row.getIsExpanded() ? '▼' : '▶'}{' '}
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </span>
-                    ) : (
-                      flexRender(cell.column.columnDef.cell, cell.getContext())
-                    )}
-                  </td>
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {header.column.getCanSort() && (
+                          <span>
+                            {header.column.getIsSorted() === 'asc' && ' ▲'}
+                            {header.column.getIsSorted() === 'desc' && ' ▼'}
+                          </span>
+                        )}
+                      </th>
+                    ))}
+                  </tr>
                 ))}
-              </tr>
-              {row.getIsExpanded() && (
-                <tr>
-                  <td colSpan={row.getVisibleCells().length} style={{ background: '#f2f2f9', padding: 8 }}>
-                    <div>
-                      <strong>상세정보</strong>
-                      <pre>{JSON.stringify(row.original, null, 2)}</pre>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </React.Fragment>
-          ))}
-        </tbody>
-      </table>
-      <div style={{ marginTop: 10, userSelect: 'none' }}>
-        <button onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
-          이전
-        </button>{' '}
-        <span>
-          페이지 {table.getState().pagination.pageIndex + 1} / {table.getPageCount()}
-        </span>{' '}
-        <button onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
-          다음
-        </button>
-      </div>
-    </div>
+              </thead>
+              <tbody>
+                {table.getRowModel().rows.map(row => (
+                  <React.Fragment key={row.id}>
+                    <tr>
+                      {row.getVisibleCells().map(cell => (
+                        <td key={cell.id} style={{ width: cell.column.getSize(), textAlign: 'center' }}>
+                          {row.getCanExpand() && cell.column.id === 'name' ? (
+                            <span
+                              style={{ cursor: 'pointer', marginRight: 4 }}
+                              onClick={() => row.toggleExpanded()}
+                            >
+                              {row.getIsExpanded() ? '▼' : '▶'}{' '}
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </span>
+                          ) : (
+                            flexRender(cell.column.columnDef.cell, cell.getContext())
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                    {row.getIsExpanded() && (
+                      <tr>
+                        <td colSpan={row.getVisibleCells().length} className="bg-light p-3">
+                          <div>
+                            <strong>상세정보</strong>
+                            <pre>{JSON.stringify(row.original, null, 2)}</pre>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </Table>
+            <div className="d-flex justify-content-between align-items-center mt-3">
+              <Button
+                variant="outline-primary"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+              >
+                이전
+              </Button>
+              <span>
+                페이지 {table.getState().pagination.pageIndex + 1} / {table.getPageCount()}
+              </span>
+              <Button
+                variant="outline-primary"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+              >
+                다음
+              </Button>
+            </div>
+      </Container>
+    </section>
   );
 }
 
