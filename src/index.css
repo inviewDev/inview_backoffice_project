@@ -161,3 +161,8 @@ a { word-break:keep-all; letter-spacing:-0.05em; color:var(--default-text--01--)
 /* userlist_block */
 .userlist_block{padding:40px 20px;}
 .userlist_block .container{max-width:1440px; padding:0;}
+
+/* mypage_block */
+.mypage_block{padding:40px 20px;}
+.userlist_block .container{max-width:1440px; padding:0;}
+.user_infoBox{display:flex; gap:0 20px;}

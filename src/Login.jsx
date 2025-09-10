@@ -20,17 +20,20 @@ function Login({ onLoginSuccess }) {
         throw new Error(errorData.error || '이메일 또는 비밀번호를 확인해주세요.');
       }
       const data = await res.json();
-      console.log('Login response:', data); // 디버깅: 로그인 응답 확인
+      console.log('Login response:', data);
       localStorage.setItem('access_token', data.token);
-      console.log('Stored token:', localStorage.getItem('access_token')); // 디버깅: 저장된 토큰 확인
+      console.log('Stored token:', localStorage.getItem('access_token'));
       onLoginSuccess({
         id: data.user.id,
         email: data.user.email,
         role: data.user.role,
         name: data.user.name,
-        level: data.user.level,
-        team: data.user.team,
-        department: data.user.department,
+        level: data.user.level || '미지정',
+        team: data.user.team || '미지정',
+        department: data.user.department || '미지정',
+        phoneNumber: data.user.phoneNumber || '미지정',
+        birthDate: data.user.birthDate || '미지정',
+        officePhoneNumber: data.user.officePhoneNumber || '미지정',
       });
     } catch (err) {
       console.error('Login error:', err);

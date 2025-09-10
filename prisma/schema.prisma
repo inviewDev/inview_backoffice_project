@@ -1,31 +1,54 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DATABASE_URL")
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "linux-arm64-openssl-3.0.x"]
 }
 
 model User {
-  id                Int      @id @default(autoincrement())
-  email             String   @unique
+  id                Int            @id @default(autoincrement())
+  email             String         @unique
   passwordHash      String
   name              String
-  team              String   @default("미지정")
-  department        String   @default("미지정")
-  role              Role     @default(사용자)
-  status            Status   @default(가입대기)
-  level             Level    @default(사원)
-  phoneNumber       String   @default("010-0000-0000")
-  birthDate         DateTime @default("2000-01-01T00:00:00Z") 
+  team              String         @default("미지정")
+  department        String         @default("미지정")
+  role              Role           @default(사용자)
+  status            Status         @default(가입대기)
+  level             Level          @default(사원)
+  phoneNumber       String         @default("010-0000-0000")
+  birthDate         DateTime       @default("2000-01-01T00:00:00Z")
   officePhoneNumber String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  memos             PersonalMemo[] @relation("UserMemos")
+  events            CalendarEvent[] @relation("UserEvents")
   @@map("User")
+}
+
+model PersonalMemo {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation("UserMemos", fields: [userId], references: [id])
+  @@map("PersonalMemo")
+}
+
+model CalendarEvent {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  title     String
+  start     DateTime
+  endTime   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation("UserEvents", fields: [userId], references: [id])
+  @@map("CalendarEvent")
 }
 
 enum Role {

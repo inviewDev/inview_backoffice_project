@@ -4,6 +4,7 @@ import { Calendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
 import 'moment/locale/ko';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+import { IMaskInput } from 'react-imask';
 
 moment.locale('ko');
 const localizer = momentLocalizer(moment);
@@ -35,10 +36,21 @@ function Dashboard({ user, setUser }) {
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    setOfficePhoneNumber(user.officePhoneNumber || '');
+  }, [user.officePhoneNumber]);
+
   const handleEditOfficePhone = async e => {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    const phoneRegex = /^\d{2}-\d{4}-\d{4}$/;
+    if (!phoneRegex.test(officePhoneNumber)) {
+      setError('사내전화번호 형식이 올바르지 않습니다. (예: 02-1234-5678)');
+      return;
+    }
+
     try {
       const token = localStorage.getItem('access_token');
       const res = await fetch(`/api/users/${user.id}/officePhoneNumber`, {
@@ -51,10 +63,11 @@ function Dashboard({ user, setUser }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '사내전화번호 수정에 실패했습니다.');
-      setUser({
-        ...user,
+      setUser(prev => ({
+        ...prev,
         officePhoneNumber: data.user.officePhoneNumber || '미지정',
-      });
+      }));
+      setOfficePhoneNumber(data.user.officePhoneNumber || '');
       setSuccess(data.message);
       setIsEditing(false);
     } catch (err) {
@@ -65,16 +78,18 @@ function Dashboard({ user, setUser }) {
 
   if (!user || !user.email || !user.role || !user.name) {
     return (
-      <Container className="py-4 text-center">
+      <div className="py-4 text-center">
         <Spinner animation="border" variant="primary" />
         <p>사용자 정보를 불러오는 중...</p>
-      </Container>
+      </div>
     );
   }
 
   const formattedDate = currentTime.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
   const formattedTime = currentTime.toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' });
-  const formattedBirthDate = user.birthDate !== '미지정' ? new Date(user.birthDate).toLocaleDateString('ko-KR') : '미지정';
+  const formattedBirthDate = user.birthDate && user.birthDate !== '미지정'
+    ? new Date(user.birthDate).toLocaleDateString('ko-KR')
+    : '미지정';
 
   return (
     <section className="dashboard_block">
@@ -86,31 +101,48 @@ function Dashboard({ user, setUser }) {
                 <Card.Title>{user.name}님 환영합니다!</Card.Title>
                 <Card.Text>아이앤뷰 백오피스 시스템에 오신 것을 환영합니다.</Card.Text>
                 <ListGroup variant="flush">
-                  <ListGroup.Item><strong>직급:</strong> {user.level || '미지정'}</ListGroup.Item>
-                  <ListGroup.Item><strong>팀:</strong> {user.team || '미지정'}</ListGroup.Item>
-                  <ListGroup.Item><strong>부서:</strong> {user.department || '미지정'}</ListGroup.Item>
+                  <ListGroup.Item><strong>직급:</strong> {user.level}</ListGroup.Item>
+                  <ListGroup.Item><strong>팀:</strong> {user.team}</ListGroup.Item>
+                  <ListGroup.Item><strong>부서:</strong> {user.department}</ListGroup.Item>
                   <ListGroup.Item><strong>권한:</strong> {user.role}</ListGroup.Item>
-                  <ListGroup.Item><strong>휴대전화번호:</strong> {user.phoneNumber || '미지정'}</ListGroup.Item>
-                  <ListGroup.Item><strong>생년월일:</strong> {formattedBirthDate}</ListGroup.Item>
                   <ListGroup.Item>
                     <strong>사내전화번호:</strong>{' '}
                     {isEditing ? (
                       <Form onSubmit={handleEditOfficePhone} className="d-inline">
-                        <Form.Control
-                          type="tel"
+                        <IMaskInput
+                          mask="00-0000-0000"
                           value={officePhoneNumber}
-                          onChange={e => setOfficePhoneNumber(e.target.value)}
-                          pattern="[0-9]{3}-[0-9]{4}-[0-9]{4}"
+                          onAccept={value => setOfficePhoneNumber(value)}
                           placeholder="02-1234-5678"
-                          className="d-inline-block w-auto"
+                          className="d-inline-block w-auto form-control"
+                          required
                         />
                         <Button type="submit" variant="success" size="sm" className="ms-2">저장</Button>
-                        <Button variant="secondary" size="sm" className="ms-2" onClick={() => setIsEditing(false)}>취소</Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="ms-2"
+                          onClick={() => {
+                            setOfficePhoneNumber(user.officePhoneNumber || '');
+                            setIsEditing(false);
+                          }}
+                        >
+                          취소
+                        </Button>
                       </Form>
                     ) : (
                       <>
-                        {user.officePhoneNumber || '미지정'}{' '}
-                        <Button variant="link" size="sm" onClick={() => setIsEditing(true)}>편집</Button>
+                        {user.officePhoneNumber || '미지정'} {' '}
+                        <Button
+                          variant="link"
+                          size="sm"
+                          onClick={() => {
+                            setOfficePhoneNumber(user.officePhoneNumber || '');
+                            setIsEditing(true);
+                          }}
+                        >
+                          편집
+                        </Button>
                       </>
                     )}
                   </ListGroup.Item>
