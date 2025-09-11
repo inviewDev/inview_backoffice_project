@@ -377,7 +377,7 @@ function MyPage({ user, setUser }) {
             }}
             disabled={isMemoLoading}
           >
-            삭제
+            완료
           </Button>
         </div>
       ),
@@ -412,6 +412,7 @@ function MyPage({ user, setUser }) {
                   <ListGroup.Item><strong>직급:</strong> {user.level}</ListGroup.Item>
                   <ListGroup.Item><strong>팀:</strong> {user.team}</ListGroup.Item>
                   <ListGroup.Item><strong>부서:</strong> {user.department}</ListGroup.Item>
+                  <ListGroup.Item><strong>권한:</strong> {user.role}</ListGroup.Item>
                   <ListGroup.Item>
                     <strong>이메일:</strong>{' '}
                     {isEditingEmail ? (
@@ -508,6 +509,53 @@ function MyPage({ user, setUser }) {
                     )}
                   </ListGroup.Item>
                   <ListGroup.Item>
+                    <strong>사내전화번호:</strong>{' '}
+                    {isEditingOfficePhoneNumber ? (
+                      <Form
+                        onSubmit={e => {
+                          e.preventDefault();
+                          handleUpdateField('officePhoneNumber', formData.officePhoneNumber);
+                        }}
+                        className="d-flex align-items-center"
+                      >
+                        <IMaskInput
+                          mask="00-0000-0000"
+                          value={formData.officePhoneNumber}
+                          onAccept={value => setFormData({ ...formData, officePhoneNumber: value })}
+                          placeholder="02-1234-1234"
+                          className="signup_input form-control me-2"
+                          disabled={isLoading}
+                        />
+                        <Button type="submit" variant="success" size="sm" disabled={isLoading}>
+                          저장
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="ms-1"
+                          onClick={() => {
+                            setFormData({ ...formData, officePhoneNumber: user.officePhoneNumber || '' });
+                            setIsEditingOfficePhoneNumber(false);
+                          }}
+                          disabled={isLoading}
+                        >
+                          취소
+                        </Button>
+                      </Form>
+                    ) : (
+                      <>
+                        {user.officePhoneNumber || '미지정'}{' '}
+                        <Button
+                          variant="link"
+                          size="sm"
+                          onClick={() => setIsEditingOfficePhoneNumber(true)}
+                        >
+                          편집
+                        </Button>
+                      </>
+                    )}
+                  </ListGroup.Item>
+                  <ListGroup.Item>
                     <strong>생년월일:</strong>{' '}
                     {isEditingBirthDate ? (
                       <Form
@@ -563,53 +611,6 @@ function MyPage({ user, setUser }) {
                           variant="link"
                           size="sm"
                           onClick={() => setIsEditingBirthDate(true)}
-                        >
-                          편집
-                        </Button>
-                      </>
-                    )}
-                  </ListGroup.Item>
-                  <ListGroup.Item>
-                    <strong>사내전화번호:</strong>{' '}
-                    {isEditingOfficePhoneNumber ? (
-                      <Form
-                        onSubmit={e => {
-                          e.preventDefault();
-                          handleUpdateField('officePhoneNumber', formData.officePhoneNumber);
-                        }}
-                        className="d-flex align-items-center"
-                      >
-                        <IMaskInput
-                          mask="00-0000-0000"
-                          value={formData.officePhoneNumber}
-                          onAccept={value => setFormData({ ...formData, officePhoneNumber: value })}
-                          placeholder="02-1234-1234"
-                          className="signup_input form-control me-2"
-                          disabled={isLoading}
-                        />
-                        <Button type="submit" variant="success" size="sm" disabled={isLoading}>
-                          저장
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="ms-1"
-                          onClick={() => {
-                            setFormData({ ...formData, officePhoneNumber: user.officePhoneNumber || '' });
-                            setIsEditingOfficePhoneNumber(false);
-                          }}
-                          disabled={isLoading}
-                        >
-                          취소
-                        </Button>
-                      </Form>
-                    ) : (
-                      <>
-                        {user.officePhoneNumber || '미지정'}{' '}
-                        <Button
-                          variant="link"
-                          size="sm"
-                          onClick={() => setIsEditingOfficePhoneNumber(true)}
                         >
                           편집
                         </Button>
@@ -677,14 +678,14 @@ function MyPage({ user, setUser }) {
           <Col md={6}>
             <Card className="memo_infoBox">
               <Card.Body>
-                <Card.Title>개인메모</Card.Title>
+                <Card.Title>ToDo</Card.Title>
                 <Form onSubmit={handleSaveMemo}>
                   <Form.Control
                     as="textarea"
                     rows={5}
                     value={newMemo}
                     onChange={e => setNewMemo(e.target.value)}
-                    placeholder="새 메모를 입력하세요"
+                    placeholder="내용을 입력하세요"
                     className="signup_input"
                     disabled={isMemoLoading}
                   />
@@ -694,7 +695,7 @@ function MyPage({ user, setUser }) {
                     className="mt-2"
                     disabled={isMemoLoading}
                   >
-                    {isMemoLoading ? '저장 중...' : '메모 저장'}
+                    {isMemoLoading ? '저장 중...' : '저장'}
                   </Button>
                 </Form>
                 {editingMemo && (
@@ -710,7 +711,7 @@ function MyPage({ user, setUser }) {
                       rows={5}
                       value={editingMemo.content}
                       onChange={e => setEditingMemo({ ...editingMemo, content: e.target.value })}
-                      placeholder="메모 수정"
+                      placeholder="수정"
                       className="signup_input"
                       disabled={isMemoLoading}
                     />
@@ -720,7 +721,7 @@ function MyPage({ user, setUser }) {
                       className="mt-2"
                       disabled={isMemoLoading}
                     >
-                      {isMemoLoading ? '수정 중...' : '메모 수정'}
+                      {isMemoLoading ? '수정 중...' : '수정'}
                     </Button>
                     <Button
                       variant="secondary"
@@ -759,7 +760,7 @@ function MyPage({ user, setUser }) {
                       ) : (
                         <tr>
                           <td colSpan={memoColumns.length} className="text-center">
-                            저장된 메모가 없습니다.
+                            저장된 내용이 없습니다.
                           </td>
                         </tr>
                       )}

@@ -138,7 +138,8 @@ a { word-break:keep-all; letter-spacing:-0.05em; color:var(--default-text--01--)
 @media (max-width:1024px) { 
  :root { --s-default-size--:15px; --r-default-size--:16px; --l-default-size--:16px; --title-size--:24px; --xl-default-size--:20px; --xxl-default-size--:26px; --title-r-size--:36px; --sub-top-title-size--:36px } 
  } 
- .navbar-expand .navbar-nav { gap:0 5px; } 
+.navbar-expand .navbar-nav { gap:0 5px; } 
+.container .react-datepicker-popper{z-index:99;}
 
 /* header */
 .header { padding: 15px 20px; border-bottom: 1px solid #ededed; box-shadow: 0px -16px 20px; } 
@@ -166,3 +167,6 @@ a { word-break:keep-all; letter-spacing:-0.05em; color:var(--default-text--01--)
 .mypage_block{padding:40px 20px;}
 .userlist_block .container{max-width:1440px; padding:0;}
 .user_infoBox{display:flex; gap:0 20px;}
+
+/* ad_detail_block */
+.ad_detail_block{padding:40px 20px;}

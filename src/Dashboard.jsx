@@ -5,7 +5,6 @@ import moment from 'moment';
 import 'moment/locale/ko';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { IMaskInput } from 'react-imask';
-
 moment.locale('ko');
 const localizer = momentLocalizer(moment);
 

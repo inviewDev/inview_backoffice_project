@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Link, Navigate } from 'react-router-dom';
-import { Nav, Button, Spinner } from 'react-bootstrap';
+import { Nav, Button, Spinner, NavDropdown } from 'react-bootstrap';
 import UserList from './UserList.jsx';
 import Signup from './Signup.jsx';
 import Login from './Login.jsx';
 import Dashboard from './Dashboard.jsx';
 import MyPage from './Mypage.jsx';
+import AdDetail from './Ad_Detail.jsx';
 
 // JWT 디코딩 함수
 function parseJwt(token) {
@@ -154,7 +155,19 @@ function App() {
                   </div>
                   <div className="nav_cont">
                     <ul>
-                      <li><Nav.Link as={Link} to="/contracts">계약관리</Nav.Link></li>
+                      <li>
+                        <NavDropdown title="계약관리" id="contracts-dropdown">
+                          <NavDropdown.Item as={Link} to="/contracts/ad-management">
+                            광고관리
+                          </NavDropdown.Item>
+                          <NavDropdown.Item as={Link} to="/contracts/ad-detail">
+                            광고등록
+                          </NavDropdown.Item>
+                          <NavDropdown.Item as={Link} to="/contracts/revenue">
+                            매출조회
+                          </NavDropdown.Item>
+                        </NavDropdown>
+                      </li>
                       <li><Nav.Link as={Link} to="/community">커뮤니티</Nav.Link></li>
                       <li>{isAdmin && <Nav.Link as={Link} to="/users">직원관리</Nav.Link>}</li>
                     </ul>
@@ -190,7 +203,9 @@ function App() {
                 isAdmin ? <UserList user={user} /> : <Navigate replace to="/" />
               }
             />
-            <Route path="/contracts" element={<div>계약관리 페이지 (미구현)</div>} />
+            <Route path="/contracts/ad-management" element={<div>광고관리 페이지 (미구현)</div>} />
+            <Route path="/contracts/ad-detail" element={<AdDetail user={user} />} />
+            <Route path="/contracts/revenue" element={<div>매출조회 페이지 (미구현)</div>} />
             <Route path="/community" element={<div>커뮤니티 페이지 (미구현)</div>} />
             <Route path="*" element={<Navigate replace to="/" />} />
           </Routes>
