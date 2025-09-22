@@ -3,7 +3,7 @@
 .basic_wrap .img_box { width: 100%; max-width: 150px; margin: 0 auto; } 
 .basic_wrap .img_box img { } 
 .sign_in_wrap { padding-top:30px; max-width: 550px; margin: 0 auto; } 
-.accordion-body{padding:10px;}
+.accordion-body { padding:10px; } 
 
 .signup_container { max-width: 100%; margin: 20px auto 0; padding: 20px; border-radius: 8px; background-color: #fff; } 
 .signup_title { text-align: center; margin-bottom: 24px; color: #333; font-weight: 600; font-size: 1.8rem; } 
@@ -26,11 +26,19 @@
 .tab_button:hover { background-color: #f9f9f9; } 
 
 /* input */
-.signup_input { border-radius: 4px; padding: 8px; } 
-.input_group_box { display: flex; align-items: center; border: 1px solid #ced4da; border-radius: 4px; background-color: #fff; margin-bottom:10px; padding: 8px; } 
+.signup_input { border-radius: 4px; padding: 8px; width:100%;} 
+.input_group_box { display: flex; align-items: center; border: 1px solid #ced4da; border-radius: 4px; background-color: #fff; margin-bottom: 10px; padding: 8px; max-width: calc((100% - (10px * 2)) / 3); } 
 .input_group_box .form-label { width: 120px; margin: 0; font-weight: 500; color: #333; flex-shrink: 0; } 
 .input_group_box .form-control,
 .input_group_box .form-control[readonly] { border: none; box-shadow: none; background-color: transparent; flex-grow: 1; } 
 .input_group_box .form-control:focus { box-shadow: none; outline: none; } 
 .input_group_box .btn-outline-primary { margin-left: 8px; } 
+.input_group_box .input-group { align-items: center; flex-wrap: nowrap; } 
+.input_group_box .input-group .dataBox { display: flex; flex-direction: row; align-items: center; gap:0 5px; } 
 .modal-content { border-radius: 8px; } 
+.address_box { width: 100%; max-width: 100%; margin-bottom: 10px; border: 1px solid #ced4da; border-radius: 4px; } 
+.address_box .input_group_box { max-width: 100%; margin: 0; border: 0; border-bottom: 1px solid #ededed; } 
+.address_box .input_group_box:last-of-type { border-bottom:0; } 
+.address_box .input_group_box button[type="button"] { width: 100%; max-width: 120px; } 
+.address_box ~ .input_group_box { max-width: calc((100% - (10px * 1)) / 2); } 
+.ad_detail_block .container .company_formBox .address_box .input_group_box .signup_input.input_postcode { background:#ededed; border-top-left-radius:4px; border-bottom-left-radius:4px; } 

@@ -171,14 +171,18 @@ function Dashboard({ user, setUser }) {
                   endAccessor="end"
                   style={{ height: 300 }}
                   defaultView="month"
-                  views={['month', 'week', 'day']}
+                  views={["month"]}
                   messages={{
-                    today: '오늘',
+                    date: '날짜',
+                    time: '시간',
+                    event: '이벤트',
+                    month: '월',
                     previous: '이전',
                     next: '다음',
-                    month: '월',
-                    week: '주',
-                    day: '일',
+                    today: '오늘',
+                    monthView: '월 보기',
+                    weekView: '주 보기',
+                    dayView: '일 보기',
                   }}
                 />
               </Card.Body>

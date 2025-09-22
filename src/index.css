@@ -139,7 +139,7 @@ a { word-break:keep-all; letter-spacing:-0.05em; color:var(--default-text--01--)
  :root { --s-default-size--:15px; --r-default-size--:16px; --l-default-size--:16px; --title-size--:24px; --xl-default-size--:20px; --xxl-default-size--:26px; --title-r-size--:36px; --sub-top-title-size--:36px } 
  } 
 .navbar-expand .navbar-nav { gap:0 5px; } 
-.container .react-datepicker-popper{z-index:99;}
+.container .react-datepicker-popper { z-index:99; } 
 
 /* header */
 .header { padding: 15px 20px; border-bottom: 1px solid #ededed; box-shadow: 0px -16px 20px; } 
@@ -148,25 +148,28 @@ a { word-break:keep-all; letter-spacing:-0.05em; color:var(--default-text--01--)
 .header .header_cont .left_align .logo_box { width: 100%; max-width: 180px; } 
 .header .header_cont .left_align .logo_box img { width: 100%; height: auto; } 
 .header .header_cont .left_align .nav_cont { } 
-.header .header_cont .left_align .nav_cont ul { gap: 0 10px;  display: flex;  flex-direction: row; } 
+.header .header_cont .left_align .nav_cont ul { gap: 0 10px; display: flex; flex-direction: row; } 
 .header .header_cont .left_align .nav_cont ul li { } 
 .header .header_cont .left_align .nav_cont ul li a { } 
 .header .header_cont .right_align { display: flex; flex-direction: row; align-items: center; gap: 0 5px; } 
-.header .header_cont .right_align .ad_cont {  display: flex;  flex-direction: row;  gap: 0 10px;  align-items: center; } 
+.header .header_cont .right_align .ad_cont { display: flex; flex-direction: row; gap: 0 10px; align-items: center; } 
 
 /* dashboard_block */
-.dashboard_block{padding:40px 20px;}
-.dashboard_block .container{max-width:1440px; padding: 0;}
-.dash_contBox{display:flex; gap:0 20px;}
+.dashboard_block { padding:40px 20px; } 
+.dashboard_block .container { max-width:1440px; padding: 0; } 
+.dash_contBox { display:flex; gap:0 20px; } 
 
 /* userlist_block */
-.userlist_block{padding:40px 20px;}
-.userlist_block .container{max-width:1440px; padding:0;}
+.userlist_block { padding:40px 20px; } 
+.userlist_block .container { max-width:1440px; padding:0; } 
 
 /* mypage_block */
-.mypage_block{padding:40px 20px;}
-.userlist_block .container{max-width:1440px; padding:0;}
-.user_infoBox{display:flex; gap:0 20px;}
+.mypage_block { padding:40px 20px; } 
+.userlist_block .container { max-width:1440px; padding:0; } 
+.user_infoBox { display:flex; gap:0 20px; } 
 
 /* ad_detail_block */
-.ad_detail_block{padding:40px 20px;}
+.company_formBox { } 
+.company_formBox > form {  display: flex;  flex-direction: row;  flex-wrap: wrap;  gap: 0 10px; } 
+.ad_detail_block { padding:40px 20px; } 
+.react-datepicker__tab-loop{position: absolute};
