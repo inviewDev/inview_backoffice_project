@@ -10,22 +10,23 @@ generator client {
 }
 
 model User {
-  id                Int            @id @default(autoincrement())
-  email             String         @unique
+  id                Int                   @id @default(autoincrement())
+  email             String                @unique
   passwordHash      String
   name              String
-  team              String         @default("미지정")
-  department        String         @default("미지정")
-  role              Role           @default(사용자)
-  status            Status         @default(가입대기)
-  level             Level          @default(사원)
-  phoneNumber       String         @default("010-0000-0000")
-  birthDate         DateTime       @default("2000-01-01T00:00:00Z")
+  team              String                @default("미지정")
+  department        String                @default("미지정")
+  role              Role                  @default(사용자)
+  status            Status                @default(가입대기)
+  level             Level                 @default(사원)
+  phoneNumber       String                @default("010-0000-0000")
+  birthDate         DateTime              @default("2000-01-01T00:00:00Z")
   officePhoneNumber String?
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-  memos             PersonalMemo[] @relation("UserMemos")
-  events            CalendarEvent[] @relation("UserEvents")
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  memos             PersonalMemo[]        @relation("UserMemos")
+  events            CalendarEvent[]       @relation("UserEvents")
+  payrolls          Payroll[]             @relation("UserPayrolls")  // 추가: 급여 명세서와 관계
   @@map("User")
 }
 
@@ -49,6 +50,63 @@ model CalendarEvent {
   updatedAt DateTime @updatedAt
   user      User     @relation("UserEvents", fields: [userId], references: [id])
   @@map("CalendarEvent")
+}
+
+// 추가 모델: 급여 명세서 루트
+model Payroll {
+  id                    Int                     @id @default(autoincrement())
+  userId                Int
+  periodStart           DateTime                // 매출기간 시작
+  periodEnd             DateTime                // 매출기간 종료
+  totalSales            Float                   @default(0)  // 총 매출 (합계)
+  totalCancellations    Float                   @default(0)  // 총 취소 (합계)
+  commissionSupport     Float                   @default(0)  // 영업지원금
+  allowance             Float                   @default(0)  // 수당
+  tax                   Float                   @default(0)  // 세금
+  educationFee          Float                   @default(0)  // 교육비
+  mealFee               Float                   @default(0)  // 교육식비
+  netIncome             Float                   @default(0)  // 실수령액
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  user                  User                    @relation("UserPayrolls", fields: [userId], references: [id])
+  salesDetails          SalesDetail[]           // 매출 세부 사항
+  cancellationDetails   CancellationDetail[]    // 취소 세부 사항
+  @@map("Payroll")
+}
+
+// 추가 모델: 매출 세부 사항
+model SalesDetail {
+  id                  Int       @id @default(autoincrement())
+  payrollId           Int
+  registrationDate    DateTime? // 등록일
+  product             String    // 상품명
+  approvedAmount      Float     // 승인금액
+  vatExcludedSales    Float     // VAT 제외 매출
+  actualCost          Float     // 실비
+  safetyFund          Float     // 안전자금
+  allowanceBase       Float     // 수당기준액
+  salesAllowance      Float     // 영업수당
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  payroll             Payroll   @relation(fields: [payrollId], references: [id])
+  @@map("SalesDetail")
+}
+
+// 추가 모델: 취소 세부 사항갸
+model CancellationDetail {
+  id                  Int       @id @default(autoincrement())
+  payrollId           Int
+  registrationDate    DateTime? // 등록일
+  product             String    // 상품명
+  cancellationAmount  Float     // 취소금액
+  vat                 Float     // 부가세
+  cancellationBase    Float     // 매출 취소 기준액
+  safetyFund          Float     // 안전자금
+  cancellationAllowance Float  // 취소수당
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  payroll             Payroll   @relation(fields: [payrollId], references: [id])
+  @@map("CancellationDetail")
 }
 
 enum Role {

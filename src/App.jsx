@@ -7,6 +7,7 @@ import Login from './Login.jsx';
 import Dashboard from './Dashboard.jsx';
 import MyPage from './Mypage.jsx';
 import AdDetail from './Ad_Detail.jsx';
+import Paystub from './Paystub.jsx';
 
 // JWT 디코딩 함수
 function parseJwt(token) {
@@ -170,6 +171,7 @@ function App() {
                       </li>
                       <li><Nav.Link as={Link} to="/community">커뮤니티</Nav.Link></li>
                       <li>{isAdmin && <Nav.Link as={Link} to="/users">직원관리</Nav.Link>}</li>
+                      <li><Nav.Link as={Link} to="/paystub">급여명세서</Nav.Link></li> {/* 추가 */}
                     </ul>
                   </div>
                 </div>
@@ -206,6 +208,7 @@ function App() {
             <Route path="/contracts/ad-management" element={<div>광고관리 페이지 (미구현)</div>} />
             <Route path="/contracts/ad-detail" element={<AdDetail user={user} />} />
             <Route path="/contracts/revenue" element={<div>매출조회 페이지 (미구현)</div>} />
+            <Route path="/paystub" element={<Paystub user={user} />} />
             <Route path="/community" element={<div>커뮤니티 페이지 (미구현)</div>} />
             <Route path="*" element={<Navigate replace to="/" />} />
           </Routes>
