@@ -13,7 +13,7 @@ import { Container, Row, Col, Table, Tabs, Tab, Form, Button } from 'react-boots
 
 const teamOptions = ['전체', '1팀', '2팀', '3팀', '4팀', '5팀', '6팀', '개발관리부'];
 const departmentOptions = ['전체', '1부서', '2부서', '운영부서', '기타부서'];
-const statusOptions = ['재직', '퇴사', '가입대기'];
+const statusOptions = ['전체', '재직', '퇴사', '가입대기'];
 const levelOptions = ['대표', '파트장', '팀장', '과장', '대리', '주임', '사원'];
 const columnHelper = createColumnHelper();
 
@@ -137,6 +137,8 @@ function UserList() {
     columnHelper.accessor('status', {
       header: '상태',
       size: 120,
+      enableFiltering: true,
+      filterFn: 'includesString',
       cell: ({ row, getValue }) => {
         const currentStatus = getValue();
         const [saving, setSaving] = React.useState(false);
@@ -169,7 +171,7 @@ function UserList() {
 
         return (
           <Form.Select value={currentStatus} onChange={handleChange} disabled={saving}>
-            {statusOptions.map(opt => (
+            {statusOptions.slice(1).map(opt => (
               <option key={opt} value={opt}>
                 {opt}
               </option>
@@ -296,136 +298,158 @@ function UserList() {
   if (error) return <Container><p className="text-danger">에러: {error}</p></Container>;
 
   return (
-
     <section className='userlist_block'>
       <Container>
-            <Tabs
-              activeKey={tab}
-              onSelect={(k) => setTab(k)}
-              className="mb-3"
-            >
-              <Tab eventKey="users" title="직원목록" />
-              <Tab eventKey="pending" title="대기목록" />
-            </Tabs>
-            <Form className="mb-4">
-              <Row className="g-2">
-                <Col md={6} lg={4}>
-                  <Form.Control
-                    type="text"
-                    value={globalFilter ?? ''}
-                    onChange={e => setGlobalFilter(e.target.value)}
-                    placeholder="전체 검색"
-                  />
-                </Col>
-                <Col md={3} lg={2}>
-                  <Form.Select
-                    value={table.getColumn('team')?.getFilterValue() || '전체'}
-                    onChange={e =>
-                      table.getColumn('team')?.setFilterValue(
-                        e.target.value === '전체' ? undefined : e.target.value
-                      )
-                    }
-                  >
-                    {teamOptions.map(option => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </Form.Select>
-                </Col>
-                <Col md={3} lg={2}>
-                  <Form.Select
-                    value={table.getColumn('department')?.getFilterValue() || '전체'}
-                    onChange={e =>
-                      table.getColumn('department')?.setFilterValue(
-                        e.target.value === '전체' ? undefined : e.target.value
-                      )
-                    }
-                  >
-                    {departmentOptions.map(option => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </Form.Select>
-                </Col>
-              </Row>
-            </Form>
-            <Table striped bordered hover responsive>
-              <thead>
-                {table.getHeaderGroups().map(headerGroup => (
-                  <tr key={headerGroup.id}>
-                    {headerGroup.headers.map(header => (
-                      <th
-                        key={header.id}
-                        style={{ width: header.getSize(), cursor: header.column.getCanSort() ? 'pointer' : 'default' }}
-                        onClick={header.column.getCanSort() ? header.column.getToggleSortingHandler() : undefined}
-                      >
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                        {header.column.getCanSort() && (
-                          <span>
-                            {header.column.getIsSorted() === 'asc' && ' ▲'}
-                            {header.column.getIsSorted() === 'desc' && ' ▼'}
-                          </span>
-                        )}
-                      </th>
-                    ))}
-                  </tr>
+        <Tabs
+          activeKey={tab}
+          onSelect={(k) => setTab(k)}
+          className="mb-3"
+        >
+          <Tab eventKey="users" title="직원목록" />
+          <Tab eventKey="pending" title="대기목록" />
+        </Tabs>
+        <Form className="mb-4">
+          <Row className="g-2">
+            <Col md={6} lg={3}>
+              <Form.Control
+                type="text"
+                value={globalFilter ?? ''}
+                onChange={e => setGlobalFilter(e.target.value)}
+                placeholder="전체 검색"
+              />
+            </Col>
+            <Col md={3} lg={2}>
+              <Form.Select
+                value={table.getColumn('department')?.getFilterValue() || '전체'}
+                onChange={e =>
+                  table.getColumn('department')?.setFilterValue(
+                    e.target.value === '전체' ? undefined : e.target.value
+                  )
+                }
+              >
+                {departmentOptions.map(option => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
                 ))}
-              </thead>
-              <tbody>
-                {table.getRowModel().rows.map(row => (
-                  <React.Fragment key={row.id}>
-                    <tr>
-                      {row.getVisibleCells().map(cell => (
-                        <td key={cell.id} style={{ width: cell.column.getSize(), textAlign: 'center' }}>
-                          {row.getCanExpand() && cell.column.id === 'name' ? (
-                            <span
-                              style={{ cursor: 'pointer', marginRight: 4 }}
-                              onClick={() => row.toggleExpanded()}
-                            >
-                              {row.getIsExpanded() ? '▼' : '▶'}{' '}
-                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                            </span>
-                          ) : (
-                            flexRender(cell.column.columnDef.cell, cell.getContext())
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                    {row.getIsExpanded() && (
-                      <tr>
-                        <td colSpan={row.getVisibleCells().length} className="bg-light p-3">
-                          <div>
-                            <strong>상세정보</strong>
-                            <pre>{JSON.stringify(row.original, null, 2)}</pre>
-                          </div>
-                        </td>
-                      </tr>
+              </Form.Select>
+            </Col>
+            <Col md={3} lg={2}>
+              <Form.Select
+                value={table.getColumn('team')?.getFilterValue() || '전체'}
+                onChange={e =>
+                  table.getColumn('team')?.setFilterValue(
+                    e.target.value === '전체' ? undefined : e.target.value
+                  )
+                }
+              >
+                {teamOptions.map(option => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </Form.Select>
+            </Col>
+            {tab === 'users' && (
+              <Col md={3} lg={2}>
+                <Form.Select
+                  value={table.getColumn('status')?.getFilterValue() || '전체'}
+                  onChange={e =>
+                    table.getColumn('status')?.setFilterValue(
+                      e.target.value === '전체' ? undefined : e.target.value
+                    )
+                  }
+                >
+                  {statusOptions.map(option => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Col>
+            )}
+            {tab === 'pending' && (
+              <Col md={3} lg={3}>
+                <span className="form-control-plaintext text-muted">대기 목록: 상태는 '가입대기'로 고정</span>
+              </Col>
+            )}
+          </Row>
+        </Form>
+        <Table striped bordered hover responsive>
+          <thead>
+            {table.getHeaderGroups().map(headerGroup => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map(header => (
+                  <th
+                    key={header.id}
+                    style={{ width: header.getSize(), cursor: header.column.getCanSort() ? 'pointer' : 'default' }}
+                    onClick={header.column.getCanSort() ? header.column.getToggleSortingHandler() : undefined}
+                  >
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                    {header.column.getCanSort() && (
+                      <span>
+                        {header.column.getIsSorted() === 'asc' && ' ▲'}
+                        {header.column.getIsSorted() === 'desc' && ' ▼'}
+                      </span>
                     )}
-                  </React.Fragment>
+                  </th>
                 ))}
-              </tbody>
-            </Table>
-            <div className="d-flex justify-content-between align-items-center mt-3">
-              <Button
-                variant="outline-primary"
-                onClick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
-              >
-                이전
-              </Button>
-              <span>
-                페이지 {table.getState().pagination.pageIndex + 1} / {table.getPageCount()}
-              </span>
-              <Button
-                variant="outline-primary"
-                onClick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
-              >
-                다음
-              </Button>
-            </div>
+              </tr>
+            ))}
+          </thead>
+          <tbody>
+            {table.getRowModel().rows.map(row => (
+              <React.Fragment key={row.id}>
+                <tr>
+                  {row.getVisibleCells().map(cell => (
+                    <td key={cell.id} style={{ width: cell.column.getSize(), textAlign: 'center' }}>
+                      {row.getCanExpand() && cell.column.id === 'name' ? (
+                        <span
+                          style={{ cursor: 'pointer', marginRight: 4 }}
+                          onClick={() => row.toggleExpanded()}
+                        >
+                          {row.getIsExpanded() ? '▼' : '▶'}{' '}
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </span>
+                      ) : (
+                        flexRender(cell.column.columnDef.cell, cell.getContext())
+                      )}
+                    </td>
+                  ))}
+                </tr>
+                {row.getIsExpanded() && (
+                  <tr>
+                    <td colSpan={row.getVisibleCells().length} className="bg-light p-3">
+                      <div>
+                        <strong>상세정보</strong>
+                        <pre>{JSON.stringify(row.original, null, 2)}</pre>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </Table>
+        <div className="d-flex justify-content-between align-items-center mt-3">
+          <Button
+            variant="outline-primary"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            이전
+          </Button>
+          <span>
+            페이지 {table.getState().pagination.pageIndex + 1} / {table.getPageCount()}
+          </span>
+          <Button
+            variant="outline-primary"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+          >
+            다음
+          </Button>
+        </div>
       </Container>
     </section>
   );
