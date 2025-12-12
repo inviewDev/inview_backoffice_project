@@ -172,4 +172,4 @@ a { word-break:keep-all; letter-spacing:-0.05em; color:var(--default-text--01--)
 .company_formBox { } 
 .company_formBox > form {  display: flex;  flex-direction: row;  flex-wrap: wrap;  gap: 0 10px; } 
 .ad_detail_block { padding:40px 20px; } 
-.react-datepicker__tab-loop{position: absolute};
+.react-datepicker__tab-loop{position: absolute}
