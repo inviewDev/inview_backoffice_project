@@ -37,6 +37,9 @@ async function sendPasswordResetEmail({ to, name, resetUrl }) {
   const from = process.env.RESEND_FROM_EMAIL;
 
   if (!resend || !from) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('메일 발송 설정이 필요합니다.');
+    }
     console.warn(`Password reset email is not configured. Reset URL for ${to}: ${resetUrl}`);
     return { configured: false };
   }
@@ -307,11 +310,17 @@ apiRouter.post('/password-reset/request', async (req, res) => {
       }),
     ]);
 
-    const emailResult = await sendPasswordResetEmail({
-      to: user.email,
-      name: user.name,
-      resetUrl,
-    });
+    let emailResult;
+    try {
+      emailResult = await sendPasswordResetEmail({
+        to: user.email,
+        name: user.name,
+        resetUrl,
+      });
+    } catch (emailError) {
+      console.error('Password reset email error:', emailError);
+      return res.status(500).json({ error: '비밀번호 재설정 메일 발송에 실패했습니다. 관리자에게 문의해주세요.' });
+    }
 
     const response = { message: genericMessage };
     if (!emailResult.configured && process.env.NODE_ENV !== 'production') {
