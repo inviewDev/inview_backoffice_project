@@ -20,9 +20,7 @@ function Login({ onLoginSuccess }) {
         throw new Error(errorData.error || '이메일 또는 비밀번호를 확인해주세요.');
       }
       const data = await res.json();
-      console.log('Login response:', data);
       localStorage.setItem('access_token', data.token);
-      console.log('Stored token:', localStorage.getItem('access_token'));
       onLoginSuccess({
         id: data.user.id,
         email: data.user.email,

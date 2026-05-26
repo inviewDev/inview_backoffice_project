@@ -10,6 +10,18 @@ const apiRouter = express.Router();
 
 app.use(express.json());
 
+const ROLE_OPTIONS = ['전체관리자', '관리자', '팀장', '사용자'];
+const STATUS_OPTIONS = ['가입대기', '재직', '퇴사'];
+const LEVEL_OPTIONS = ['대표', '파트장', '팀장', '과장', '대리', '주임', '사원'];
+
+function isAdminRole(role) {
+  return role === '전체관리자' || role === '관리자';
+}
+
+function canAccessUser(req, userId) {
+  return req.user.id === userId || isAdminRole(req.user.role);
+}
+
 function verifyToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -23,7 +35,7 @@ function verifyToken(req, res, next) {
 }
 
 function verifyAdminRole(req, res, next) {
-  if (req.user.role !== '전체관리자' && req.user.role !== '관리자') {
+  if (!isAdminRole(req.user.role)) {
     return res.status(403).json({ error: '전체관리자 또는 관리자 계정만 접근 가능합니다.' });
   }
   next();
@@ -261,6 +273,54 @@ apiRouter.patch('/users/:id', verifyToken, async (req, res) => {
   }
 });
 
+apiRouter.post('/users/:id/officePhoneNumber', verifyToken, async (req, res) => {
+  const { id } = req.params;
+  const { officePhoneNumber } = req.body;
+  const userId = parseInt(id, 10);
+
+  if (userId !== req.user.id) {
+    return res.status(403).json({ error: '자신의 정보만 수정할 수 있습니다.' });
+  }
+
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { officePhoneNumber: officePhoneNumber || null },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        level: true,
+        team: true,
+        department: true,
+        phoneNumber: true,
+        birthDate: true,
+        officePhoneNumber: true,
+      },
+    });
+
+    res.json({
+      message: '사내전화번호가 수정되었습니다.',
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        name: updatedUser.name,
+        role: updatedUser.role,
+        level: updatedUser.level || '미지정',
+        team: updatedUser.team || '미지정',
+        department: updatedUser.department || '미지정',
+        phoneNumber: updatedUser.phoneNumber || '미지정',
+        birthDate: updatedUser.birthDate ? updatedUser.birthDate.toISOString() : '미지정',
+        officePhoneNumber: updatedUser.officePhoneNumber || '미지정',
+      },
+    });
+  } catch (error) {
+    console.error('Update officePhoneNumber error:', error);
+    res.status(500).json({ error: '사내전화번호 수정 중 오류가 발생했습니다.' });
+  }
+});
+
 apiRouter.get('/memos', verifyToken, async (req, res) => {
   try {
     const memos = await prisma.personalMemo.findMany({
@@ -389,6 +449,218 @@ apiRouter.delete('/events/:id', verifyToken, async (req, res) => {
   }
 });
 
+apiRouter.post('/company', verifyToken, async (req, res) => {
+  const {
+    userId,
+    companyName,
+    ceoName,
+    businessRegNumber,
+    birthDate,
+    tel,
+    mobile,
+    postcode,
+    address,
+    detailAddress,
+    companyUrl,
+    companyEmail,
+  } = req.body;
+  const targetUserId = parseInt(userId || req.user.id, 10);
+
+  if (!canAccessUser(req, targetUserId)) {
+    return res.status(403).json({ error: '해당 사용자 정보에 접근할 권한이 없습니다.' });
+  }
+  if (!companyName || !ceoName || !businessRegNumber || !birthDate || !tel || !mobile || !postcode || !address || !companyEmail) {
+    return res.status(400).json({ error: '회사 필수 정보를 모두 입력해주세요.' });
+  }
+  if (!/^\d{3}-\d{2}-\d{5}$/.test(businessRegNumber)) {
+    return res.status(400).json({ error: '사업자등록번호 형식이 올바르지 않습니다.' });
+  }
+  if (!/^\d{6}$/.test(birthDate)) {
+    return res.status(400).json({ error: '생년월일은 6자리 숫자여야 합니다.' });
+  }
+  if (!companyEmail.includes('@')) {
+    return res.status(400).json({ error: '유효한 이메일 주소를 입력해주세요.' });
+  }
+
+  try {
+    const company = await prisma.company.create({
+      data: {
+        userId: targetUserId,
+        companyName,
+        ceoName,
+        businessRegNumber,
+        birthDate,
+        tel,
+        mobile,
+        postcode,
+        address,
+        detailAddress: detailAddress || null,
+        companyUrl: companyUrl || null,
+        companyEmail,
+      },
+    });
+
+    res.status(201).json({ message: '회사 정보가 등록되었습니다.', company });
+  } catch (error) {
+    console.error('Create company error:', error);
+    res.status(500).json({ error: '회사 정보 등록 중 오류가 발생했습니다.' });
+  }
+});
+
+apiRouter.post('/payment', verifyToken, async (req, res) => {
+  const {
+    userId,
+    productName,
+    startDate,
+    endDate,
+    approvedCompany,
+    taxInvoice,
+    paymentMethod,
+  } = req.body;
+  const targetUserId = parseInt(userId || req.user.id, 10);
+  const parsedStartDate = new Date(startDate);
+  const parsedEndDate = new Date(endDate);
+
+  if (!canAccessUser(req, targetUserId)) {
+    return res.status(403).json({ error: '해당 사용자 정보에 접근할 권한이 없습니다.' });
+  }
+  if (!productName || !startDate || !endDate || !approvedCompany || !taxInvoice || !paymentMethod) {
+    return res.status(400).json({ error: '결제 필수 정보를 모두 입력해주세요.' });
+  }
+  if (Number.isNaN(parsedStartDate.getTime()) || Number.isNaN(parsedEndDate.getTime())) {
+    return res.status(400).json({ error: '계약기간 날짜 형식이 올바르지 않습니다.' });
+  }
+  if (parsedEndDate < parsedStartDate) {
+    return res.status(400).json({ error: '종료일은 시작일보다 늦어야 합니다.' });
+  }
+
+  try {
+    const latestCompany = await prisma.company.findFirst({
+      where: { userId: targetUserId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+
+    const payment = await prisma.payment.create({
+      data: {
+        userId: targetUserId,
+        companyId: latestCompany?.id || null,
+        productName,
+        startDate: parsedStartDate,
+        endDate: parsedEndDate,
+        approvedCompany,
+        taxInvoice,
+        paymentMethod,
+      },
+    });
+
+    res.status(201).json({ message: '결제 정보가 등록되었습니다.', payment });
+  } catch (error) {
+    console.error('Create payment error:', error);
+    res.status(500).json({ error: '결제 정보 등록 중 오류가 발생했습니다.' });
+  }
+});
+
+function toDateString(value) {
+  return value ? value.toISOString().split('T')[0] : '';
+}
+
+function sumBy(items, field) {
+  return items.reduce((total, item) => total + (Number(item[field]) || 0), 0);
+}
+
+apiRouter.get('/payroll', verifyToken, async (req, res) => {
+  const targetUserId = parseInt(req.query.userId || req.user.id, 10);
+
+  if (!canAccessUser(req, targetUserId)) {
+    return res.status(403).json({ error: '해당 급여 명세서를 조회할 권한이 없습니다.' });
+  }
+
+  try {
+    const payroll = await prisma.payroll.findFirst({
+      where: { userId: targetUserId },
+      orderBy: { periodEnd: 'desc' },
+      include: {
+        user: {
+          select: {
+            name: true,
+            team: true,
+            department: true,
+          },
+        },
+        salesDetails: {
+          orderBy: { registrationDate: 'asc' },
+        },
+        cancellationDetails: {
+          orderBy: { registrationDate: 'asc' },
+        },
+      },
+    });
+
+    if (!payroll) {
+      return res.json(null);
+    }
+
+    const salesDetails = payroll.salesDetails.map(detail => ({
+      status: '매출',
+      registrationDate: toDateString(detail.registrationDate),
+      product: detail.product,
+      approvedAmount: detail.approvedAmount,
+      vatExcludedSales: detail.vatExcludedSales,
+      actualCost: detail.actualCost,
+      safetyFund: detail.safetyFund,
+      allowanceBase: detail.allowanceBase,
+      salesAllowance: detail.salesAllowance,
+    }));
+    const cancellationDetails = payroll.cancellationDetails.map(detail => ({
+      status: '취소',
+      registrationDate: toDateString(detail.registrationDate),
+      product: detail.product,
+      cancellationAmount: detail.cancellationAmount,
+      vat: detail.vat,
+      cancellationBase: detail.cancellationBase,
+      safetyFund: detail.safetyFund,
+      cancellationAllowance: detail.cancellationAllowance,
+    }));
+    const totalCancellationAmount = sumBy(cancellationDetails, 'cancellationAmount');
+    const subTotal = payroll.commissionSupport + payroll.allowance - totalCancellationAmount;
+
+    res.json({
+      id: payroll.id,
+      periodStart: toDateString(payroll.periodStart),
+      periodEnd: toDateString(payroll.periodEnd),
+      department: payroll.user.department || '미지정',
+      team: payroll.user.team || '미지정',
+      commissionRates: [],
+      salesDetails,
+      cancellationDetails,
+      totalApprovedAmount: sumBy(salesDetails, 'approvedAmount'),
+      totalVatExcluded: sumBy(salesDetails, 'vatExcludedSales'),
+      totalActualCost: sumBy(salesDetails, 'actualCost'),
+      totalSafetyFund: sumBy(salesDetails, 'safetyFund'),
+      totalAllowanceBase: sumBy(salesDetails, 'allowanceBase'),
+      totalSalesAllowance: sumBy(salesDetails, 'salesAllowance'),
+      totalCancellationAmount,
+      totalVat: sumBy(cancellationDetails, 'vat'),
+      totalCancellationBase: sumBy(cancellationDetails, 'cancellationBase'),
+      totalSafetyFundCancellation: sumBy(cancellationDetails, 'safetyFund'),
+      totalCancellationAllowance: sumBy(cancellationDetails, 'cancellationAllowance'),
+      totalSales: payroll.totalSales,
+      totalCancellations: payroll.totalCancellations,
+      commissionSupport: payroll.commissionSupport,
+      allowance: payroll.allowance,
+      subTotal,
+      tax: payroll.tax,
+      educationFee: payroll.educationFee,
+      mealFee: payroll.mealFee,
+      netIncome: payroll.netIncome,
+    });
+  } catch (error) {
+    console.error('Fetch payroll error:', error);
+    res.status(500).json({ error: '급여 명세서 조회 중 오류가 발생했습니다.' });
+  }
+});
+
 apiRouter.get('/users/pending', verifyToken, verifyAdminRole, async (req, res) => {
   try {
     const pendingUsers = await prisma.user.findMany({
@@ -480,6 +752,10 @@ apiRouter.post('/users/:id/status', verifyToken, verifyMasterRole, async (req, r
   const { id } = req.params;
   const { status } = req.body;
 
+  if (!STATUS_OPTIONS.includes(status)) {
+    return res.status(400).json({ error: '유효하지 않은 상태 값입니다.' });
+  }
+
   try {
     const updatedUser = await prisma.user.update({
       where: { id: parseInt(id) },
@@ -504,8 +780,6 @@ apiRouter.post('/users/:id/status', verifyToken, verifyMasterRole, async (req, r
     res.status(500).json({ error: '상태 변경 중 오류가 발생했습니다.' });
   }
 });
-
-const ROLE_OPTIONS = ['전체관리자', '관리자', '팀장', '사용자'];
 
 apiRouter.post('/users/:id/role', verifyToken, verifyMasterRole, async (req, res) => {
   const { id } = req.params;
@@ -539,8 +813,6 @@ apiRouter.post('/users/:id/role', verifyToken, verifyMasterRole, async (req, res
     res.status(500).json({ error: '권한 변경 중 오류가 발생했습니다.' });
   }
 });
-
-const LEVEL_OPTIONS = ['대표', '파트장', '팀장', '과장', '대리', '주임', '사원'];
 
 apiRouter.post('/users/:id/level', verifyToken, verifyMasterRole, async (req, res) => {
   const { id } = req.params;
@@ -602,14 +874,16 @@ apiRouter.get('/users', verifyToken, verifyAdminRole, async (req, res) => {
 
 app.use('/api', apiRouter);
 
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   console.error('Global error:', err.stack);
   res.status(500).send('Internal Server Error');
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}
 
 module.exports = app;

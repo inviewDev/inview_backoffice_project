@@ -28,9 +28,7 @@ function parseJwt(token) {
         .map(c => '%' + c.charCodeAt(0).toString(16).padStart(2, '0'))
         .join('')
     );
-    const decoded = JSON.parse(jsonPayload);
-    console.log('Decoded JWT:', decoded);
-    return decoded;
+    return JSON.parse(jsonPayload);
   } catch (e) {
     console.error('parseJwt error:', e.message);
     return null;

@@ -157,10 +157,10 @@ function UserList() {
           try {
             const errorData = await res.json();
             errorMessage = errorData.error || errorData.message || '상태 변경 실패';
-          } catch (jsonErr) {
+          } catch {
             try {
               errorMessage = await res.text();
-            } catch (textErr) {
+            } catch {
               // 그대로 둠
             }
           }
@@ -172,7 +172,7 @@ function UserList() {
             const response = await res.json();
             const updatedUser = response.user || response; // 서버 응답 형식에 맞게 (message, user)
             successIds.push({ id, updatedUser });
-          } catch (jsonErr) {
+          } catch {
             // JSON 파싱 실패 시, 로컬 업데이트 정보 임시 저장
             successIds.push({ id, updatedUser: { ...data.find(u => u.id === id), status: bulkAction } });
           }
@@ -241,11 +241,9 @@ function UserList() {
       filterFn: 'includesString',
       cell: ({ row, getValue }) => {
         const currentStatus = getValue();
-        const [saving, setSaving] = React.useState(false);
 
         const handleChange = async (e) => {
           const newStatus = e.target.value;
-          setSaving(true);
           try {
             const token = localStorage.getItem('access_token');
             const res = await fetch(`/api/users/${row.original.id}/status`, {
@@ -268,13 +266,11 @@ function UserList() {
             await fetchUsers();
           } catch (err) {
             showCustomModal('상태 변경 실패: ' + err.message, 'danger');
-          } finally {
-            setSaving(false);
           }
         };
 
         return (
-          <Form.Select value={currentStatus} onChange={handleChange} disabled={saving}>
+          <Form.Select value={currentStatus} onChange={handleChange}>
             {statusOptions.slice(1).map(opt => (
               <option key={opt} value={opt}>
                 {opt}
@@ -289,11 +285,9 @@ function UserList() {
       size: 120,
       cell: ({ row, getValue }) => {
         const currentLevel = getValue();
-        const [saving, setSaving] = React.useState(false);
 
         const handleChange = async (e) => {
           const newLevel = e.target.value;
-          setSaving(true);
           try {
             const token = localStorage.getItem('access_token');
             const res = await fetch(`/api/users/${row.original.id}/level`, {
@@ -316,13 +310,11 @@ function UserList() {
             await fetchUsers();
           } catch (err) {
             showCustomModal('직급 변경 실패: ' + err.message, 'danger');
-          } finally {
-            setSaving(false);
           }
         };
 
         return (
-          <Form.Select value={currentLevel} onChange={handleChange} disabled={saving}>
+          <Form.Select value={currentLevel} onChange={handleChange}>
             {levelOptions.map(opt => (
               <option key={opt} value={opt}>
                 {opt}

@@ -52,8 +52,8 @@ function Dashboard({ user, setUser }) {
 
     try {
       const token = localStorage.getItem('access_token');
-      const res = await fetch(`/api/users/${user.id}/officePhoneNumber`, {
-        method: 'POST',
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -86,10 +86,6 @@ function Dashboard({ user, setUser }) {
 
   const formattedDate = currentTime.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
   const formattedTime = currentTime.toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' });
-  const formattedBirthDate = user.birthDate && user.birthDate !== '미지정'
-    ? new Date(user.birthDate).toLocaleDateString('ko-KR')
-    : '미지정';
-
   return (
     <section className="dashboard_block">
       <Container>

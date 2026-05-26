@@ -21,8 +21,6 @@ function Signup() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const teamOptions = ['1팀', '2팀', '3팀', '4팀', '5팀', '6팀', '개발관리부'];
-
   const handleChange = e =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
 
@@ -59,7 +57,8 @@ function Signup() {
         ...formData,
         birthDate: formData.birthDate.toISOString().split('T')[0],
       };
-      const { passwordConfirm, ...dataToSend } = submitData;
+      const dataToSend = { ...submitData };
+      delete dataToSend.passwordConfirm;
       const response = await fetch('/api/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
