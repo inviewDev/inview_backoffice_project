@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, Link, Navigate } from 'react-router-dom';
+import { Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
 import { Nav, Button, Spinner, NavDropdown } from 'react-bootstrap';
 import UserList from './UserList.jsx';
 import Signup from './Signup.jsx';
@@ -8,6 +8,7 @@ import Dashboard from './Dashboard.jsx';
 import MyPage from './Mypage.jsx';
 import AdDetail from './Ad_Detail.jsx';
 import Paystub from './Paystub.jsx';
+import ResetPassword from './ResetPassword.jsx';
 
 // JWT 디코딩 함수
 function parseJwt(token) {
@@ -39,6 +40,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [tab, setTab] = useState('login');
   const [isLoading, setIsLoading] = useState(true);
+  const location = useLocation();
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -118,28 +120,34 @@ function App() {
           <div className="img_box">
             <img src="img/logo/logo_w.svg" alt="아이앤뷰 로고" />
           </div>
-          <div className="sign_in_wrap">
-            <div className="in_box">
-              <div className="tabs">
-                <button
-                  className={`tab_button ${tab === 'login' ? 'active' : ''}`}
-                  onClick={() => setTab('login')}
-                >
-                  로그인
-                </button>
-                <button
-                  className={`tab_button ${tab === 'signup' ? 'active' : ''}`}
-                  onClick={() => setTab('signup')}
-                >
-                  회원가입
-                </button>
+          {location.pathname === '/reset-password' ? (
+            <div className="sign_in_wrap">
+              <ResetPassword />
+            </div>
+          ) : (
+            <div className="sign_in_wrap">
+              <div className="in_box">
+                <div className="tabs">
+                  <button
+                    className={`tab_button ${tab === 'login' ? 'active' : ''}`}
+                    onClick={() => setTab('login')}
+                  >
+                    로그인
+                  </button>
+                  <button
+                    className={`tab_button ${tab === 'signup' ? 'active' : ''}`}
+                    onClick={() => setTab('signup')}
+                  >
+                    회원가입
+                  </button>
+                </div>
+              </div>
+              <div className="tab_content">
+                {tab === 'login' && <Login onLoginSuccess={setUser} />}
+                {tab === 'signup' && <Signup />}
               </div>
             </div>
-            <div className="tab_content">
-              {tab === 'login' && <Login onLoginSuccess={setUser} />}
-              {tab === 'signup' && <Signup />}
-            </div>
-          </div>
+          )}
         </div>
       ) : (
         <div>

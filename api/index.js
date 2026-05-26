@@ -2,11 +2,14 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const { PrismaClient } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const { Resend } = require('resend');
 
 const SECRET = process.env.JWT_SECRET;
 const prisma = new PrismaClient();
 const app = express();
 const apiRouter = express.Router();
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 app.use(express.json());
 
@@ -20,6 +23,50 @@ function isAdminRole(role) {
 
 function canAccessUser(req, userId) {
   return req.user.id === userId || isAdminRole(req.user.role);
+}
+
+function hashResetToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+function getAppUrl(req) {
+  return process.env.APP_URL || req.get('origin') || `${req.protocol}://${req.get('host')}`;
+}
+
+async function sendPasswordResetEmail({ to, name, resetUrl }) {
+  const from = process.env.RESEND_FROM_EMAIL;
+
+  if (!resend || !from) {
+    console.warn(`Password reset email is not configured. Reset URL for ${to}: ${resetUrl}`);
+    return { configured: false };
+  }
+
+  const { error } = await resend.emails.send({
+    from,
+    to,
+    subject: '[아이앤뷰 백오피스] 비밀번호 재설정 안내',
+    html: `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #222;">
+        <h2>비밀번호 재설정</h2>
+        <p>${name || '사용자'}님, 비밀번호 재설정을 요청하셨습니다.</p>
+        <p>아래 버튼을 눌러 30분 안에 새 비밀번호를 설정해주세요.</p>
+        <p>
+          <a href="${resetUrl}" style="display:inline-block;padding:12px 18px;background:#ff2174;color:#fff;text-decoration:none;border-radius:4px;">
+            비밀번호 재설정
+          </a>
+        </p>
+        <p>버튼이 열리지 않으면 아래 주소를 브라우저에 붙여넣어 주세요.</p>
+        <p style="word-break: break-all;">${resetUrl}</p>
+        <p>요청하지 않았다면 이 메일은 무시하셔도 됩니다.</p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    throw new Error(error.message || '메일 발송에 실패했습니다.');
+  }
+
+  return { configured: true };
 }
 
 function verifyToken(req, res, next) {
@@ -217,6 +264,116 @@ apiRouter.post('/login', async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+  }
+});
+
+apiRouter.post('/password-reset/request', async (req, res) => {
+  const { email } = req.body;
+  const genericMessage = '가입된 이메일이라면 비밀번호 재설정 링크를 발송했습니다.';
+
+  if (!email) {
+    return res.status(400).json({ error: '이메일을 입력해주세요.' });
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true, name: true },
+    });
+
+    if (!user) {
+      return res.json({ message: genericMessage });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = hashResetToken(token);
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+    const resetUrl = `${getAppUrl(req).replace(/\/$/, '')}/reset-password?token=${token}`;
+
+    await prisma.$transaction([
+      prisma.passwordResetToken.updateMany({
+        where: {
+          userId: user.id,
+          usedAt: null,
+        },
+        data: { usedAt: new Date() },
+      }),
+      prisma.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          tokenHash,
+          expiresAt,
+        },
+      }),
+    ]);
+
+    const emailResult = await sendPasswordResetEmail({
+      to: user.email,
+      name: user.name,
+      resetUrl,
+    });
+
+    const response = { message: genericMessage };
+    if (!emailResult.configured && process.env.NODE_ENV !== 'production') {
+      response.devResetUrl = resetUrl;
+    }
+    res.json(response);
+  } catch (error) {
+    console.error('Password reset request error:', error);
+    res.status(500).json({ error: '비밀번호 재설정 요청 중 오류가 발생했습니다.' });
+  }
+});
+
+apiRouter.post('/password-reset/confirm', async (req, res) => {
+  const { token, password } = req.body;
+
+  if (!token || !password) {
+    return res.status(400).json({ error: '토큰과 새 비밀번호가 필요합니다.' });
+  }
+  if (password.length < 8 || !/[!@#$%^&*]/.test(password)) {
+    return res.status(400).json({ error: '비밀번호는 8자 이상이며 특수문자를 포함해야 합니다.' });
+  }
+
+  try {
+    const tokenHash = hashResetToken(token);
+    const resetToken = await prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+      select: {
+        id: true,
+        userId: true,
+        expiresAt: true,
+        usedAt: true,
+      },
+    });
+
+    if (!resetToken || resetToken.usedAt || resetToken.expiresAt < new Date()) {
+      return res.status(400).json({ error: '유효하지 않거나 만료된 재설정 링크입니다.' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: resetToken.userId },
+        data: { passwordHash },
+      }),
+      prisma.passwordResetToken.update({
+        where: { id: resetToken.id },
+        data: { usedAt: new Date() },
+      }),
+      prisma.passwordResetToken.updateMany({
+        where: {
+          userId: resetToken.userId,
+          usedAt: null,
+          id: { not: resetToken.id },
+        },
+        data: { usedAt: new Date() },
+      }),
+    ]);
+
+    res.json({ message: '비밀번호가 재설정되었습니다. 새 비밀번호로 로그인해주세요.' });
+  } catch (error) {
+    console.error('Password reset confirm error:', error);
+    res.status(500).json({ error: '비밀번호 재설정 중 오류가 발생했습니다.' });
   }
 });
 

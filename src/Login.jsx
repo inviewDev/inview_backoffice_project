@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Alert } from 'react-bootstrap';
+import ForgotPassword from './ForgotPassword.jsx';
 
 function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const handleSubmit = async e => {
     e.preventDefault();
@@ -39,6 +41,10 @@ function Login({ onLoginSuccess }) {
     }
   };
 
+  if (showForgotPassword) {
+    return <ForgotPassword onBack={() => setShowForgotPassword(false)} />;
+  }
+
   return (
     <div className="signup_container">
       <h2 className="signup_title">로그인</h2>
@@ -60,6 +66,13 @@ function Login({ onLoginSuccess }) {
           required
         />
         <button type="submit" className="signup_button">로그인</button>
+        <button
+          type="button"
+          className="tab_button"
+          onClick={() => setShowForgotPassword(true)}
+        >
+          비밀번호 찾기
+        </button>
         {error && <Alert variant="danger" className="mt-3">{error}</Alert>}
       </form>
     </div>

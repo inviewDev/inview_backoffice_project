@@ -10,25 +10,26 @@ generator client {
 }
 
 model User {
-  id                Int             @id @default(autoincrement())
-  email             String          @unique
-  passwordHash      String
-  name              String
-  team              String          @default("미지정")
-  department        String          @default("미지정")
-  role              Role            @default(사용자)
-  status            Status          @default(가입대기)
-  level             Level           @default(사원)
-  phoneNumber       String          @default("010-0000-0000")
-  birthDate         DateTime        @default("2000-01-01T00:00:00Z")
-  officePhoneNumber String?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  memos             PersonalMemo[]  @relation("UserMemos")
-  events            CalendarEvent[] @relation("UserEvents")
-  payrolls          Payroll[]       @relation("UserPayrolls") // 추가: 급여 명세서와 관계
-  companies         Company[]       @relation("UserCompanies")
-  payments          Payment[]       @relation("UserPayments")
+  id                  Int                  @id @default(autoincrement())
+  email               String               @unique
+  passwordHash        String
+  name                String
+  team                String               @default("미지정")
+  department          String               @default("미지정")
+  role                Role                 @default(사용자)
+  status              Status               @default(가입대기)
+  level               Level                @default(사원)
+  phoneNumber         String               @default("010-0000-0000")
+  birthDate           DateTime             @default("2000-01-01T00:00:00Z")
+  officePhoneNumber   String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  memos               PersonalMemo[]       @relation("UserMemos")
+  events              CalendarEvent[]      @relation("UserEvents")
+  payrolls            Payroll[]            @relation("UserPayrolls") // 추가: 급여 명세서와 관계
+  companies           Company[]            @relation("UserCompanies")
+  payments            Payment[]            @relation("UserPayments")
+  passwordResetTokens PasswordResetToken[] @relation("UserPasswordResetTokens")
 
   @@map("User")
 }
@@ -95,6 +96,18 @@ model Payment {
   company         Company? @relation(fields: [companyId], references: [id])
 
   @@map("Payment")
+}
+
+model PasswordResetToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation("UserPasswordResetTokens", fields: [userId], references: [id])
+
+  @@map("PasswordResetToken")
 }
 
 // 추가 모델: 급여 명세서 루트
