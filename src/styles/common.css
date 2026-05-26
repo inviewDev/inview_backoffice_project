@@ -1,0 +1,15 @@
+.accordion-body { padding:10px; }
+.container { max-width:100%; }
+.modal-content { border-radius: 8px; }
+
+.signup_input {
+  width:100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  outline: none;
+  font-size: 16px;
+  transition: border-color 0.2s;
+}
+
+.signup_input:focus { border-color: #ff2174; }

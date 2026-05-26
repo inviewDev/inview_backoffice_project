@@ -1,3 +1,5 @@
+require('dotenv').config({ quiet: true });
+
 const express = require('express');
 const bcrypt = require('bcrypt');
 const { PrismaClient } = require('@prisma/client');
@@ -11,11 +13,26 @@ const app = express();
 const apiRouter = express.Router();
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
-app.use(express.json());
+app.use(express.json({ limit: '4mb' }));
+
+apiRouter.use((req, res, next) => {
+  const missingEnv = ['DATABASE_URL', 'JWT_SECRET'].filter(name => !process.env[name]);
+
+  if (missingEnv.length > 0) {
+    console.error(`Missing required environment variables: ${missingEnv.join(', ')}`);
+    return res.status(500).json({
+      error: `Server configuration error: missing ${missingEnv.join(', ')}`,
+    });
+  }
+
+  next();
+});
 
 const ROLE_OPTIONS = ['전체관리자', '관리자', '팀장', '사용자'];
 const STATUS_OPTIONS = ['가입대기', '재직', '퇴사'];
 const LEVEL_OPTIONS = ['대표', '파트장', '팀장', '과장', '대리', '주임', '사원'];
+const MAX_PROFILE_IMAGE_SIZE = 2 * 1024 * 1024;
+const PROFILE_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
 function isAdminRole(role) {
   return role === '전체관리자' || role === '관리자';
@@ -23,6 +40,33 @@ function isAdminRole(role) {
 
 function canAccessUser(req, userId) {
   return req.user.id === userId || isAdminRole(req.user.role);
+}
+
+function validateProfileImageDataUrl(profileImage) {
+  if (profileImage === null || profileImage === '') {
+    return { value: null };
+  }
+
+  if (typeof profileImage !== 'string') {
+    return { error: '프로필 이미지를 확인해주세요.' };
+  }
+
+  const match = profileImage.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=]+)$/);
+  if (!match) {
+    return { error: '프로필 이미지는 올바른 이미지 파일만 등록할 수 있습니다.' };
+  }
+
+  const [, mimeType, base64Body] = match;
+  if (!PROFILE_IMAGE_TYPES.has(mimeType)) {
+    return { error: '프로필 이미지는 JPG, PNG, WEBP, GIF 파일만 등록할 수 있습니다.' };
+  }
+
+  const imageSize = Buffer.byteLength(base64Body, 'base64');
+  if (imageSize >= MAX_PROFILE_IMAGE_SIZE) {
+    return { error: '프로필 이미지는 2MB 미만 파일만 등록할 수 있습니다.' };
+  }
+
+  return { value: profileImage };
 }
 
 function hashResetToken(token) {
@@ -123,6 +167,7 @@ apiRouter.get('/me', verifyToken, async (req, res) => {
         phoneNumber: true,
         birthDate: true,
         officePhoneNumber: true,
+        profileImage: true,
       },
     });
     if (!user) {
@@ -140,6 +185,7 @@ apiRouter.get('/me', verifyToken, async (req, res) => {
         phoneNumber: user.phoneNumber || '미지정',
         birthDate: user.birthDate ? user.birthDate.toISOString() : '미지정',
         officePhoneNumber: user.officePhoneNumber || '미지정',
+        profileImage: user.profileImage || '',
       },
     });
   } catch (error) {
@@ -188,6 +234,7 @@ apiRouter.post('/signup', async (req, res) => {
         phoneNumber: newUser.phoneNumber,
         birthDate: newUser.birthDate.toISOString(),
         officePhoneNumber: newUser.officePhoneNumber,
+        profileImage: newUser.profileImage || '',
       },
       SECRET,
       { expiresIn: '1h' }
@@ -207,6 +254,7 @@ apiRouter.post('/signup', async (req, res) => {
         phoneNumber: newUser.phoneNumber,
         birthDate: newUser.birthDate.toISOString(),
         officePhoneNumber: newUser.officePhoneNumber,
+        profileImage: newUser.profileImage || '',
       },
       token,
     });
@@ -262,6 +310,7 @@ apiRouter.post('/login', async (req, res) => {
         phoneNumber: user.phoneNumber || '미지정',
         birthDate: user.birthDate ? user.birthDate.toISOString() : '미지정',
         officePhoneNumber: user.officePhoneNumber || '미지정',
+        profileImage: user.profileImage || '',
       },
     });
   } catch (error) {
@@ -388,7 +437,7 @@ apiRouter.post('/password-reset/confirm', async (req, res) => {
 
 apiRouter.patch('/users/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
-  const { email, password, phoneNumber, birthDate, officePhoneNumber } = req.body;
+  const { email, password, phoneNumber, birthDate, officePhoneNumber, profileImage } = req.body;
 
   if (parseInt(id) !== req.user.id) {
     return res.status(403).json({ error: '자신의 정보만 수정할 수 있습니다.' });
@@ -400,6 +449,13 @@ apiRouter.patch('/users/:id', verifyToken, async (req, res) => {
     if (phoneNumber) dataToUpdate.phoneNumber = phoneNumber;
     if (birthDate) dataToUpdate.birthDate = new Date(birthDate);
     if (officePhoneNumber !== undefined) dataToUpdate.officePhoneNumber = officePhoneNumber;
+    if (profileImage !== undefined) {
+      const validatedProfileImage = validateProfileImageDataUrl(profileImage);
+      if (validatedProfileImage.error) {
+        return res.status(400).json({ error: validatedProfileImage.error });
+      }
+      dataToUpdate.profileImage = validatedProfileImage.value;
+    }
     if (password) dataToUpdate.passwordHash = await bcrypt.hash(password, 10);
 
     const updatedUser = await prisma.user.update({
@@ -416,6 +472,7 @@ apiRouter.patch('/users/:id', verifyToken, async (req, res) => {
         phoneNumber: true,
         birthDate: true,
         officePhoneNumber: true,
+        profileImage: true,
       },
     });
     res.json({
@@ -431,6 +488,7 @@ apiRouter.patch('/users/:id', verifyToken, async (req, res) => {
         phoneNumber: updatedUser.phoneNumber || '미지정',
         birthDate: updatedUser.birthDate ? updatedUser.birthDate.toISOString() : '미지정',
         officePhoneNumber: updatedUser.officePhoneNumber || '미지정',
+        profileImage: updatedUser.profileImage || '',
       },
     });
   } catch (error) {
@@ -463,6 +521,7 @@ apiRouter.post('/users/:id/officePhoneNumber', verifyToken, async (req, res) => 
         phoneNumber: true,
         birthDate: true,
         officePhoneNumber: true,
+        profileImage: true,
       },
     });
 
@@ -479,6 +538,7 @@ apiRouter.post('/users/:id/officePhoneNumber', verifyToken, async (req, res) => 
         phoneNumber: updatedUser.phoneNumber || '미지정',
         birthDate: updatedUser.birthDate ? updatedUser.birthDate.toISOString() : '미지정',
         officePhoneNumber: updatedUser.officePhoneNumber || '미지정',
+        profileImage: updatedUser.profileImage || '',
       },
     });
   } catch (error) {

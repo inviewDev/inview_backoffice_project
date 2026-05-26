@@ -5,7 +5,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { ko } from 'date-fns/locale';
 import DaumPostcode from 'react-daum-postcode';
-import './main.css';
+import './styles/ad_detail.css';
 
 function AdDetail({ user }) {
   const [formData, setFormData] = useState({

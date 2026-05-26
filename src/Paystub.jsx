@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Accordion, Table, Alert, Spinner } from 'react-bootstrap';
-import './main.css';
 
 function Paystub({ user }) {
   const [payrollData, setPayrollData] = useState(null);

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Card, ListGroup, Col, Form, Button, Alert, Spinner, Table } from 'react-bootstrap';
+import { useState, useEffect } from 'react';
+import { Alert, Spinner } from 'react-bootstrap';
 import { IMaskInput } from 'react-imask';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -9,10 +9,12 @@ import moment from 'moment';
 import 'moment/locale/ko';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useReactTable, getCoreRowModel } from '@tanstack/react-table';
-import './main.css';
+import './styles/mypage.css';
 
 moment.locale('ko');
 const localizer = momentLocalizer(moment);
+const MAX_PROFILE_IMAGE_SIZE = 2 * 1024 * 1024;
+const PROFILE_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 function MyPage({ user, setUser }) {
   const [isEditingEmail, setIsEditingEmail] = useState(false);
@@ -38,6 +40,7 @@ function MyPage({ user, setUser }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isMemoLoading, setIsMemoLoading] = useState(false);
   const [isEventLoading, setIsEventLoading] = useState(false);
+  const [isProfileImageLoading, setIsProfileImageLoading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -141,6 +144,7 @@ function MyPage({ user, setUser }) {
         phoneNumber: data.user.phoneNumber,
         birthDate: data.user.birthDate,
         officePhoneNumber: data.user.officePhoneNumber,
+        profileImage: data.user.profileImage || '',
       }));
       setFormData(prev => ({
         ...prev,
@@ -163,6 +167,69 @@ function MyPage({ user, setUser }) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleUpdateProfileImage = async profileImage => {
+    setError('');
+    setSuccess('');
+    setIsProfileImageLoading(true);
+
+    try {
+      const token = localStorage.getItem('access_token');
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ profileImage }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || '프로필 사진 저장에 실패했습니다.');
+      }
+
+      setUser(prev => ({
+        ...prev,
+        profileImage: data.user.profileImage || '',
+      }));
+      setSuccess(profileImage ? '프로필 사진이 등록되었습니다.' : '프로필 사진이 삭제되었습니다.');
+    } catch (err) {
+      console.error('Update profile image error:', err);
+      setError(err.message);
+    } finally {
+      setIsProfileImageLoading(false);
+    }
+  };
+
+  const handleProfileImageChange = e => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+
+    if (!file) return;
+
+    setError('');
+    setSuccess('');
+
+    if (!PROFILE_IMAGE_TYPES.includes(file.type)) {
+      setError('프로필 사진은 JPG, PNG, WEBP, GIF 파일만 등록할 수 있습니다.');
+      return;
+    }
+
+    if (file.size >= MAX_PROFILE_IMAGE_SIZE) {
+      setError('프로필 사진은 2MB 미만 파일만 등록할 수 있습니다.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      handleUpdateProfileImage(reader.result);
+    };
+    reader.onerror = () => {
+      setError('프로필 사진을 읽지 못했습니다.');
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSaveMemo = async e => {
@@ -358,18 +425,18 @@ function MyPage({ user, setUser }) {
       id: 'actions',
       header: '작업',
       cell: ({ row }) => (
-        <div>
-          <Button
-            variant="primary"
-            size="sm"
+        <div className="mypage_table_actions">
+          <button
+            type="button"
+            className="mypage_text_button"
             onClick={() => setEditingMemo({ id: row.original.id, content: row.original.content })}
             disabled={isMemoLoading}
           >
             수정
-          </Button>{' '}
-          <Button
-            variant="danger"
-            size="sm"
+          </button>
+          <button
+            type="button"
+            className="mypage_text_button danger"
             onClick={() => {
               if (window.confirm('이 메모를 삭제하시겠습니까?')) {
                 handleDeleteMemo(row.original.id);
@@ -378,7 +445,7 @@ function MyPage({ user, setUser }) {
             disabled={isMemoLoading}
           >
             완료
-          </Button>
+          </button>
         </div>
       ),
     },
@@ -392,7 +459,7 @@ function MyPage({ user, setUser }) {
 
   if (isLoading) {
     return (
-      <div className="py-4 text-center">
+      <div className="admin_loading">
         <Spinner animation="border" variant="primary" />
         <p>로딩 중...</p>
       </div>
@@ -401,454 +468,475 @@ function MyPage({ user, setUser }) {
 
   return (
     <section className="mypage_block">
-      <Container>
-        <div className="mypage_contBox row g-4">
-          <Col md={6}>
-            <Card className="user_infoBox">
-              <Card.Body>
-                <Card.Title>{user.name}님의 마이페이지</Card.Title>
-                <ListGroup variant="flush">
-                  <ListGroup.Item><strong>이름:</strong> {user.name}</ListGroup.Item>
-                  <ListGroup.Item><strong>직급:</strong> {user.level}</ListGroup.Item>
-                  <ListGroup.Item><strong>팀:</strong> {user.team}</ListGroup.Item>
-                  <ListGroup.Item><strong>부서:</strong> {user.department}</ListGroup.Item>
-                  <ListGroup.Item><strong>권한:</strong> {user.role}</ListGroup.Item>
-                  <ListGroup.Item>
-                    <strong>이메일:</strong>{' '}
-                    {isEditingEmail ? (
-                      <Form
-                        onSubmit={e => {
-                          e.preventDefault();
-                          handleUpdateField('email', formData.email);
-                        }}
-                        className="d-flex align-items-center"
-                      >
-                        <Form.Control
-                          type="email"
-                          value={formData.email}
-                          onChange={e => setFormData({ ...formData, email: e.target.value })}
-                          className="signup_input me-2"
-                          required
-                          disabled={isLoading}
-                        />
-                        <Button type="submit" variant="success" size="sm" disabled={isLoading}>
-                          저장
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="ms-1"
-                          onClick={() => {
-                            setFormData({ ...formData, email: user.email });
-                            setIsEditingEmail(false);
-                          }}
-                          disabled={isLoading}
-                        >
-                          취소
-                        </Button>
-                      </Form>
-                    ) : (
-                      <>
-                        {user.email}{' '}
-                        <Button
-                          variant="link"
-                          size="sm"
-                          onClick={() => setIsEditingEmail(true)}
-                        >
-                          편집
-                        </Button>
-                      </>
-                    )}
-                  </ListGroup.Item>
-                  <ListGroup.Item>
-                    <strong>휴대전화번호:</strong>{' '}
-                    {isEditingPhoneNumber ? (
-                      <Form
-                        onSubmit={e => {
-                          e.preventDefault();
-                          handleUpdateField('phoneNumber', formData.phoneNumber);
-                        }}
-                        className="d-flex align-items-center"
-                      >
-                        <IMaskInput
-                          mask="000-0000-0000"
-                          value={formData.phoneNumber}
-                          onAccept={value => setFormData({ ...formData, phoneNumber: value })}
-                          placeholder="010-1234-5678"
-                          className="signup_input form-control me-2"
-                          required
-                          disabled={isLoading}
-                        />
-                        <Button type="submit" variant="success" size="sm" disabled={isLoading}>
-                          저장
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="ms-1"
-                          onClick={() => {
-                            setFormData({ ...formData, phoneNumber: user.phoneNumber });
-                            setIsEditingPhoneNumber(false);
-                          }}
-                          disabled={isLoading}
-                        >
-                          취소
-                        </Button>
-                      </Form>
-                    ) : (
-                      <>
-                        {user.phoneNumber}{' '}
-                        <Button
-                          variant="link"
-                          size="sm"
-                          onClick={() => setIsEditingPhoneNumber(true)}
-                        >
-                          편집
-                        </Button>
-                      </>
-                    )}
-                  </ListGroup.Item>
-                  <ListGroup.Item>
-                    <strong>사내전화번호:</strong>{' '}
-                    {isEditingOfficePhoneNumber ? (
-                      <Form
-                        onSubmit={e => {
-                          e.preventDefault();
-                          handleUpdateField('officePhoneNumber', formData.officePhoneNumber);
-                        }}
-                        className="d-flex align-items-center"
-                      >
-                        <IMaskInput
-                          mask="00-0000-0000"
-                          value={formData.officePhoneNumber}
-                          onAccept={value => setFormData({ ...formData, officePhoneNumber: value })}
-                          placeholder="02-1234-1234"
-                          className="signup_input form-control me-2"
-                          disabled={isLoading}
-                        />
-                        <Button type="submit" variant="success" size="sm" disabled={isLoading}>
-                          저장
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="ms-1"
-                          onClick={() => {
-                            setFormData({ ...formData, officePhoneNumber: user.officePhoneNumber || '' });
-                            setIsEditingOfficePhoneNumber(false);
-                          }}
-                          disabled={isLoading}
-                        >
-                          취소
-                        </Button>
-                      </Form>
-                    ) : (
-                      <>
-                        {user.officePhoneNumber || '미지정'}{' '}
-                        <Button
-                          variant="link"
-                          size="sm"
-                          onClick={() => setIsEditingOfficePhoneNumber(true)}
-                        >
-                          편집
-                        </Button>
-                      </>
-                    )}
-                  </ListGroup.Item>
-                  <ListGroup.Item>
-                    <strong>생년월일:</strong>{' '}
-                    {isEditingBirthDate ? (
-                      <Form
-                        onSubmit={e => {
-                          e.preventDefault();
-                          handleUpdateField('birthDate', formData.birthDate);
-                        }}
-                        className="d-flex align-items-center"
-                      >
-                        <DatePicker
-                          selected={formData.birthDate}
-                          onChange={date => setFormData({ ...formData, birthDate: date })}
-                          locale={ko}
-                          dateFormat="yyyy-MM-dd"
-                          placeholderText="생년월일을 선택하세요"
-                          className="signup_input me-2"
-                          required
-                          disabled={isLoading}
-                          minDate={new Date(1900, 0, 1)}
-                          maxDate={new Date()}
-                          showYearDropdown
-                          scrollableYearDropdown
-                          yearDropdownItemNumber={100}
-                        />
-                        <Button type="submit" variant="success" size="sm" disabled={isLoading}>
-                          저장
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="ms-1"
-                          onClick={() => {
-                            setFormData({
-                              ...formData,
-                              birthDate:
-                                user.birthDate && user.birthDate !== '미지정'
-                                  ? new Date(user.birthDate)
-                                  : null,
-                            });
-                            setIsEditingBirthDate(false);
-                          }}
-                          disabled={isLoading}
-                        >
-                          취소
-                        </Button>
-                      </Form>
-                    ) : (
-                      <>
-                        {user.birthDate && user.birthDate !== '미지정'
-                          ? new Date(user.birthDate).toLocaleDateString('ko-KR')
-                          : '미지정'}{' '}
-                        <Button
-                          variant="link"
-                          size="sm"
-                          onClick={() => setIsEditingBirthDate(true)}
-                        >
-                          편집
-                        </Button>
-                      </>
-                    )}
-                  </ListGroup.Item>
-                  <ListGroup.Item>
-                    <strong>비밀번호 변경:</strong>{' '}
-                    {isEditingPassword ? (
-                      <Form
-                        onSubmit={e => {
-                          e.preventDefault();
-                          handleUpdateField('password', formData.password);
-                        }}
-                        className="d-flex align-items-center"
-                      >
-                        <Form.Control
-                          type="password"
-                          value={formData.password}
-                          onChange={e => setFormData({ ...formData, password: e.target.value })}
-                          placeholder="새 비밀번호"
-                          className="signup_input me-2"
-                          disabled={isLoading}
-                        />
-                        <Form.Control
-                          type="password"
-                          value={formData.passwordConfirm}
-                          onChange={e => setFormData({ ...formData, passwordConfirm: e.target.value })}
-                          placeholder="비밀번호 확인"
-                          className="signup_input me-2"
-                          disabled={isLoading}
-                        />
-                        <Button type="submit" variant="success" size="sm" disabled={isLoading}>
-                          저장
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="ms-1"
-                          onClick={() => {
-                            setFormData({ ...formData, password: '', passwordConfirm: '' });
-                            setIsEditingPassword(false);
-                          }}
-                          disabled={isLoading}
-                        >
-                          취소
-                        </Button>
-                      </Form>
-                    ) : (
-                      <Button
-                        variant="link"
-                        size="sm"
-                        onClick={() => setIsEditingPassword(true)}
-                      >
-                        편집
-                      </Button>
-                    )}
-                  </ListGroup.Item>
-                </ListGroup>
-                {error && <Alert variant="danger" className="mt-3">{error}</Alert>}
-                {success && <Alert variant="success" className="mt-3">{success}</Alert>}
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={6}>
-            <Card className="memo_infoBox">
-              <Card.Body>
-                <Card.Title>ToDo</Card.Title>
-                <Form onSubmit={handleSaveMemo}>
-                  <Form.Control
-                    as="textarea"
-                    rows={5}
-                    value={newMemo}
-                    onChange={e => setNewMemo(e.target.value)}
-                    placeholder="내용을 입력하세요"
-                    className="signup_input"
-                    disabled={isMemoLoading}
+      <div className="mypage_header">
+        <div>
+          <h1>마이페이지</h1>
+          <p>{user.name}님의 계정 정보와 개인 업무 일정을 관리합니다.</p>
+        </div>
+        <div className="mypage_user_badge">
+          <span>{user.team || '미지정'}</span>
+          <strong>{user.level || '미지정'}</strong>
+        </div>
+      </div>
+
+      {(error || success) && (
+        <div className="mypage_message_area">
+          {error && <Alert variant="danger" className="mypage_alert">{error}</Alert>}
+          {success && <Alert variant="success" className="mypage_alert">{success}</Alert>}
+        </div>
+      )}
+
+      <div className="mypage_grid">
+        <section className="mypage_panel mypage_profile_panel">
+          <div className="mypage_panel_head">
+            <h2>내 정보</h2>
+          </div>
+
+          <div className="mypage_profile_summary">
+            <div className="mypage_avatar_area">
+              <label className={`mypage_avatar ${user.profileImage ? 'has_image' : ''}`}>
+                {user.profileImage ? (
+                  <img src={user.profileImage} alt={`${user.name} 프로필 사진`} />
+                ) : (
+                  <span>{user.name?.slice(0, 1) || 'I'}</span>
+                )}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={handleProfileImageChange}
+                  disabled={isProfileImageLoading}
+                />
+                <em>{isProfileImageLoading ? '등록 중' : '사진 등록'}</em>
+              </label>
+              {user.profileImage && (
+                <button
+                  type="button"
+                  className="mypage_avatar_remove"
+                  onClick={() => handleUpdateProfileImage(null)}
+                  disabled={isProfileImageLoading}
+                >
+                  삭제
+                </button>
+              )}
+            </div>
+            <div>
+              <strong>{user.name}</strong>
+              <span>{user.department || '미지정'} / {user.role || '미지정'}</span>
+            </div>
+          </div>
+
+          <div className="mypage_info_table">
+            <div className="mypage_info_row">
+              <strong>이름</strong>
+              <span>{user.name}</span>
+            </div>
+            <div className="mypage_info_row">
+              <strong>직급</strong>
+              <span>{user.level}</span>
+            </div>
+            <div className="mypage_info_row">
+              <strong>팀</strong>
+              <span>{user.team}</span>
+            </div>
+            <div className="mypage_info_row">
+              <strong>부서</strong>
+              <span>{user.department}</span>
+            </div>
+            <div className="mypage_info_row">
+              <strong>권한</strong>
+              <span>{user.role}</span>
+            </div>
+            <div className="mypage_info_row editable">
+              <strong>이메일</strong>
+              {isEditingEmail ? (
+                <form
+                  className="mypage_inline_form"
+                  onSubmit={e => {
+                    e.preventDefault();
+                    handleUpdateField('email', formData.email);
+                  }}
+                >
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={e => setFormData({ ...formData, email: e.target.value })}
+                    className="mypage_input"
+                    required
+                    disabled={isLoading}
                   />
-                  <Button
-                    type="submit"
-                    variant="success"
-                    className="mt-2"
-                    disabled={isMemoLoading}
-                  >
-                    {isMemoLoading ? '저장 중...' : '저장'}
-                  </Button>
-                </Form>
-                {editingMemo && (
-                  <Form
-                    onSubmit={e => {
-                      e.preventDefault();
-                      handleEditMemo(editingMemo.id, editingMemo.content);
-                    }}
-                    className="mt-3"
-                  >
-                    <Form.Control
-                      as="textarea"
-                      rows={5}
-                      value={editingMemo.content}
-                      onChange={e => setEditingMemo({ ...editingMemo, content: e.target.value })}
-                      placeholder="수정"
-                      className="signup_input"
-                      disabled={isMemoLoading}
-                    />
-                    <Button
-                      type="submit"
-                      variant="success"
-                      className="mt-2"
-                      disabled={isMemoLoading}
-                    >
-                      {isMemoLoading ? '수정 중...' : '수정'}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      className="mt-2 ms-2"
-                      onClick={() => setEditingMemo(null)}
-                      disabled={isMemoLoading}
+                  <div className="mypage_form_actions">
+                    <button type="submit" className="mypage_primary_button" disabled={isLoading}>저장</button>
+                    <button
+                      type="button"
+                      className="mypage_secondary_button"
+                      onClick={() => {
+                        setFormData({ ...formData, email: user.email });
+                        setIsEditingEmail(false);
+                      }}
+                      disabled={isLoading}
                     >
                       취소
-                    </Button>
-                  </Form>
-                )}
-                <div className="mt-3">
-                  <Table striped bordered hover size="sm">
-                    <thead>
-                      <tr>
-                        {table.getHeaderGroups().map(headerGroup => (
-                          headerGroup.headers.map(header => (
-                            <th key={header.id}>{header.column.columnDef.header}</th>
-                          ))
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <span>
+                  {user.email}
+                  <button type="button" className="mypage_edit_button" onClick={() => setIsEditingEmail(true)}>편집</button>
+                </span>
+              )}
+            </div>
+            <div className="mypage_info_row editable">
+              <strong>휴대전화번호</strong>
+              {isEditingPhoneNumber ? (
+                <form
+                  className="mypage_inline_form"
+                  onSubmit={e => {
+                    e.preventDefault();
+                    handleUpdateField('phoneNumber', formData.phoneNumber);
+                  }}
+                >
+                  <IMaskInput
+                    mask="000-0000-0000"
+                    value={formData.phoneNumber}
+                    onAccept={value => setFormData({ ...formData, phoneNumber: value })}
+                    placeholder="010-1234-5678"
+                    className="mypage_input"
+                    required
+                    disabled={isLoading}
+                  />
+                  <div className="mypage_form_actions">
+                    <button type="submit" className="mypage_primary_button" disabled={isLoading}>저장</button>
+                    <button
+                      type="button"
+                      className="mypage_secondary_button"
+                      onClick={() => {
+                        setFormData({ ...formData, phoneNumber: user.phoneNumber });
+                        setIsEditingPhoneNumber(false);
+                      }}
+                      disabled={isLoading}
+                    >
+                      취소
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <span>
+                  {user.phoneNumber}
+                  <button type="button" className="mypage_edit_button" onClick={() => setIsEditingPhoneNumber(true)}>편집</button>
+                </span>
+              )}
+            </div>
+            <div className="mypage_info_row editable">
+              <strong>사내전화번호</strong>
+              {isEditingOfficePhoneNumber ? (
+                <form
+                  className="mypage_inline_form"
+                  onSubmit={e => {
+                    e.preventDefault();
+                    handleUpdateField('officePhoneNumber', formData.officePhoneNumber);
+                  }}
+                >
+                  <IMaskInput
+                    mask="00-0000-0000"
+                    value={formData.officePhoneNumber}
+                    onAccept={value => setFormData({ ...formData, officePhoneNumber: value })}
+                    placeholder="02-1234-1234"
+                    className="mypage_input"
+                    disabled={isLoading}
+                  />
+                  <div className="mypage_form_actions">
+                    <button type="submit" className="mypage_primary_button" disabled={isLoading}>저장</button>
+                    <button
+                      type="button"
+                      className="mypage_secondary_button"
+                      onClick={() => {
+                        setFormData({ ...formData, officePhoneNumber: user.officePhoneNumber || '' });
+                        setIsEditingOfficePhoneNumber(false);
+                      }}
+                      disabled={isLoading}
+                    >
+                      취소
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <span>
+                  {user.officePhoneNumber || '미지정'}
+                  <button type="button" className="mypage_edit_button" onClick={() => setIsEditingOfficePhoneNumber(true)}>편집</button>
+                </span>
+              )}
+            </div>
+            <div className="mypage_info_row editable">
+              <strong>생년월일</strong>
+              {isEditingBirthDate ? (
+                <form
+                  className="mypage_inline_form"
+                  onSubmit={e => {
+                    e.preventDefault();
+                    handleUpdateField('birthDate', formData.birthDate);
+                  }}
+                >
+                  <DatePicker
+                    selected={formData.birthDate}
+                    onChange={date => setFormData({ ...formData, birthDate: date })}
+                    locale={ko}
+                    dateFormat="yyyy-MM-dd"
+                    placeholderText="생년월일을 선택하세요"
+                    className="mypage_input"
+                    wrapperClassName="mypage_date_wrap"
+                    required
+                    disabled={isLoading}
+                    minDate={new Date(1900, 0, 1)}
+                    maxDate={new Date()}
+                    showYearDropdown
+                    scrollableYearDropdown
+                    yearDropdownItemNumber={100}
+                  />
+                  <div className="mypage_form_actions">
+                    <button type="submit" className="mypage_primary_button" disabled={isLoading}>저장</button>
+                    <button
+                      type="button"
+                      className="mypage_secondary_button"
+                      onClick={() => {
+                        setFormData({
+                          ...formData,
+                          birthDate:
+                            user.birthDate && user.birthDate !== '미지정'
+                              ? new Date(user.birthDate)
+                              : null,
+                        });
+                        setIsEditingBirthDate(false);
+                      }}
+                      disabled={isLoading}
+                    >
+                      취소
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <span>
+                  {user.birthDate && user.birthDate !== '미지정'
+                    ? new Date(user.birthDate).toLocaleDateString('ko-KR')
+                    : '미지정'}
+                  <button type="button" className="mypage_edit_button" onClick={() => setIsEditingBirthDate(true)}>편집</button>
+                </span>
+              )}
+            </div>
+            <div className="mypage_info_row editable">
+              <strong>비밀번호 변경</strong>
+              {isEditingPassword ? (
+                <form
+                  className="mypage_inline_form password"
+                  onSubmit={e => {
+                    e.preventDefault();
+                    handleUpdateField('password', formData.password);
+                  }}
+                >
+                  <input
+                    type="password"
+                    value={formData.password}
+                    onChange={e => setFormData({ ...formData, password: e.target.value })}
+                    placeholder="새 비밀번호"
+                    className="mypage_input"
+                    disabled={isLoading}
+                  />
+                  <input
+                    type="password"
+                    value={formData.passwordConfirm}
+                    onChange={e => setFormData({ ...formData, passwordConfirm: e.target.value })}
+                    placeholder="비밀번호 확인"
+                    className="mypage_input"
+                    disabled={isLoading}
+                  />
+                  <div className="mypage_form_actions">
+                    <button type="submit" className="mypage_primary_button" disabled={isLoading}>저장</button>
+                    <button
+                      type="button"
+                      className="mypage_secondary_button"
+                      onClick={() => {
+                        setFormData({ ...formData, password: '', passwordConfirm: '' });
+                        setIsEditingPassword(false);
+                      }}
+                      disabled={isLoading}
+                    >
+                      취소
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <span>
+                  <button type="button" className="mypage_edit_button standalone" onClick={() => setIsEditingPassword(true)}>편집</button>
+                </span>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <div className="mypage_side_stack">
+          <section className="mypage_panel mypage_todo_panel">
+            <div className="mypage_panel_head">
+              <h2>ToDo</h2>
+            </div>
+
+            <form className="mypage_memo_form" onSubmit={handleSaveMemo}>
+              <textarea
+                rows={4}
+                value={newMemo}
+                onChange={e => setNewMemo(e.target.value)}
+                placeholder="내용을 입력하세요"
+                className="mypage_textarea"
+                disabled={isMemoLoading}
+              />
+              <button type="submit" className="mypage_primary_button" disabled={isMemoLoading}>
+                {isMemoLoading ? '저장 중...' : '저장'}
+              </button>
+            </form>
+
+            {editingMemo && (
+              <form
+                className="mypage_memo_form edit"
+                onSubmit={e => {
+                  e.preventDefault();
+                  handleEditMemo(editingMemo.id, editingMemo.content);
+                }}
+              >
+                <textarea
+                  rows={4}
+                  value={editingMemo.content}
+                  onChange={e => setEditingMemo({ ...editingMemo, content: e.target.value })}
+                  placeholder="수정"
+                  className="mypage_textarea"
+                  disabled={isMemoLoading}
+                />
+                <div className="mypage_form_actions">
+                  <button type="submit" className="mypage_primary_button" disabled={isMemoLoading}>
+                    {isMemoLoading ? '수정 중...' : '수정'}
+                  </button>
+                  <button type="button" className="mypage_secondary_button" onClick={() => setEditingMemo(null)} disabled={isMemoLoading}>
+                    취소
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <div className="mypage_table_wrap">
+              <table className="mypage_table">
+                <thead>
+                  <tr>
+                    {table.getHeaderGroups().map(headerGroup => (
+                      headerGroup.headers.map(header => (
+                        <th key={header.id}>{header.column.columnDef.header}</th>
+                      ))
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {table.getRowModel().rows.length > 0 ? (
+                    table.getRowModel().rows.map(row => (
+                      <tr key={row.id}>
+                        {row.getVisibleCells().map(cell => (
+                          <td key={cell.id}>
+                            {cell.column.columnDef.cell
+                              ? cell.column.columnDef.cell({ row: cell.row, column: cell.column })
+                              : cell.getValue()}
+                          </td>
                         ))}
                       </tr>
-                    </thead>
-                    <tbody>
-                      {table.getRowModel().rows.length > 0 ? (
-                        table.getRowModel().rows.map(row => (
-                          <tr key={row.id}>
-                            {row.getVisibleCells().map(cell => (
-                              <td key={cell.id}>
-                                {cell.column.columnDef.cell
-                                  ? cell.column.columnDef.cell({ row: cell.row, column: cell.column })
-                                  : cell.getValue()}
-                              </td>
-                            ))}
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={memoColumns.length} className="text-center">
-                            저장된 내용이 없습니다.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </Table>
-                </div>
-              </Card.Body>
-            </Card>
-            <Card className="calendar_infoBox mt-4">
-              <Card.Body>
-                <Card.Title>캘린더</Card.Title>
-                <Form onSubmit={handleAddEvent} className="mb-3">
-                  <Form.Group className="mb-2">
-                    <Form.Label>이벤트 제목</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={newEvent.title}
-                      onChange={e => setNewEvent({ ...newEvent, title: e.target.value })}
-                      placeholder="이벤트 제목"
-                      className="signup_input"
-                      disabled={isEventLoading}
-                    />
-                  </Form.Group>
-                  <Form.Group className="mb-2">
-                    <Form.Label>시작 시간</Form.Label>
-                    <DatePicker
-                      selected={newEvent.start}
-                      onChange={date => setNewEvent({ ...newEvent, start: date })}
-                      showTimeSelect
-                      timeFormat="HH:mm"
-                      timeIntervals={15}
-                      dateFormat="yyyy-MM-dd HH:mm"
-                      placeholderText="시작 시간"
-                      locale={ko}
-                      className="signup_input"
-                      disabled={isEventLoading}
-                    />
-                  </Form.Group>
-                  <Form.Group className="mb-2">
-                    <Form.Label>종료 시간</Form.Label>
-                    <DatePicker
-                      selected={newEvent.endTime}
-                      onChange={date => setNewEvent({ ...newEvent, endTime: date })}
-                      showTimeSelect
-                      timeFormat="HH:mm"
-                      timeIntervals={15}
-                      dateFormat="yyyy-MM-dd HH:mm"
-                      placeholderText="종료 시간"
-                      locale={ko}
-                      className="signup_input"
-                      disabled={isEventLoading}
-                    />
-                  </Form.Group>
-                  <Button
-                    type="submit"
-                    variant="success"
-                    disabled={isEventLoading}
-                  >
-                    {isEventLoading ? '추가 중...' : '이벤트 추가'}
-                  </Button>
-                </Form>
-                <Calendar
-                  localizer={localizer}
-                  events={events}
-                  startAccessor="start"
-                  endAccessor="endTime"
-                  style={{ height: 400 }}
-                  defaultView="month"
-                  views={['month', 'week', 'day']}
-                  messages={{
-                    today: '오늘',
-                    previous: '이전',
-                    next: '다음',
-                    month: '월',
-                    week: '주',
-                    day: '일',
-                  }}
-                  onSelectEvent={event => {
-                    if (window.confirm(`이벤트 "${event.title}"를 삭제하시겠습니까?`)) {
-                      handleDeleteEvent(event.id);
-                    }
-                  }}
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={memoColumns.length} className="mypage_empty_cell">
+                        저장된 내용이 없습니다.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="mypage_panel mypage_calendar_panel">
+            <div className="mypage_panel_head">
+              <h2>캘린더</h2>
+            </div>
+
+            <form className="mypage_event_form" onSubmit={handleAddEvent}>
+              <label>
+                이벤트 제목
+                <input
+                  type="text"
+                  value={newEvent.title}
+                  onChange={e => setNewEvent({ ...newEvent, title: e.target.value })}
+                  placeholder="이벤트 제목"
+                  className="mypage_input"
+                  disabled={isEventLoading}
                 />
-              </Card.Body>
-            </Card>
-          </Col>
+              </label>
+              <label>
+                시작 시간
+                <DatePicker
+                  selected={newEvent.start}
+                  onChange={date => setNewEvent({ ...newEvent, start: date })}
+                  showTimeSelect
+                  timeFormat="HH:mm"
+                  timeIntervals={15}
+                  dateFormat="yyyy-MM-dd HH:mm"
+                  placeholderText="시작 시간"
+                  locale={ko}
+                  className="mypage_input"
+                  wrapperClassName="mypage_date_wrap"
+                  disabled={isEventLoading}
+                />
+              </label>
+              <label>
+                종료 시간
+                <DatePicker
+                  selected={newEvent.endTime}
+                  onChange={date => setNewEvent({ ...newEvent, endTime: date })}
+                  showTimeSelect
+                  timeFormat="HH:mm"
+                  timeIntervals={15}
+                  dateFormat="yyyy-MM-dd HH:mm"
+                  placeholderText="종료 시간"
+                  locale={ko}
+                  className="mypage_input"
+                  wrapperClassName="mypage_date_wrap"
+                  disabled={isEventLoading}
+                />
+              </label>
+              <button type="submit" className="mypage_primary_button" disabled={isEventLoading}>
+                {isEventLoading ? '추가 중...' : '이벤트 추가'}
+              </button>
+            </form>
+
+            <div className="mypage_calendar_wrap">
+              <Calendar
+                localizer={localizer}
+                events={events}
+                startAccessor="start"
+                endAccessor="endTime"
+                style={{ height: 400 }}
+                defaultView="month"
+                views={['month', 'week', 'day']}
+                messages={{
+                  today: '오늘',
+                  previous: '이전',
+                  next: '다음',
+                  month: '월',
+                  week: '주',
+                  day: '일',
+                }}
+                onSelectEvent={event => {
+                  if (window.confirm(`이벤트 "${event.title}"를 삭제하시겠습니까?`)) {
+                    handleDeleteEvent(event.id);
+                  }
+                }}
+              />
+            </div>
+          </section>
         </div>
-      </Container>
+      </div>
     </section>
   );
 }
