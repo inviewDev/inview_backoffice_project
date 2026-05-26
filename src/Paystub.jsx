@@ -52,7 +52,7 @@ function Paystub({ user }) {
   }
 
   if (!payrollData) {
-    return <Alert variant="info">급여 명세서 데이터가 없습니다.</Alert>;
+    return <Alert variant="">급여 명세서 데이터가 없습니다.</Alert>;
   }
 
   const { periodStart, periodEnd, department, team, commissionRates, salesDetails, cancellationDetails } = payrollData;

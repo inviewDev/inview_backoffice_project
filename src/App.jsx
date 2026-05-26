@@ -260,7 +260,7 @@ function App() {
               element={
                 <AppPlaceholder
                   title="광고 관리"
-                  description="현재 프로젝트에는 광고 관리 목록 기능이 아직 연결되어 있지 않습니다."
+                  description="작업전"
                 />
               }
             />
@@ -270,7 +270,7 @@ function App() {
               element={
                 <AppPlaceholder
                   title="매출 조회"
-                  description="현재 프로젝트에는 별도 매출 조회 화면이 아직 연결되어 있지 않습니다."
+                  description="작업전"
                 />
               }
             />
@@ -280,7 +280,7 @@ function App() {
               element={
                 <AppPlaceholder
                   title={location.search.includes('board') ? '자유게시판' : '공지사항'}
-                  description="현재 프로젝트에는 커뮤니티 목록 기능이 아직 연결되어 있지 않습니다."
+                  description="작업전"
                 />
               }
             />
