@@ -24,9 +24,9 @@ const calendar_events = [
 ];
 
 const notice_items = [
-  { id: 11, title: '현재 연결된 공지사항 데이터가 없습니다.', author: '-', date: '-' },
-  { id: 10, title: '커뮤니티 기능 연결 후 이 영역에 표시됩니다.', author: '-', date: '-' },
-  { id: 9, title: 'Figma 기준 레이아웃만 우선 반영했습니다.', author: '-', date: '-' },
+  { id: 11, title: '추후 연동 예정', author: '-', date: '-' },
+  { id: 10, title: '추후 연동 예정', author: '-', date: '-' },
+  { id: 9, title: '추후 연동 예정', author: '-', date: '-' },
 ];
 
 const months = ['01월', '02월', '03월', '04월', '05월', '06월', '07월', '08월', '09월', '10월', '11월', '12월'];

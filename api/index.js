@@ -13,7 +13,7 @@ const app = express();
 const apiRouter = express.Router();
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
-app.use(express.json({ limit: '4mb' }));
+app.use(express.json({ limit: '8mb' }));
 
 apiRouter.use((req, res, next) => {
   const missingEnv = ['DATABASE_URL', 'JWT_SECRET'].filter(name => !process.env[name]);
@@ -1102,7 +1102,10 @@ app.use('/api', apiRouter);
 
 app.use((err, req, res, _next) => {
   console.error('Global error:', err.stack);
-  res.status(500).send('Internal Server Error');
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: '요청 용량이 너무 큽니다. 더 작은 이미지를 등록해주세요.' });
+  }
+  res.status(500).json({ error: '서버 오류가 발생했습니다.' });
 });
 
 const PORT = process.env.PORT || 3000;

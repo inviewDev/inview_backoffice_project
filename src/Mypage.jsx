@@ -16,6 +16,17 @@ const localizer = momentLocalizer(moment);
 const MAX_PROFILE_IMAGE_SIZE = 2 * 1024 * 1024;
 const PROFILE_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
+async function parseApiResponse(res) {
+  const text = await res.text();
+  if (!text) return {};
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { error: text };
+  }
+}
+
 function MyPage({ user, setUser }) {
   const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [isEditingPhoneNumber, setIsEditingPhoneNumber] = useState(false);
@@ -136,7 +147,7 @@ function MyPage({ user, setUser }) {
         },
         body: JSON.stringify(dataToSend),
       });
-      const data = await res.json();
+      const data = await parseApiResponse(res);
       if (!res.ok) throw new Error(data.error || '사용자 정보 수정에 실패했습니다.');
       setUser(prev => ({
         ...prev,
@@ -184,7 +195,7 @@ function MyPage({ user, setUser }) {
         },
         body: JSON.stringify({ profileImage }),
       });
-      const data = await res.json();
+      const data = await parseApiResponse(res);
 
       if (!res.ok) {
         throw new Error(data.error || '프로필 사진 저장에 실패했습니다.');

@@ -11,12 +11,12 @@ import Paystub from './Paystub.jsx';
 import ResetPassword from './ResetPassword.jsx';
 
 const nav_items = [
-  { label: 'Home', to: '/', icon: '/img/svg/nav_home.svg', exact: true },
-  { label: '광고 관리', to: '/contracts/ad-management', icon: '/img/svg/nav_ad_manage.svg' },
-  { label: '광고 등록', to: '/contracts/ad-detail', icon: '/img/svg/nav_ad_register.svg' },
-  { label: '개인 별 매출 통계', to: '/paystub', iconType: 'chart' },
-  { label: '공지사항', to: '/community?tab=notice', icon: '/img/svg/nav_notice.svg' },
-  { label: '자유게시판', to: '/community?tab=board', icon: '/img/svg/nav_board.svg' },
+  { label: 'Home', to: '/', icon: '/img/svg/icon_home.svg', exact: true },
+  { label: '광고 관리', to: '/contracts/ad-management', icon: '/img/svg/icon_manage.svg' },
+  { label: '광고 등록', to: '/contracts/ad-detail', icon: '/img/svg/icon_register.svg' },
+  { label: '개인 별 매출 통계', to: '/paystub', icon: '/img/svg/icon_chart.svg' },
+  { label: '공지사항', to: '/community?tab=notice', icon: '/img/svg/icon_notice.svg' },
+  { label: '자유게시판', to: '/community?tab=board', icon: '/img/svg/icon_board.svg' },
 ];
 
 function parseJwt(token) {
@@ -47,6 +47,10 @@ function AppPlaceholder({ title, description }) {
       <p>{description}</p>
     </section>
   );
+}
+
+function getActiveIconPath(iconPath) {
+  return iconPath.replace(/\.svg$/, '_active.svg');
 }
 
 function App() {
@@ -192,34 +196,42 @@ function App() {
     <div className="admin_shell">
       <aside className="admin_sidebar">
         <Link to="/" className="admin_sidebar_logo">
-          <img src="/img/logo/logo_w.svg" alt="I&VIEW COMMUNICATION" />
+          <img src="/img/logo/logo_wr.svg" alt="I&VIEW COMMUNICATION" />
         </Link>
         <nav className="admin_sidebar_nav" aria-label="주요 메뉴">
-          {nav_items.map(item => (
-            <Link
-              key={item.label}
-              to={item.to}
-              className={`admin_nav_item ${isActiveNav(item) ? 'active' : ''}`}
-            >
-              {item.icon ? (
-                <img src={item.icon} alt="" aria-hidden="true" />
-              ) : (
-                <span className="admin_nav_chart_icon" aria-hidden="true">
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                </span>
-              )}
-              <span>{item.label}</span>
-            </Link>
-          ))}
+          {nav_items.map(item => {
+            const isActive = isActiveNav(item);
+
+            return (
+              <Link
+                key={item.label}
+                to={item.to}
+                className={`admin_nav_item ${isActive ? 'active' : ''}`}
+              >
+                {item.icon ? (
+                  <img src={isActive ? getActiveIconPath(item.icon) : item.icon} alt="" aria-hidden="true" />
+                ) : (
+                  <span className="admin_nav_chart_icon" aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                )}
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
           {isAdmin && (
             <Link
               to="/users"
               className={`admin_nav_item ${location.pathname === '/users' ? 'active' : ''}`}
             >
-              <span className="admin_nav_people_icon" aria-hidden="true" />
+              <img
+                alt=""
+                aria-hidden="true"
+                src={location.pathname === '/users' ? '/img/svg/icon_person_active.svg' : '/img/svg/icon_person.svg'}
+              />
               <span>직원 관리</span>
             </Link>
           )}
@@ -242,7 +254,7 @@ function App() {
           </div>
           <span className="admin_topbar_divider" />
           <button type="button" className="admin_logout_button" onClick={handleLogout}>
-            <img src="/img/svg/nav_logout.svg" alt="" aria-hidden="true" />
+            <img src="/img/svg/icon_logout.svg" alt="" aria-hidden="true" />
             <span>로그아웃</span>
           </button>
         </header>
