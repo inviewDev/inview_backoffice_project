@@ -117,6 +117,7 @@ function AdDetail({ user }) {
     manager: user?.name || '',
   });
   const [extraInfo, setExtraInfo] = useState(initial_extra_info);
+  const [savedCompanyId, setSavedCompanyId] = useState(null);
   const [error, setError] = useState({ company: '', payment: '' });
   const [success, setSuccess] = useState({ company: '', payment: '' });
   const [isLoading, setIsLoading] = useState({ company: false, payment: false });
@@ -200,6 +201,7 @@ function AdDetail({ user }) {
       if (!res.ok) throw new Error(data.error || '회사 정보 등록에 실패했습니다.');
 
       setSuccess(prev => ({ ...prev, company: '회사 정보가 성공적으로 등록되었습니다.' }));
+      setSavedCompanyId(data.company?.id || null);
       setFormData(initial_company_data);
     } catch (err) {
       console.error('Save company error:', err);
@@ -252,6 +254,10 @@ function AdDetail({ user }) {
         body: JSON.stringify({
           ...paymentData,
           userId: user.id,
+          companyId: savedCompanyId,
+          paymentDetail,
+          productInfo,
+          extraInfo,
         }),
       });
       const data = await res.json();
@@ -266,6 +272,7 @@ function AdDetail({ user }) {
         manager: user?.name || '',
       });
       setExtraInfo(initial_extra_info);
+      setSavedCompanyId(null);
     } catch (err) {
       console.error('Save payment error:', err);
       setError(prev => ({ ...prev, payment: err.message }));
@@ -358,15 +365,6 @@ function AdDetail({ user }) {
                 disabled={isLoading.company}
               />
             </AdField>
-            <AdField label="업체 URL">
-              <input
-                type="url"
-                value={formData.companyUrl}
-                onChange={e => setFormData(prev => ({ ...prev, companyUrl: e.target.value }))}
-                placeholder="https://example.com"
-                disabled={isLoading.company}
-              />
-            </AdField>
             <AdField label="주소" className="span_two">
               <div className="ad_address_control">
                 <input
@@ -394,12 +392,12 @@ function AdDetail({ user }) {
                 </button>
               </div>
             </AdField>
-            <AdField label="업체 E-Mail">
+            <AdField label="업체 URL">
               <input
-                type="email"
-                value={formData.companyEmail}
-                onChange={e => setFormData(prev => ({ ...prev, companyEmail: e.target.value }))}
-                placeholder="contact@example.com"
+                type="url"
+                value={formData.companyUrl}
+                onChange={e => setFormData(prev => ({ ...prev, companyUrl: e.target.value }))}
+                placeholder="https://example.com"
                 disabled={isLoading.company}
               />
             </AdField>
@@ -412,6 +410,15 @@ function AdDetail({ user }) {
                 disabled={isLoading.company}
               />
             </AdField>
+            <AdField label="업체 E-Mail">
+              <input
+                type="email"
+                value={formData.companyEmail}
+                onChange={e => setFormData(prev => ({ ...prev, companyEmail: e.target.value }))}
+                placeholder="contact@example.com"
+                disabled={isLoading.company}
+              />
+            </AdField>
           </div>
 
           <div className="ad_section_actions">
@@ -421,7 +428,10 @@ function AdDetail({ user }) {
             <button
               type="button"
               className="ad_secondary_button"
-              onClick={() => setFormData(initial_company_data)}
+              onClick={() => {
+                setFormData(initial_company_data);
+                setSavedCompanyId(null);
+              }}
               disabled={isLoading.company}
             >
               초기화

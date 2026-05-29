@@ -58,13 +58,6 @@ function formatDate(value) {
   return String(value).slice(0, 10);
 }
 
-function toInputDate(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
-  return date.toISOString().split('T')[0];
-}
-
 function getMonthIndex(value) {
   if (!value) return -1;
   const date = new Date(value);
@@ -162,7 +155,7 @@ function TopBarChart({ title, values, color }) {
   );
 }
 
-function Dashboard({ user, setUser }) {
+function Dashboard({ user }) {
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [payrollData, setPayrollData] = useState(null);
@@ -213,8 +206,7 @@ function Dashboard({ user, setUser }) {
     }
   }, [user.id]);
 
-  const salesDetails = payrollData?.salesDetails || [];
-  const cancellationDetails = payrollData?.cancellationDetails || [];
+  const salesDetails = useMemo(() => payrollData?.salesDetails || [], [payrollData?.salesDetails]);
   const totalSales = payrollData?.totalSales || payrollData?.totalApprovedAmount || 0;
   const totalCancellations = payrollData?.totalCancellations || payrollData?.totalCancellationAmount || 0;
   const userTeam = user.team || '미지정';
@@ -436,7 +428,7 @@ function Dashboard({ user, setUser }) {
                 setDateFrom(today);
                 setDateTo(today);
               }}>오늘</button>
-              <button type="button" className="active" onClick={() => {
+              <button type="button" onClick={() => {
                 const now = new Date();
                 const weekAgo = new Date(now);
                 weekAgo.setDate(now.getDate() - 7);

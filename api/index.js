@@ -73,8 +73,141 @@ function hashResetToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
+function toOptionalString(value) {
+  if (value === undefined || value === null) return null;
+  const text = String(value).trim();
+  return text || null;
+}
+
+function toMoneyNumber(value) {
+  if (value === undefined || value === null || value === '') return 0;
+  const number = Number(String(value).replace(/[^\d.-]/g, ''));
+  return Number.isFinite(number) ? number : 0;
+}
+
 function getAppUrl(req) {
   return process.env.APP_URL || req.get('origin') || `${req.protocol}://${req.get('host')}`;
+}
+
+function normalizePhoneNumber(value) {
+  return String(value || '').replace(/[^\d]/g, '');
+}
+
+function formatPhoneNumber(value) {
+  const digits = normalizePhoneNumber(value);
+  if (digits.length === 11) return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  if (digits.length === 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  return value || '';
+}
+
+function makeAgreementToken() {
+  return crypto.randomBytes(18).toString('base64url');
+}
+
+function getAgreementUrl(req, token) {
+  return `${getAppUrl(req).replace(/\/$/, '')}/agreement/${token}`;
+}
+
+function getClientIp(req) {
+  const forwardedFor = req.headers['x-forwarded-for'];
+  if (typeof forwardedFor === 'string' && forwardedFor.length > 0) {
+    return forwardedFor.split(',')[0].trim();
+  }
+  return req.socket?.remoteAddress || req.ip || '';
+}
+
+function mapPaymentToAgreement(payment) {
+  return {
+    id: payment.id,
+    companyName: payment.company?.companyName || '',
+    ceoName: payment.company?.ceoName || '',
+    businessRegNumber: payment.company?.businessRegNumber || '',
+    tel: payment.company?.tel || '',
+    mobile: payment.company?.mobile || '',
+    address: [
+      payment.company?.postcode && `(${payment.company.postcode})`,
+      payment.company?.address,
+      payment.company?.detailAddress,
+    ].filter(Boolean).join(' '),
+    companyUrl: payment.company?.companyUrl || '',
+    companyEmail: payment.company?.companyEmail || '',
+    productName: payment.productName,
+    approvedAmount: payment.approvedAmount,
+    vat: payment.vat,
+    paymentMethod: payment.paymentMethod,
+    cardCompany: payment.cardCompany || '',
+    installmentMonths: payment.installmentMonths || '',
+    contractStartDate: toDateString(payment.startDate),
+    contractEndDate: toDateString(payment.endDate),
+    manager: payment.manager || payment.user?.name || '',
+    managerPhone: payment.user?.officePhoneNumber || payment.user?.phoneNumber || '',
+    managerEmail: payment.user?.email || '',
+    productItems: [
+      payment.productName,
+      payment.production1,
+      payment.production2,
+      payment.titleText,
+      payment.descriptionText,
+      payment.memo,
+    ].filter(Boolean),
+    smsContractStatus: payment.smsContractStatus,
+    agreementStatus: payment.agreementStatus,
+    agreementAt: payment.agreementAt ? payment.agreementAt.toISOString() : null,
+  };
+}
+
+async function createUniqueAgreementToken() {
+  for (let index = 0; index < 10; index += 1) {
+    const token = makeAgreementToken();
+    const exists = await prisma.smsConsentToken.findUnique({ where: { token }, select: { id: true } });
+    if (!exists) return token;
+  }
+  throw new Error('동의 토큰 생성에 실패했습니다.');
+}
+
+async function sendNiceSms({ phoneNumber, message, subject }) {
+  const userid = process.env.NICESMS_USERID || process.env.SMS_USERID;
+  const password = process.env.NICESMS_PASSWORD || process.env.SMS_PASSWORD;
+  const sender = process.env.NICESMS_SENDER || process.env.SMS_SENDER;
+
+  if (!userid || !password || !sender) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('문자 발송 설정이 누락되었습니다.');
+    }
+    console.warn(`NICESMS is not configured. Dev SMS to ${phoneNumber}: ${message}`);
+    return { resultCode: 'DEV', resultText: '개발 환경 문자 발송 생략' };
+  }
+
+  const params = new URLSearchParams({
+    userid,
+    password,
+    subject,
+    msg: message,
+    receivers: normalizePhoneNumber(phoneNumber),
+    sender: normalizePhoneNumber(sender),
+    resflag: 'N',
+  });
+
+  const response = await fetch('https://sms.nicesms.co.kr/cpmms_utf8/cplms.html', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString(),
+  });
+  const text = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`문자왕국 API 오류: HTTP ${response.status}`);
+  }
+
+  const result = Object.fromEntries(new URLSearchParams(text));
+  const resultCode = result.result || result.RESULT || 'UNKNOWN';
+  const resultText = result.MSG || result.message || text;
+
+  if (String(resultCode).toUpperCase() !== 'OK') {
+    throw new Error(`문자 발송 실패: ${resultText || resultCode}`);
+  }
+
+  return { resultCode: 'OK', resultText };
 }
 
 async function sendPasswordResetEmail({ to, name, resetUrl }) {
@@ -736,12 +869,16 @@ apiRouter.post('/company', verifyToken, async (req, res) => {
 apiRouter.post('/payment', verifyToken, async (req, res) => {
   const {
     userId,
+    companyId,
     productName,
     startDate,
     endDate,
     approvedCompany,
     taxInvoice,
     paymentMethod,
+    paymentDetail = {},
+    productInfo = {},
+    extraInfo = {},
   } = req.body;
   const targetUserId = parseInt(userId || req.user.id, 10);
   const parsedStartDate = new Date(startDate);
@@ -761,22 +898,61 @@ apiRouter.post('/payment', verifyToken, async (req, res) => {
   }
 
   try {
-    const latestCompany = await prisma.company.findFirst({
-      where: { userId: targetUserId },
-      orderBy: { createdAt: 'desc' },
-      select: { id: true },
-    });
+    let targetCompanyId = companyId ? parseInt(companyId, 10) : null;
+
+    if (targetCompanyId) {
+      const company = await prisma.company.findFirst({
+        where: { id: targetCompanyId, userId: targetUserId },
+        select: { id: true },
+      });
+
+      if (!company) {
+        return res.status(400).json({ error: '선택한 회사 정보를 찾을 수 없습니다.' });
+      }
+    } else {
+      const latestCompany = await prisma.company.findFirst({
+        where: { userId: targetUserId },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true },
+      });
+      targetCompanyId = latestCompany?.id || null;
+    }
+
+    const approvedAmount = toMoneyNumber(paymentDetail.approvedAmount);
+    const spendingCost = toMoneyNumber(paymentDetail.spendingCost);
+    const vat = Math.round(approvedAmount / 11);
+    const netProfit = Math.max(approvedAmount - vat - spendingCost, 0);
 
     const payment = await prisma.payment.create({
       data: {
         userId: targetUserId,
-        companyId: latestCompany?.id || null,
+        companyId: targetCompanyId,
         productName,
         startDate: parsedStartDate,
         endDate: parsedEndDate,
         approvedCompany,
         taxInvoice,
         paymentMethod,
+        approvedAmount,
+        vat,
+        spendingCost,
+        netProfit,
+        approvalNumber: toOptionalString(paymentDetail.approvalNumber),
+        paymentStatus: toOptionalString(paymentDetail.paymentStatus) || '결제대기',
+        cardCompany: toOptionalString(paymentDetail.cardCompany),
+        installmentMonths: toOptionalString(paymentDetail.installmentMonths),
+        manager: toOptionalString(productInfo.manager),
+        teamLead: toOptionalString(productInfo.teamLead),
+        departmentHead: toOptionalString(productInfo.departmentHead),
+        production1: toOptionalString(productInfo.production1),
+        production2: toOptionalString(productInfo.production2),
+        adProgress: toOptionalString(productInfo.adProgress) || 'OFF',
+        advertiserAccount: toOptionalString(extraInfo.advertiserAccount),
+        registrationUrl: toOptionalString(extraInfo.registrationUrl),
+        titleText: toOptionalString(extraInfo.titleText),
+        descriptionText: toOptionalString(extraInfo.descriptionText),
+        memo: toOptionalString(extraInfo.memo),
+        fileName: toOptionalString(extraInfo.fileName),
       },
     });
 
@@ -784,6 +960,406 @@ apiRouter.post('/payment', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Create payment error:', error);
     res.status(500).json({ error: '결제 정보 등록 중 오류가 발생했습니다.' });
+  }
+});
+
+apiRouter.get('/ads', verifyToken, async (req, res) => {
+  const targetUserId = req.query.userId ? parseInt(req.query.userId, 10) : null;
+
+  if (targetUserId && !canAccessUser(req, targetUserId)) {
+    return res.status(403).json({ error: '해당 광고 목록을 조회할 권한이 없습니다.' });
+  }
+
+  try {
+    const payments = await prisma.payment.findMany({
+      where: isAdminRole(req.user.role) && !targetUserId ? {} : { userId: targetUserId || req.user.id },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            team: true,
+            department: true,
+          },
+        },
+        company: true,
+        smsConsentTokens: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        smsSendHistories: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            sender: {
+              select: { name: true },
+            },
+          },
+        },
+      },
+    });
+
+    const ads = payments.map(payment => ({
+      id: payment.id,
+      manager: payment.manager || payment.user?.name || '',
+      team: payment.user?.team || '',
+      department: payment.user?.department || '',
+      companyName: payment.company?.companyName || '',
+      ceoName: payment.company?.ceoName || '',
+      businessRegNumber: payment.company?.businessRegNumber || '',
+      tel: payment.company?.tel || '',
+      mobile: payment.company?.mobile || '',
+      smsContractStatus: payment.smsContractStatus,
+      agreementStatus: payment.agreementStatus,
+      agreementAt: toDateString(payment.agreementAt),
+      contractStartDate: toDateString(payment.startDate),
+      contractEndDate: toDateString(payment.endDate),
+      productName: payment.productName,
+      approvedAmount: payment.approvedAmount,
+      vat: payment.vat,
+      spendingCost: payment.spendingCost,
+      netProfit: payment.netProfit,
+      paymentMethod: payment.paymentMethod,
+      cardCompany: payment.cardCompany || '',
+      paymentStatus: payment.paymentStatus,
+      production1: payment.production1 || '',
+      production2: payment.production2 || '',
+      adProgress: payment.adProgress,
+      advertiserAccount: payment.advertiserAccount || '',
+      approvalNumber: payment.approvalNumber || '',
+      createdAt: toDateString(payment.createdAt),
+      registrationUrl: payment.registrationUrl || '',
+      titleText: payment.titleText || '',
+      descriptionText: payment.descriptionText || '',
+      memo: payment.memo || '',
+      fileName: payment.fileName || '',
+    }));
+
+    res.json({ ads });
+  } catch (error) {
+    console.error('Get ads error:', error);
+    res.status(500).json({ error: '광고 목록 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
+  const adId = parseInt(req.params.id, 10);
+
+  if (!Number.isInteger(adId)) {
+    return res.status(400).json({ error: '광고 ID가 올바르지 않습니다.' });
+  }
+
+  try {
+    const payment = await prisma.payment.findUnique({
+      where: { id: adId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            team: true,
+            department: true,
+            profileImage: true,
+          },
+        },
+        company: true,
+        smsConsentTokens: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        smsSendHistories: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            sender: {
+              select: { name: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!payment) {
+      return res.status(404).json({ error: '광고 정보를 찾을 수 없습니다.' });
+    }
+
+    if (!canAccessUser(req, payment.userId)) {
+      return res.status(403).json({ error: '해당 광고 정보를 조회할 권한이 없습니다.' });
+    }
+
+    res.json({
+      ad: {
+        id: payment.id,
+        userId: payment.userId,
+        manager: payment.manager || payment.user?.name || '',
+        team: payment.user?.team || '',
+        department: payment.user?.department || '',
+        companyName: payment.company?.companyName || '',
+        ceoName: payment.company?.ceoName || '',
+        businessRegNumber: payment.company?.businessRegNumber || '',
+        birthDate: payment.company?.birthDate || '',
+        tel: payment.company?.tel || '',
+        mobile: payment.company?.mobile || '',
+        postcode: payment.company?.postcode || '',
+        address: payment.company?.address || '',
+        detailAddress: payment.company?.detailAddress || '',
+        companyUrl: payment.company?.companyUrl || '',
+        companyEmail: payment.company?.companyEmail || '',
+        smsContractStatus: payment.smsContractStatus,
+        agreementStatus: payment.agreementStatus,
+        agreementAt: toDateString(payment.agreementAt),
+        contractStartDate: toDateString(payment.startDate),
+        contractEndDate: toDateString(payment.endDate),
+        productName: payment.productName,
+        approvedCompany: payment.approvedCompany,
+        taxInvoice: payment.taxInvoice,
+        approvedAmount: payment.approvedAmount,
+        vat: payment.vat,
+        spendingCost: payment.spendingCost,
+        netProfit: payment.netProfit,
+        paymentMethod: payment.paymentMethod,
+        cardCompany: payment.cardCompany || '',
+        installmentMonths: payment.installmentMonths || '',
+        paymentStatus: payment.paymentStatus,
+        production1: payment.production1 || '',
+        production2: payment.production2 || '',
+        adProgress: payment.adProgress,
+        advertiserAccount: payment.advertiserAccount || '',
+        approvalNumber: payment.approvalNumber || '',
+        createdAt: toDateString(payment.createdAt),
+        registrationUrl: payment.registrationUrl || '',
+        titleText: payment.titleText || '',
+        descriptionText: payment.descriptionText || '',
+        memo: payment.memo || '',
+        fileName: payment.fileName || '',
+        latestSmsToken: payment.smsConsentTokens[0]?.token || '',
+        smsHistories: payment.smsSendHistories.map(history => ({
+          id: history.id,
+          createdAt: history.createdAt.toISOString(),
+          resultCode: history.resultCode,
+          resultText: history.resultText || '',
+          phoneNumber: history.phoneNumber,
+          senderName: history.sender?.name || '-',
+        })),
+        comments: [],
+      },
+    });
+  } catch (error) {
+    console.error('Get ad detail error:', error);
+    res.status(500).json({ error: '광고 상세 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+apiRouter.post('/ads/:id/sms-consent/send', verifyToken, async (req, res) => {
+  const adId = parseInt(req.params.id, 10);
+  const { phoneNumber, resend = false } = req.body;
+  const normalizedPhone = normalizePhoneNumber(phoneNumber);
+
+  if (!Number.isInteger(adId)) {
+    return res.status(400).json({ error: '광고 ID가 올바르지 않습니다.' });
+  }
+  if (!/^01\d{8,9}$/.test(normalizedPhone)) {
+    return res.status(400).json({ error: '계약서를 받을 휴대폰 번호를 확인해주세요.' });
+  }
+
+  try {
+    const payment = await prisma.payment.findUnique({
+      where: { id: adId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            phoneNumber: true,
+            officePhoneNumber: true,
+          },
+        },
+        company: true,
+        smsConsentTokens: {
+          where: {
+            usedAt: null,
+            expiredAt: null,
+            expiresAt: { gt: new Date() },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    if (!payment) {
+      return res.status(404).json({ error: '광고 정보를 찾을 수 없습니다.' });
+    }
+    if (!canAccessUser(req, payment.userId)) {
+      return res.status(403).json({ error: '해당 광고에 계약서를 발송할 권한이 없습니다.' });
+    }
+    if (payment.agreementStatus === '동의' || payment.agreementAt) {
+      return res.status(400).json({ error: '이미 동의가 완료된 계약서입니다.' });
+    }
+
+    let consentToken = payment.smsConsentTokens[0] || null;
+    if (!consentToken || !resend) {
+      const token = await createUniqueAgreementToken();
+      consentToken = await prisma.smsConsentToken.create({
+        data: {
+          paymentId: payment.id,
+          token,
+          phoneNumber: formatPhoneNumber(normalizedPhone),
+          expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+        },
+      });
+    }
+
+    const agreementUrl = getAgreementUrl(req, consentToken.token);
+    const subject = '[(주)아이앤뷰커뮤니케이션]';
+    const message = `안녕하세요. (주)아이앤뷰커뮤니케이션입니다.\n이용동의서를 확인해주세요.\n${agreementUrl}`;
+
+    let sendResult;
+    try {
+      sendResult = await sendNiceSms({
+        phoneNumber: normalizedPhone,
+        subject,
+        message,
+      });
+    } catch (smsError) {
+      await prisma.smsSendHistory.create({
+        data: {
+          paymentId: payment.id,
+          senderId: req.user.id,
+          phoneNumber: formatPhoneNumber(normalizedPhone),
+          resultCode: 'FAIL',
+          resultText: smsError.message,
+          token: consentToken.token,
+        },
+      });
+      throw smsError;
+    }
+
+    await prisma.$transaction([
+      prisma.payment.update({
+        where: { id: payment.id },
+        data: { smsContractStatus: '발송' },
+      }),
+      prisma.smsSendHistory.create({
+        data: {
+          paymentId: payment.id,
+          senderId: req.user.id,
+          phoneNumber: formatPhoneNumber(normalizedPhone),
+          resultCode: sendResult.resultCode,
+          resultText: sendResult.resultText,
+          token: consentToken.token,
+        },
+      }),
+    ]);
+
+    res.json({
+      message: resend ? 'SMS 계약서 재발송이 완료되었습니다.' : 'SMS 계약서 발송이 완료되었습니다.',
+      agreementUrl,
+      token: consentToken.token,
+    });
+  } catch (error) {
+    console.error('Send SMS consent error:', error);
+    res.status(500).json({ error: error.message || 'SMS 계약서 발송 중 오류가 발생했습니다.' });
+  }
+});
+
+apiRouter.get('/agreements/:token', async (req, res) => {
+  const { token } = req.params;
+
+  try {
+    const consentToken = await prisma.smsConsentToken.findUnique({
+      where: { token },
+      include: {
+        payment: {
+          include: {
+            user: {
+              select: {
+                email: true,
+                name: true,
+                phoneNumber: true,
+                officePhoneNumber: true,
+              },
+            },
+            company: true,
+          },
+        },
+      },
+    });
+
+    if (!consentToken) {
+      return res.status(404).json({ error: '유효하지 않은 계약서 링크입니다.' });
+    }
+    if (consentToken.expiredAt || consentToken.expiresAt < new Date()) {
+      return res.status(410).json({ error: '만료된 계약서 링크입니다.' });
+    }
+
+    res.json({
+      token: consentToken.token,
+      isAgreed: Boolean(consentToken.usedAt || consentToken.payment.agreementAt),
+      agreedAt: consentToken.usedAt ? consentToken.usedAt.toISOString() : null,
+      expiresAt: consentToken.expiresAt.toISOString(),
+      contract: mapPaymentToAgreement(consentToken.payment),
+    });
+  } catch (error) {
+    console.error('Get agreement error:', error);
+    res.status(500).json({ error: '계약서 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+apiRouter.post('/agreements/:token/agree', async (req, res) => {
+  const { token } = req.params;
+
+  try {
+    const consentToken = await prisma.smsConsentToken.findUnique({
+      where: { token },
+      include: { payment: true },
+    });
+
+    if (!consentToken) {
+      return res.status(404).json({ error: '유효하지 않은 계약서 링크입니다.' });
+    }
+    if (consentToken.expiredAt || consentToken.expiresAt < new Date()) {
+      return res.status(410).json({ error: '만료된 계약서 링크입니다.' });
+    }
+
+    const agreedAt = new Date();
+    const agreedIp = getClientIp(req);
+
+    await prisma.$transaction([
+      prisma.payment.update({
+        where: { id: consentToken.paymentId },
+        data: {
+          agreementStatus: '동의',
+          agreementAt: agreedAt,
+        },
+      }),
+      prisma.smsConsentToken.update({
+        where: { token },
+        data: {
+          usedAt: agreedAt,
+          expiredAt: agreedAt,
+          agreedIp,
+        },
+      }),
+      prisma.smsConsentToken.updateMany({
+        where: {
+          paymentId: consentToken.paymentId,
+          token: { not: token },
+          usedAt: null,
+          expiredAt: null,
+        },
+        data: { expiredAt: agreedAt },
+      }),
+    ]);
+
+    res.json({
+      message: '계약서 동의가 완료되었습니다.',
+      agreedAt: agreedAt.toISOString(),
+      agreedIp,
+    });
+  } catch (error) {
+    console.error('Agree contract error:', error);
+    res.status(500).json({ error: '계약서 동의 처리 중 오류가 발생했습니다.' });
   }
 });
 
@@ -1070,6 +1646,76 @@ apiRouter.post('/users/:id/level', verifyToken, verifyMasterRole, async (req, re
   } catch (error) {
     console.error('Change level error:', error);
     res.status(500).json({ error: '직급 변경 중 오류가 발생했습니다.' });
+  }
+});
+
+apiRouter.delete('/users/:id', verifyToken, verifyMasterRole, async (req, res) => {
+  const targetUserId = parseInt(req.params.id, 10);
+
+  if (!Number.isInteger(targetUserId)) {
+    return res.status(400).json({ error: '사용자 ID가 올바르지 않습니다.' });
+  }
+
+  if (targetUserId === req.user.id) {
+    return res.status(400).json({ error: '현재 로그인한 계정은 삭제할 수 없습니다.' });
+  }
+
+  try {
+    const deletedUser = await prisma.$transaction(async tx => {
+      const targetUser = await tx.user.findUnique({
+        where: { id: targetUserId },
+        select: { id: true, email: true, name: true },
+      });
+
+      if (!targetUser) {
+        const notFoundError = new Error('사용자를 찾을 수 없습니다.');
+        notFoundError.statusCode = 404;
+        throw notFoundError;
+      }
+
+      const payrolls = await tx.payroll.findMany({
+        where: { userId: targetUserId },
+        select: { id: true },
+      });
+      const payrollIds = payrolls.map(payroll => payroll.id);
+
+      if (payrollIds.length > 0) {
+        await tx.salesDetail.deleteMany({ where: { payrollId: { in: payrollIds } } });
+        await tx.cancellationDetail.deleteMany({ where: { payrollId: { in: payrollIds } } });
+      }
+
+      const companies = await tx.company.findMany({
+        where: { userId: targetUserId },
+        select: { id: true },
+      });
+      const companyIds = companies.map(company => company.id);
+
+      await tx.payment.deleteMany({
+        where: {
+          OR: [
+            { userId: targetUserId },
+            ...(companyIds.length > 0 ? [{ companyId: { in: companyIds } }] : []),
+          ],
+        },
+      });
+      await tx.company.deleteMany({ where: { userId: targetUserId } });
+      await tx.payroll.deleteMany({ where: { userId: targetUserId } });
+      await tx.passwordResetToken.deleteMany({ where: { userId: targetUserId } });
+      await tx.personalMemo.deleteMany({ where: { userId: targetUserId } });
+      await tx.calendarEvent.deleteMany({ where: { userId: targetUserId } });
+
+      return tx.user.delete({
+        where: { id: targetUserId },
+        select: { id: true, email: true, name: true },
+      });
+    });
+
+    res.json({ message: '사용자 삭제가 완료되었습니다.', user: deletedUser });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(error.statusCode || 500).json({
+      error: error.statusCode ? error.message : '사용자 삭제 중 오류가 발생했습니다.',
+    });
   }
 });
 

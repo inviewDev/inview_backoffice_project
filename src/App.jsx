@@ -7,8 +7,16 @@ import Login from './Login.jsx';
 import Dashboard from './Dashboard.jsx';
 import MyPage from './Mypage.jsx';
 import AdDetail from './Ad_Detail.jsx';
+import AdManagement from './AdManagement.jsx';
+import AdManagementDetail from './AdManagementDetail.jsx';
 import Paystub from './Paystub.jsx';
 import ResetPassword from './ResetPassword.jsx';
+import {
+  AgreementContractPage,
+  AgreementPreviewContractPage,
+  AgreementPreviewTermsPage,
+  AgreementTermsPage,
+} from './AgreementFlow.jsx';
 
 const nav_items = [
   { label: 'Home', to: '/', icon: '/img/svg/icon_home.svg', exact: true },
@@ -154,11 +162,21 @@ function App() {
     );
   }
 
+  if (location.pathname.startsWith('/agreement/')) {
+    return (
+      <Routes>
+        <Route path="/agreement/:token" element={<AgreementTermsPage />} />
+        <Route path="/agreement/:token/contract" element={<AgreementContractPage />} />
+        <Route path="*" element={<Navigate replace to="/" />} />
+      </Routes>
+    );
+  }
+
   if (!user) {
     return (
       <div className="basic_wrap">
         <div className="img_box">
-          <img src="img/logo/logo_w.svg" alt="I&VIEW COMMUNICATION 로고" />
+          <img src="/img/logo/logo_w.svg" alt="I&VIEW COMMUNICATION 로고" />
         </div>
         {location.pathname === '/reset-password' ? (
           <div className="sign_in_wrap">
@@ -189,6 +207,16 @@ function App() {
           </div>
         )}
       </div>
+    );
+  }
+
+  if (location.pathname.includes('/agreement-preview')) {
+    return (
+      <Routes>
+        <Route path="/contracts/ad-management/:id/agreement-preview" element={<AgreementPreviewTermsPage />} />
+        <Route path="/contracts/ad-management/:id/agreement-preview/contract" element={<AgreementPreviewContractPage />} />
+        <Route path="*" element={<Navigate replace to="/" />} />
+      </Routes>
     );
   }
 
@@ -267,15 +295,8 @@ function App() {
               path="/users"
               element={isAdmin ? <UserList user={user} /> : <Navigate replace to="/" />}
             />
-            <Route
-              path="/contracts/ad-management"
-              element={
-                <AppPlaceholder
-                  title="광고 관리"
-                  description="작업전"
-                />
-              }
-            />
+            <Route path="/contracts/ad-management" element={<AdManagement user={user} />} />
+            <Route path="/contracts/ad-management/:id" element={<AdManagementDetail user={user} />} />
             <Route path="/contracts/ad-detail" element={<AdDetail user={user} />} />
             <Route
               path="/contracts/revenue"

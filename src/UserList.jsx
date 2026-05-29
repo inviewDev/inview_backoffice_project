@@ -10,6 +10,7 @@ import {
   createColumnHelper,
 } from '@tanstack/react-table';
 import { Container, Row, Col, Table, Tabs, Tab, Form, Button, Alert, Modal } from 'react-bootstrap';
+import './styles/user_list.css';
 
 const teamOptions = ['전체', '1팀', '2팀', '3팀', '4팀', '5팀', '6팀', '개발관리부'];
 const departmentOptions = ['전체', '1부서', '2부서', '운영부서', '기타부서'];
@@ -17,7 +18,7 @@ const statusOptions = ['전체', '재직', '퇴사', '가입대기'];
 const levelOptions = ['대표', '파트장', '팀장', '과장', '대리', '주임', '사원'];
 const columnHelper = createColumnHelper();
 
-function UserList() {
+function UserList({ user: currentUser }) {
   const [data, setData] = useState([]);
   const [pendingData, setPendingData] = useState([]);
   const [error, setError] = useState(null);
@@ -31,6 +32,8 @@ function UserList() {
   const [tab, setTab] = useState('users');
   const [bulkAction, setBulkAction] = useState(''); // 벌크 액션 선택
   const [bulkSaving, setBulkSaving] = useState(false); // 벌크 액션 로딩
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteSaving, setDeleteSaving] = useState(false);
 
   // Modal 상태 관리
   const [showModal, setShowModal] = useState(false);
@@ -206,6 +209,37 @@ function UserList() {
     }
   };
 
+  const handleDeleteUser = async () => {
+    if (!deleteTarget) return;
+
+    const token = localStorage.getItem('access_token');
+    setDeleteSaving(true);
+
+    try {
+      const res = await fetch(`/api/users/${deleteTarget.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = await res.json().catch(async () => ({ error: await res.text() }));
+
+      if (!res.ok) {
+        throw new Error(payload.error || '사용자 삭제에 실패했습니다.');
+      }
+
+      setData(prev => prev.filter(user => user.id !== deleteTarget.id));
+      setPendingData(prev => prev.filter(user => user.id !== deleteTarget.id));
+      setRowSelection({});
+      setDeleteTarget(null);
+      showCustomModal('사용자 삭제가 완료되었습니다.');
+      await Promise.all([fetchUsers(), fetchPendingUsers()]);
+    } catch (err) {
+      console.error('Delete user error:', err);
+      showCustomModal('사용자 삭제 실패: ' + err.message, 'danger');
+    } finally {
+      setDeleteSaving(false);
+    }
+  };
+
   // userColumns 정의
   const userColumns = [
     {
@@ -324,6 +358,24 @@ function UserList() {
         );
       },
     }),
+    {
+      id: 'delete',
+      header: '삭제',
+      cell: ({ row }) => (
+        <Button
+          variant="outline-danger"
+          size="sm"
+          className="userlist_delete_button"
+          onClick={() => setDeleteTarget(row.original)}
+          disabled={row.original.id === currentUser?.id}
+        >
+          삭제
+        </Button>
+      ),
+      size: 90,
+      enableSorting: false,
+      enableFiltering: false,
+    },
   ];
 
   // pendingColumns 정의 (체크박스 없음, 단일 액션만)
@@ -338,7 +390,7 @@ function UserList() {
       id: 'actions',
       header: '액션',
       cell: ({ row }) => (
-        <div>
+        <div className="userlist_action_buttons">
           <Button
             variant="success"
             size="sm"
@@ -354,9 +406,17 @@ function UserList() {
           >
             거절
           </Button>
+          <Button
+            variant="outline-danger"
+            size="sm"
+            onClick={() => setDeleteTarget(row.original)}
+            disabled={row.original.id === currentUser?.id}
+          >
+            삭제
+          </Button>
         </div>
       ),
-      size: 150,
+      size: 220,
       enableSorting: false,
       enableFiltering: false,
     },
@@ -391,22 +451,41 @@ function UserList() {
     enableRowSelection: tab === 'users', // pending 탭에서는 선택 비활성화
     enableColumnOrdering: true,
     enableExpanding: true,
-    debugTable: true,
+    debugTable: false,
   });
 
   const selectedCount = Object.keys(rowSelection).filter(key => rowSelection[key]).length;
 
-  if (isLoading) return <Container><p>로딩 중...</p></Container>;
-  if (error) return <Container><p className="text-danger">에러: {error}</p></Container>;
+  if (isLoading) {
+    return (
+      <section className="userlist_block">
+        <div className="userlist_state">로딩 중...</div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="userlist_block">
+        <Alert variant="danger" className="userlist_error">에러: {error}</Alert>
+      </section>
+    );
+  }
 
   return (
     <>
-      <section className='userlist_block'>
-        <Container>
+      <section className="userlist_block">
+        <Container className="userlist_container">
+          <div className="userlist_header">
+            <div className="userlist_summary">
+              <span>{data.length}명</span>
+              <strong>{pendingData.length}건 대기</strong>
+            </div>
+          </div>
           <Tabs
             activeKey={tab}
             onSelect={(k) => setTab(k)}
-            className="mb-3"
+            className="userlist_tabs"
           >
             <Tab eventKey="users" title="직원목록" />
             <Tab eventKey="pending" title="대기목록" />
@@ -414,7 +493,7 @@ function UserList() {
           
           {/* 벌크 액션 UI - users 탭에서만 */}
           {tab === 'users' && selectedCount > 0 && (
-            <Alert variant="info" className="mb-3">
+            <Alert variant="info" className="userlist_bulk_alert">
               <strong>{selectedCount}명 선택됨</strong>
               <Form.Select
                 value={bulkAction}
@@ -446,7 +525,7 @@ function UserList() {
             </Alert>
           )}
 
-          <Form className="mb-4">
+          <Form className="userlist_filter">
             <Row className="g-2">
               <Col md={6} lg={3}>
                 <Form.Control
@@ -513,7 +592,9 @@ function UserList() {
               )}
             </Row>
           </Form>
-          <Table striped bordered hover responsive>
+          <div className="userlist_table_card">
+            <div className="userlist_table_wrap">
+          <Table responsive className="userlist_table">
             <thead>
               {table.getHeaderGroups().map(headerGroup => (
                 <tr key={headerGroup.id}>
@@ -525,9 +606,9 @@ function UserList() {
                     >
                       {flexRender(header.column.columnDef.header, header.getContext())}
                       {header.column.getCanSort() && (
-                        <span>
-                          {header.column.getIsSorted() === 'asc' && ' ▲'}
-                          {header.column.getIsSorted() === 'desc' && ' ▼'}
+                        <span className="userlist_sort_mark">
+                          {header.column.getIsSorted() === 'asc' && '▲'}
+                          {header.column.getIsSorted() === 'desc' && '▼'}
                         </span>
                       )}
                     </th>
@@ -536,14 +617,20 @@ function UserList() {
               ))}
             </thead>
             <tbody>
-              {table.getRowModel().rows.map(row => (
+              {table.getRowModel().rows.length === 0 ? (
+                <tr>
+                  <td colSpan={table.getVisibleLeafColumns().length} className="userlist_empty">
+                    표시할 직원 정보가 없습니다.
+                  </td>
+                </tr>
+              ) : table.getRowModel().rows.map(row => (
                 <React.Fragment key={row.id}>
                   <tr>
                     {row.getVisibleCells().map(cell => (
                       <td key={cell.id} style={{ width: cell.column.getSize(), textAlign: 'center' }}>
                         {row.getCanExpand() && cell.column.id === 'name' ? (
                           <span
-                            style={{ cursor: 'pointer', marginRight: 4 }}
+                            className="userlist_expand_button"
                             onClick={() => row.toggleExpanded()}
                           >
                             {row.getIsExpanded() ? '▼' : '▶'}{' '}
@@ -557,7 +644,7 @@ function UserList() {
                   </tr>
                   {row.getIsExpanded() && (
                     <tr>
-                      <td colSpan={row.getVisibleCells().length} className="bg-light p-3">
+                      <td colSpan={row.getVisibleCells().length} className="userlist_detail_row">
                         <div>
                           <strong>상세정보</strong>
                           <pre>{JSON.stringify(row.original, null, 2)}</pre>
@@ -569,7 +656,9 @@ function UserList() {
               ))}
             </tbody>
           </Table>
-          <div className="d-flex justify-content-between align-items-center mt-3">
+            </div>
+          </div>
+          <div className="userlist_pager">
             <Button
               variant="outline-primary"
               onClick={() => table.previousPage()}
@@ -590,6 +679,37 @@ function UserList() {
           </div>
         </Container>
       </section>
+
+      <Modal
+        show={Boolean(deleteTarget)}
+        onHide={() => !deleteSaving && setDeleteTarget(null)}
+        centered
+        className="custom-width-modal userlist_delete_modal"
+        size="sm"
+      >
+        <Modal.Header closeButton={!deleteSaving}>
+          <Modal.Title className="text-danger">사용자 삭제</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className="userlist_delete_modal_title">
+            {deleteTarget?.name || '-'} 계정을 삭제할까요?
+          </p>
+          <p className="userlist_delete_modal_desc">
+            {deleteTarget?.email || '-'}
+          </p>
+          <p className="userlist_delete_modal_warn">
+            연결된 개인 메모, 일정, 광고, 급여 데이터도 함께 삭제됩니다.
+          </p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={deleteSaving}>
+            취소
+          </Button>
+          <Button variant="danger" onClick={handleDeleteUser} disabled={deleteSaving}>
+            {deleteSaving ? '삭제 중...' : '삭제'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
       {/* Custom Width Modal */}
       <Modal

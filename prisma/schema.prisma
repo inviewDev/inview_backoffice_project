@@ -30,6 +30,7 @@ model User {
   payrolls            Payroll[]            @relation("UserPayrolls") // 추가: 급여 명세서와 관계
   companies           Company[]            @relation("UserCompanies")
   payments            Payment[]            @relation("UserPayments")
+  smsSendHistories    SmsSendHistory[]     @relation("UserSmsSendHistories")
   passwordResetTokens PasswordResetToken[] @relation("UserPasswordResetTokens")
 
   @@map("User")
@@ -82,21 +83,79 @@ model Company {
 }
 
 model Payment {
-  id              Int      @id @default(autoincrement())
-  userId          Int
-  companyId       Int?
-  productName     String
-  startDate       DateTime
-  endDate         DateTime
-  approvedCompany String
-  taxInvoice      String
-  paymentMethod   String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  user            User     @relation("UserPayments", fields: [userId], references: [id])
-  company         Company? @relation(fields: [companyId], references: [id])
+  id                  Int      @id @default(autoincrement())
+  userId              Int
+  companyId           Int?
+  productName         String
+  startDate           DateTime
+  endDate             DateTime
+  approvedCompany     String
+  taxInvoice          String
+  paymentMethod       String
+  approvedAmount      Float    @default(0)
+  vat                 Float    @default(0)
+  spendingCost        Float    @default(0)
+  netProfit           Float    @default(0)
+  approvalNumber      String?
+  paymentStatus       String   @default("결제대기")
+  cardCompany         String?
+  installmentMonths   String?
+  manager             String?
+  teamLead            String?
+  departmentHead      String?
+  production1         String?
+  production2         String?
+  adProgress          String   @default("OFF")
+  advertiserAccount   String?
+  registrationUrl     String?
+  titleText           String?
+  descriptionText     String?
+  memo                String?
+  fileName            String?
+  smsContractStatus   String   @default("미발송")
+  agreementStatus     String   @default("미동의")
+  agreementAt         DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  user                User     @relation("UserPayments", fields: [userId], references: [id])
+  company             Company? @relation(fields: [companyId], references: [id])
+  smsConsentTokens    SmsConsentToken[]
+  smsSendHistories    SmsSendHistory[]
 
   @@map("Payment")
+}
+
+model SmsConsentToken {
+  id          Int       @id @default(autoincrement())
+  paymentId   Int
+  token       String    @unique
+  phoneNumber String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  expiredAt   DateTime?
+  agreedIp    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  payment     Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId, createdAt])
+  @@map("SmsConsentToken")
+}
+
+model SmsSendHistory {
+  id          Int      @id @default(autoincrement())
+  paymentId   Int
+  senderId    Int?
+  phoneNumber String
+  resultCode  String
+  resultText  String?
+  token       String?
+  createdAt   DateTime @default(now())
+  payment     Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  sender      User?    @relation("UserSmsSendHistories", fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@index([paymentId, createdAt])
+  @@map("SmsSendHistory")
 }
 
 model PasswordResetToken {

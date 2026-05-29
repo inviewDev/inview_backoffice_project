@@ -1,0 +1,75 @@
+.userlist_block { min-height: calc(100vh - 138px); padding: 40px 40px 80px; background: #f4f6fb; }
+.userlist_container.container { max-width:100%; padding: 0; }
+.userlist_header { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 20px; }
+.userlist_header h1 { margin: 0; color: #202636; font-size: 24px; font-weight: 800; letter-spacing: 0; line-height: 1.25; }
+.userlist_header p { margin: 7px 0 0; color: #73809d; font-size: 14px; font-weight: 600; letter-spacing: 0; }
+.userlist_summary { display: flex; align-items: center; gap: 8px; }
+.userlist_summary span,
+.userlist_summary strong { display: inline-flex; height: 34px; align-items: center; justify-content: center; border-radius: 999px; font-size: 13px; font-weight: 800; letter-spacing: 0; padding: 0 14px; }
+.userlist_summary span { background: #1962fc; color: #fff; }
+.userlist_summary strong { background: #fff; color: #333; box-shadow: inset 0 0 0 1px #d8deea; }
+.userlist_tabs.nav-tabs { gap: 6px; margin-bottom: 16px; border: 0; }
+.userlist_tabs .nav-link { min-width: 120px; height: 40px; border: 1px solid #d8deea; border-radius: 6px; background: #fff; color: #5d6880; font-size: 14px; font-weight: 800; letter-spacing: 0; }
+.userlist_tabs .nav-link.active { border-color: #1962fc; background: #1962fc; color: #fff; box-shadow: 0 8px 16px rgba(25, 98, 252, 0.14); }
+.userlist_bulk_alert { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; border: 1px solid #cfe0ff; border-radius: 10px; background: #edf4ff; color: #254269; font-size: 14px; font-weight: 700; letter-spacing: 0; }
+.userlist_bulk_alert .form-select { height: 34px; border-color: #c9d4e7; border-radius: 6px; font-size: 13px; font-weight: 700; }
+.userlist_bulk_alert .btn { height: 34px; border-radius: 6px; font-size: 13px; font-weight: 800; }
+.userlist_filter { margin-bottom: 18px; padding: 20px; border-radius: 10px; background: #fff; box-shadow: 4px 4px 20px rgba(137, 145, 169, 0.14); }
+.userlist_filter .form-control,
+.userlist_filter .form-select { height: 40px; border: 1px solid #d8deea; border-radius: 6px; color: #333; font-size: 14px; font-weight: 700; letter-spacing: 0; box-shadow: none; }
+.userlist_filter .form-control:focus,
+.userlist_filter .form-select:focus { border-color: #1962fc; box-shadow: 0 0 0 3px rgba(25, 98, 252, 0.1); }
+.userlist_filter .form-control::placeholder { color: #a4adbe; }
+.userlist_filter .form-control-plaintext { min-height: 40px; color: #73809d !important; font-size: 13px; font-weight: 700; letter-spacing: 0; }
+.userlist_table_card { overflow: hidden; border-radius: 10px; background: #fff; box-shadow: 4px 4px 20px rgba(137, 145, 169, 0.2); padding: 20px; }
+.userlist_table_wrap { width: 100%; overflow: auto; border-radius: 6px; }
+.userlist_table.table { min-width: 980px; margin: 0; border-collapse: collapse; table-layout: fixed; }
+.userlist_table.table > :not(caption) > * > * { border: 0; box-shadow: none; }
+.userlist_table th,
+.userlist_table td { height: 54px; padding: 9px 12px; color: #333; font-size: 13px; font-weight: 700; letter-spacing: 0; line-height: 18px; text-align: center; vertical-align: middle; }
+.userlist_table th { height: 38px; background: #1962fc; color: #fff; font-size: 13px; white-space: nowrap; }
+.userlist_table tbody tr:nth-child(odd) { background: #f4f6fb; }
+.userlist_table tbody tr:nth-child(even) { background: #fff; }
+.userlist_table tbody tr:hover { background: #eaf1ff; }
+.userlist_table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.userlist_table .form-check { display: flex; justify-content: center; margin: 0; min-height: 0; }
+.userlist_table .form-check-input { width: 16px; height: 16px; margin: 0; cursor: pointer; }
+.userlist_table .form-check-input:checked { border-color: #1962fc; background-color: #1962fc; }
+.userlist_table .form-select { height: 34px; min-width: 94px; border: 1px solid #d8deea; border-radius: 6px; color: #333; font-size: 13px; font-weight: 700; letter-spacing: 0; padding: 0 28px 0 10px; box-shadow: none; }
+.userlist_table .btn { height: 32px; border-radius: 6px; font-size: 13px; font-weight: 800; letter-spacing: 0; padding: 0 12px; }
+.userlist_action_buttons { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.userlist_delete_button,
+.userlist_action_buttons .btn-outline-danger { border-color: #ffb7c9; color: #d11a2a; background: #fff; }
+.userlist_delete_button:hover:not(:disabled),
+.userlist_action_buttons .btn-outline-danger:hover:not(:disabled) { border-color: #d11a2a; background: #d11a2a; color: #fff; }
+.userlist_delete_button:disabled,
+.userlist_action_buttons .btn:disabled { cursor: not-allowed; opacity: 0.48; }
+.userlist_sort_mark { display: inline-block; min-width: 12px; margin-left: 6px; margin-right:-16px; color: #fff; font-size: 10px; line-height: 1; vertical-align: middle; }
+.userlist_expand_button { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; cursor: pointer; color: #1962fc; font-weight: 800; }
+.userlist_detail_row { background: #fbfcff !important; padding: 18px !important; text-align: left !important; }
+.userlist_detail_row strong { display: block; margin-bottom: 8px; color: #333; font-size: 14px; font-weight: 800; letter-spacing: 0; }
+.userlist_detail_row pre { max-height: 240px; overflow: auto; margin: 0; border-radius: 8px; background: #202636; color: #f7f9ff; font-size: 12px; line-height: 1.5; padding: 14px; white-space: pre-wrap; }
+.userlist_empty { height: 160px !important; background: #f8faff !important; color: #73809d !important; font-size: 14px !important; font-weight: 700 !important; text-align: center !important; }
+.userlist_pager { display: grid; grid-template-columns: 120px 1fr 120px; align-items: center; gap: 16px; height: 50px; margin-top: 18px; padding: 0 18px; border-radius: 10px; background: #ededed; }
+.userlist_pager .btn { height: 34px; border-radius: 6px; border-color: #1962fc; color: #1962fc; font-size: 13px; font-weight: 800; letter-spacing: 0; }
+.userlist_pager .btn:hover:not(:disabled) { background: #1962fc; color: #fff; }
+.userlist_pager span { color: #333; font-size: 13px; font-weight: 800; letter-spacing: 0; text-align: center; }
+.userlist_state { display: flex; min-height: 420px; align-items: center; justify-content: center; border-radius: 10px; background: #fff; box-shadow: 4px 4px 20px rgba(137, 145, 169, 0.16); color: #73809d; font-size: 14px; font-weight: 800; letter-spacing: 0; }
+.userlist_error { max-width: 760px; margin: 0; border-radius: 10px; font-size: 14px; letter-spacing: 0; }
+.custom-width-modal .modal-content { border: 0; border-radius: 12px; box-shadow: 0 20px 54px rgba(32, 38, 54, 0.22); }
+.custom-width-modal .modal-header,
+.custom-width-modal .modal-footer { border-color: #e6eaf2; }
+.custom-width-modal .modal-title { font-size: 18px; font-weight: 800; letter-spacing: 0; }
+.custom-width-modal .modal-body { font-size: 14px; font-weight: 700; letter-spacing: 0; }
+.userlist_delete_modal_title { margin: 0; color: #202636; font-size: 16px; font-weight: 800; letter-spacing: 0; line-height: 1.45; }
+.userlist_delete_modal_desc { margin: 6px 0 0; color: #73809d; font-size: 13px; font-weight: 700; letter-spacing: 0; word-break: break-all; }
+.userlist_delete_modal_warn { margin: 14px 0 0; border-radius: 8px; background: #fff1f3; color: #c51635; font-size: 13px; font-weight: 800; letter-spacing: 0; line-height: 1.5; padding: 10px 12px; }
+
+@media (max-width: 900px) {
+  .userlist_block { padding: 20px 18px 64px; }
+  .userlist_header { display: block; }
+  .userlist_summary { margin-top: 12px; }
+  .userlist_filter,
+  .userlist_table_card { padding: 14px; }
+  .userlist_pager { grid-template-columns: 1fr; height: auto; padding: 12px; }
+}
