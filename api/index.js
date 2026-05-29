@@ -165,7 +165,61 @@ async function createUniqueAgreementToken() {
   throw new Error('동의 토큰 생성에 실패했습니다.');
 }
 
+async function sendRelaySms({ phoneNumber, message, subject }) {
+  const relayUrl = process.env.SMS_RELAY_URL;
+  const relaySecret = process.env.SMS_RELAY_SECRET;
+
+  if (!relayUrl || !relaySecret) return null;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25000);
+
+  try {
+    const response = await fetch(relayUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${relaySecret}`,
+        'Content-Type': 'application/json',
+        'X-SMS-Relay-Secret': relaySecret,
+      },
+      body: JSON.stringify({
+        phoneNumber: normalizePhoneNumber(phoneNumber),
+        subject,
+        message,
+      }),
+      signal: controller.signal,
+    });
+    const text = await response.text();
+    let data = {};
+
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = { error: text };
+    }
+
+    if (!response.ok || data.ok === false) {
+      throw new Error(data.error || data.resultText || `SMS relay HTTP ${response.status}`);
+    }
+
+    return {
+      resultCode: data.resultCode || 'OK',
+      resultText: data.resultText || 'Cafe24 SMS relay 전송 완료',
+    };
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new Error('SMS relay 응답 시간이 초과되었습니다.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function sendNiceSms({ phoneNumber, message, subject }) {
+  const relayResult = await sendRelaySms({ phoneNumber, message, subject });
+  if (relayResult) return relayResult;
+
   const userid = process.env.NICESMS_USERID || process.env.SMS_USERID;
   const password = process.env.NICESMS_PASSWORD || process.env.SMS_PASSWORD;
   const sender = process.env.NICESMS_SENDER || process.env.SMS_SENDER;
