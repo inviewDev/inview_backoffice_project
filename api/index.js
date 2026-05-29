@@ -963,6 +963,25 @@ apiRouter.post('/payment', verifyToken, async (req, res) => {
   }
 });
 
+apiRouter.get('/system/outbound-ip', verifyToken, verifyAdminRole, async (_req, res) => {
+  try {
+    const response = await fetch('https://api.ipify.org?format=json');
+    const data = await response.json();
+
+    if (!response.ok || !data.ip) {
+      throw new Error('Outbound IP lookup failed');
+    }
+
+    res.json({
+      ip: data.ip,
+      region: process.env.VERCEL_REGION || '',
+    });
+  } catch (error) {
+    console.error('Outbound IP lookup error:', error);
+    res.status(500).json({ error: '외부 발신 IP를 확인하지 못했습니다.' });
+  }
+});
+
 apiRouter.get('/ads', verifyToken, async (req, res) => {
   const targetUserId = req.query.userId ? parseInt(req.query.userId, 10) : null;
 
