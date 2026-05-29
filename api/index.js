@@ -199,16 +199,16 @@ async function sendRelaySms({ phoneNumber, message, subject }) {
     }
 
     if (!response.ok || data.ok === false) {
-      throw new Error(data.error || data.resultText || `SMS relay HTTP ${response.status}`);
+      throw new Error(`Cafe24 SMS relay 오류: ${data.error || data.resultText || `HTTP ${response.status}`}`);
     }
 
     return {
       resultCode: data.resultCode || 'OK',
-      resultText: data.resultText || 'Cafe24 SMS relay 전송 완료',
+      resultText: `Cafe24 SMS relay: ${data.resultText || '전송 완료'}`,
     };
   } catch (error) {
     if (error.name === 'AbortError') {
-      throw new Error('SMS relay 응답 시간이 초과되었습니다.');
+      throw new Error('Cafe24 SMS relay 응답 시간이 초과되었습니다.');
     }
     throw error;
   } finally {
@@ -258,7 +258,7 @@ async function sendNiceSms({ phoneNumber, message, subject }) {
   const resultText = result.MSG || result.message || text;
 
   if (String(resultCode).toUpperCase() !== 'OK') {
-    throw new Error(`문자 발송 실패: ${resultText || resultCode}`);
+    throw new Error(`문자왕국 직접 발송 실패: ${resultText || resultCode}`);
   }
 
   return { resultCode: 'OK', resultText };
