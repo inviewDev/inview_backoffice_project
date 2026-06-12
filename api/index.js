@@ -383,19 +383,24 @@ apiRouter.get('/me', verifyToken, async (req, res) => {
 
 apiRouter.post('/signup', async (req, res) => {
   try {
-    const { email, password, name, team, level, phoneNumber, birthDate } = req.body;
-    if (!email || !password || !name || !team || !phoneNumber || !birthDate) {
-      return res.status(400).json({ error: '이메일, 비밀번호, 이름, 소속팀, 휴대전화번호, 생년월일은 필수입니다.' });
+    const { password, name, team, level, phoneNumber, birthDate } = req.body;
+    const loginId = String(req.body.loginId || req.body.email || '').trim();
+
+    if (!loginId || !password || !name || !team || !phoneNumber || !birthDate) {
+      return res.status(400).json({ error: '아이디, 비밀번호, 이름, 소속팀, 휴대전화번호, 생년월일은 필수입니다.' });
     }
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) return res.status(400).json({ error: '이미 존재하는 이메일입니다.' });
+    if (/\s/.test(loginId)) {
+      return res.status(400).json({ error: '아이디에는 공백을 사용할 수 없습니다.' });
+    }
+    const existingUser = await prisma.user.findUnique({ where: { email: loginId } });
+    if (existingUser) return res.status(400).json({ error: '이미 존재하는 아이디입니다.' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const mappedDepartment = teamDepartmentMapping[team] || '기타부서';
 
     const newUser = await prisma.user.create({
       data: {
-        email,
+        email: loginId,
         passwordHash: hashedPassword,
         name,
         team,
@@ -453,12 +458,14 @@ apiRouter.post('/signup', async (req, res) => {
 
 apiRouter.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: '이메일과 비밀번호가 필요합니다.' });
+    const { password } = req.body;
+    const loginId = String(req.body.loginId || req.body.email || '').trim();
+
+    if (!loginId || !password) {
+      return res.status(400).json({ error: '아이디와 비밀번호가 필요합니다.' });
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { email: loginId } });
     if (!user) return res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
     if (user.status === '가입대기') return res.status(403).json({ error: '회원가입 승인 대기중입니다.' });
     if (user.status === '퇴사') return res.status(403).json({ error: '계정이 정지되었습니다.' });

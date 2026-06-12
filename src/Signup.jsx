@@ -6,7 +6,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { ko } from 'date-fns/locale';
 
 const initial_form_data = {
-  email: '',
+  loginId: '',
   password: '',
   passwordConfirm: '',
   name: '',
@@ -107,9 +107,9 @@ function Signup() {
             aria-hidden="true"
           />
           <input
-            name="email"
-            type="email"
-            value={formData.email}
+            name="loginId"
+            type="text"
+            value={formData.loginId}
             onChange={handleChange}
             placeholder="아이디"
             aria-label="아이디"

@@ -3,7 +3,7 @@ import { Alert } from 'react-bootstrap';
 import ForgotPassword from './ForgotPassword.jsx';
 
 function Login({ onLoginSuccess }) {
-  const [email, setEmail] = useState('');
+  const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -28,7 +28,7 @@ function Login({ onLoginSuccess }) {
       const res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ loginId, password }),
       });
       const data = await parseResponse(res);
 
@@ -71,12 +71,12 @@ function Login({ onLoginSuccess }) {
             aria-hidden="true"
           />
           <input
-            type="email"
+            type="text"
             placeholder="아이디"
             aria-label="아이디"
             className="login_input"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
+            value={loginId}
+            onChange={e => setLoginId(e.target.value)}
             autoComplete="username"
             required
           />
