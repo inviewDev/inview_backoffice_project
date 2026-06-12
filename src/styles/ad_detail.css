@@ -30,6 +30,21 @@
 .ad_address_control input { border-right: 1px solid #eef1f6; border-radius: 0; cursor: pointer; } 
 .ad_address_control button,
 .ad_file_control label { display: inline-flex; height: 40px; align-items: center; justify-content: center; border: 0; border-radius: 0 6px 6px 0; background: #1962fc; color: #fff; cursor: pointer; font-size: 13px; font-weight: 800; letter-spacing: 0; } 
+.ad_basic_panel { padding: 20px; border-radius: 10px; }
+.ad_basic_grid { gap: 12px; }
+.ad_basic_grid.ad_form_grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ad_basic_grid .ad_field { min-height: 40px; grid-template-columns: 120px minmax(0, 1fr); }
+.ad_basic_grid .ad_field_label { min-height: 40px; border-color: #d8dce6; border-radius: 6px 0 0 6px; background: #dce2ef; font-size: 15px; font-weight: 500; line-height: 1.2; }
+.ad_basic_grid .ad_field_control { min-height: 40px; border-color: #d8dce6; border-radius: 0 6px 6px 0; }
+.ad_basic_grid .ad_field_control input { height: 38px; border-radius: 0 6px 6px 0; font-size: 15px; padding: 0 14px; }
+.ad_basic_grid .ad_field.segmented .ad_field_control { border: 0; background: transparent; }
+.ad_segmented_control { display: grid; width: 100%; min-width: 0; grid-template-columns: minmax(0, 1fr) 20px minmax(0, 1fr) 20px minmax(0, 1fr); align-items: center; }
+.ad_segmented_control.business { grid-template-columns: minmax(0, 1fr) 20px minmax(0, 0.8fr) 20px minmax(0, 1fr); }
+.ad_segmented_control input { width: 100%; min-width: 0; height: 40px; border: 1px solid #d8dce6; border-radius: 6px; background: #fff; color: #333; font-size: 15px; font-weight: 500; outline: none; padding: 0 14px; }
+.ad_segmented_control span { color: #333; font-size: 15px; font-weight: 500; text-align: center; }
+.ad_compact_address_control { display: grid; width: 100%; min-width: 0; grid-template-columns: minmax(0, 1fr) 70px; }
+.ad_compact_address_control input { height: 38px; border: 0; border-radius: 0; cursor: pointer; font-size: 15px; padding: 0 14px; }
+.ad_compact_address_control button { display: inline-flex; height: 40px; align-items: center; justify-content: center; border: 0; border-radius: 0 6px 6px 0; background: #1962fc; color: #fff; cursor: pointer; font-size: 13px; font-weight: 800; letter-spacing: 0; padding: 0; }
 .ad_section_actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; } 
 .ad_primary_button,
 .ad_secondary_button { display: inline-flex; width: 120px; height: 40px; align-items: center; justify-content: center; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 800; letter-spacing: 0; line-height: 1; transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease; } 
@@ -114,4 +129,23 @@
 .ad_secondary_button,
 .ad_primary_button.large,
 .ad_secondary_button.large { width: 100%; } 
+}
+
+@media (max-width: 1180px){
+.ad_basic_grid.ad_form_grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ad_basic_grid .ad_field.span_two { grid-column: span 2; }
+}
+
+@media (max-width: 860px){
+.ad_basic_grid.ad_form_grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ad_basic_grid .ad_field { grid-template-columns: 120px minmax(0, 1fr); }
+.ad_basic_grid .ad_field_label { min-height: 40px; justify-content: center; border-right: 0; border-radius: 6px 0 0 6px; padding: 0; text-align: center; }
+.ad_basic_grid .ad_field_control { border-radius: 0 6px 6px 0; }
+.ad_basic_grid .ad_field_control input { border-radius: 0 6px 6px 0; }
+}
+
+@media (max-width: 720px){
+.ad_basic_grid.ad_form_grid.three { grid-template-columns: minmax(0, 1fr); }
+.ad_basic_grid .ad_field,
+.ad_basic_grid .ad_field.span_two { grid-column: 1 / -1; }
 }

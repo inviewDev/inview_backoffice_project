@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Modal } from 'react-bootstrap';
 import { IMaskInput } from 'react-imask';
@@ -28,7 +28,6 @@ const initial_company_data = {
   companyName: '',
   ceoName: '',
   businessRegNumber: '',
-  birthDate: '',
   tel: '',
   mobile: '',
   postcode: '',
@@ -81,6 +80,9 @@ const initial_extra_info = {
   fileName: '',
 };
 
+const business_number_segments = [3, 2, 5];
+const phone_number_segments = [3, 4, 4];
+
 function getNumber(value) {
   return Number(String(value || '').replace(/[^\d.-]/g, '')) || 0;
 }
@@ -89,12 +91,57 @@ function formatNumber(value) {
   return Number(value || 0).toLocaleString('ko-KR');
 }
 
+function getDigits(value) {
+  return String(value || '').replace(/\D/g, '');
+}
+
+function splitSegmentedValue(value, segments) {
+  const text = String(value || '');
+  const parts = text.includes('-') ? text.split('-') : [];
+
+  if (parts.length > 1) {
+    return segments.map((_, index) => parts[index] || '');
+  }
+
+  const digits = getDigits(text);
+  let cursor = 0;
+  return segments.map(length => {
+    const part = digits.slice(cursor, cursor + length);
+    cursor += length;
+    return part;
+  });
+}
+
+function joinSegmentedValue(parts) {
+  return parts.every(part => !part) ? '' : parts.join('-');
+}
+
 function AdField({ label, children, className = '' }) {
   return (
     <label className={`ad_field ${className}`}>
       <span className="ad_field_label">{label}</span>
       <span className="ad_field_control">{children}</span>
     </label>
+  );
+}
+
+function AdSegmentedInput({ value, segments, className = '', disabled, onChange }) {
+  const parts = splitSegmentedValue(value, segments);
+
+  return (
+    <div className={`ad_segmented_control ${className}`}>
+      {segments.map((length, index) => (
+        <Fragment key={index}>
+          <IMaskInput
+            mask={'0'.repeat(length)}
+            value={parts[index]}
+            onAccept={partValue => onChange(index, partValue)}
+            disabled={disabled}
+          />
+          {index < segments.length - 1 && <span>-</span>}
+        </Fragment>
+      ))}
+    </div>
   );
 }
 
@@ -149,9 +196,6 @@ function AdDetail({ user }) {
     }
     if (!/^\d{3}-\d{2}-\d{5}$/.test(formData.businessRegNumber)) {
       return '사업자등록번호 형식이 올바르지 않습니다. (예: 123-45-67890)';
-    }
-    if (!/^\d{6}$/.test(formData.birthDate)) {
-      return '생년월일은 6자리 숫자여야 합니다. (예: 991231)';
     }
     if (!/^\d{2,3}-\d{3,4}-\d{4}$/.test(formData.tel)) {
       return '전화번호 형식이 올바르지 않습니다. (예: 02-1234-5678)';
@@ -331,12 +375,29 @@ function AdDetail({ user }) {
     }
   };
 
+  const updateSegmentedCompanyField = (field, index, value, segments) => {
+    setFormData(prev => {
+      const parts = splitSegmentedValue(prev[field], segments);
+      parts[index] = getDigits(value);
+      return {
+        ...prev,
+        [field]: joinSegmentedValue(parts),
+      };
+    });
+  };
+
+  const addressSummary = [
+    formData.postcode && `(${formData.postcode})`,
+    formData.address,
+    formData.detailAddress,
+  ].filter(Boolean).join(' ');
+
   return (
     <section className="ad_detail_block">
       <section className="ad_section">
         <div className="ad_section_title">기본정보등록</div>
-        <div className="ad_panel">
-          <div className="ad_form_grid three">
+        <div className="ad_panel ad_basic_panel">
+          <div className="ad_form_grid three ad_basic_grid">
             <AdField label="상호명">
               <input
                 type="text"
@@ -353,64 +414,53 @@ function AdDetail({ user }) {
                 disabled={isLoading.company}
               />
             </AdField>
-            <AdField label="사업자등록번호">
-              <IMaskInput
-                mask="000-00-00000"
+            <AdField label="사업자등록번호" className="segmented">
+              <AdSegmentedInput
                 value={formData.businessRegNumber}
-                onAccept={value => setFormData(prev => ({ ...prev, businessRegNumber: value }))}
+                segments={business_number_segments}
+                className="business"
                 disabled={isLoading.company}
+                onChange={(index, value) =>
+                  updateSegmentedCompanyField('businessRegNumber', index, value, business_number_segments)
+                }
               />
             </AdField>
-            <AdField label="생년월일">
-              <IMaskInput
-                mask="000000"
-                value={formData.birthDate}
-                onAccept={value => setFormData(prev => ({ ...prev, birthDate: value }))}
-                disabled={isLoading.company}
-              />
-            </AdField>
-            <AdField label="Tel">
-              <IMaskInput
-                mask={[
-                  { mask: '00-000-0000' },
-                  { mask: '00-0000-0000' },
-                  { mask: '000-000-0000' },
-                  { mask: '000-0000-0000' },
-                ]}
+            <AdField label="Tel" className="segmented">
+              <AdSegmentedInput
                 value={formData.tel}
-                onAccept={value => setFormData(prev => ({ ...prev, tel: value }))}
+                segments={phone_number_segments}
                 disabled={isLoading.company}
+                onChange={(index, value) =>
+                  updateSegmentedCompanyField('tel', index, value, phone_number_segments)
+                }
               />
             </AdField>
-            <AdField label="Mobile">
-              <IMaskInput
-                mask="000-0000-0000"
+            <AdField label="Mobile" className="segmented">
+              <AdSegmentedInput
                 value={formData.mobile}
-                onAccept={value => setFormData(prev => ({ ...prev, mobile: value }))}
+                segments={phone_number_segments}
+                disabled={isLoading.company}
+                onChange={(index, value) =>
+                  updateSegmentedCompanyField('mobile', index, value, phone_number_segments)
+                }
+              />
+            </AdField>
+            <AdField label="업체 URL">
+              <input
+                type="url"
+                value={formData.companyUrl}
+                onChange={e => setFormData(prev => ({ ...prev, companyUrl: e.target.value }))}
                 disabled={isLoading.company}
               />
             </AdField>
-            <AdField label="주소" className="span_two">
-              <div className="ad_address_control">
+            <AdField label="주소" className="span_two compact_address">
+              <div className="ad_compact_address_control">
                 <input
                   type="text"
-                  value={formData.postcode}
+                  value={addressSummary}
                   readOnly
                   disabled={isLoading.company}
                   onClick={() => !isLoading.company && setShowPostcodeModal(true)}
-                />
-                <input
-                  type="text"
-                  value={formData.address}
-                  readOnly
-                  disabled={isLoading.company}
-                  onClick={() => !isLoading.company && setShowPostcodeModal(true)}
-                />
-                <input
-                  type="text"
-                  value={formData.detailAddress}
-                  onChange={e => setFormData(prev => ({ ...prev, detailAddress: e.target.value }))}
-                  disabled={isLoading.company}
                 />
                 <button
                   type="button"
@@ -420,14 +470,6 @@ function AdDetail({ user }) {
                   검색
                 </button>
               </div>
-            </AdField>
-            <AdField label="업체 URL">
-              <input
-                type="url"
-                value={formData.companyUrl}
-                onChange={e => setFormData(prev => ({ ...prev, companyUrl: e.target.value }))}
-                disabled={isLoading.company}
-              />
             </AdField>
             <AdField label="업체 E-Mail">
               <input

@@ -889,14 +889,11 @@ apiRouter.post('/company', verifyToken, async (req, res) => {
   if (!canAccessUser(req, targetUserId)) {
     return res.status(403).json({ error: '해당 사용자 정보에 접근할 권한이 없습니다.' });
   }
-  if (!companyName || !ceoName || !businessRegNumber || !birthDate || !tel || !mobile || !postcode || !address || !companyEmail) {
+  if (!companyName || !ceoName || !businessRegNumber || !tel || !mobile || !postcode || !address || !companyEmail) {
     return res.status(400).json({ error: '회사 필수 정보를 모두 입력해주세요.' });
   }
   if (!/^\d{3}-\d{2}-\d{5}$/.test(businessRegNumber)) {
     return res.status(400).json({ error: '사업자등록번호 형식이 올바르지 않습니다.' });
-  }
-  if (!/^\d{6}$/.test(birthDate)) {
-    return res.status(400).json({ error: '생년월일은 6자리 숫자여야 합니다.' });
   }
   if (!companyEmail.includes('@')) {
     return res.status(400).json({ error: '유효한 이메일 주소를 입력해주세요.' });
@@ -909,7 +906,7 @@ apiRouter.post('/company', verifyToken, async (req, res) => {
         companyName,
         ceoName,
         businessRegNumber,
-        birthDate,
+        birthDate: birthDate || '',
         tel,
         mobile,
         postcode,
