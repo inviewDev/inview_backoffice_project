@@ -122,7 +122,7 @@ function ContractContent({ contract }) {
       </div>
 
       <div className="agreement_products">
-        <h2>상품 구성</h2>
+        <h2>상품정보등록</h2>
         {productItems.length ? (
           productItems.map(item => <p key={item}>{item}</p>)
         ) : (
@@ -171,6 +171,10 @@ function useAgreement(token) {
 }
 
 function mapAdToContract(ad) {
+  const productItems = Array.isArray(ad.productItems)
+    ? ad.productItems.map(item => String(item || '').trim()).filter(Boolean)
+    : [];
+
   return {
     id: ad.id,
     companyName: ad.companyName || '',
@@ -192,14 +196,9 @@ function mapAdToContract(ad) {
     manager: ad.manager || '',
     managerPhone: '',
     managerEmail: '',
-    productItems: [
-      ad.productName,
-      ad.production1,
-      ad.production2,
-      ad.titleText,
-      ad.descriptionText,
-      ad.memo,
-    ].filter(Boolean),
+    productItems: productItems.length
+      ? productItems
+      : [ad.productName, ad.titleText, ad.descriptionText, ad.memo].filter(Boolean),
     smsContractStatus: ad.smsContractStatus,
     agreementStatus: ad.agreementStatus,
     agreementAt: ad.agreementAt,
@@ -278,7 +277,7 @@ function AgreementTermsPage() {
 
 function AgreementContractPage() {
   const { token } = useParams();
-  const { agreement, isLoading, error, reload } = useAgreement(token);
+  const { agreement, isLoading, error } = useAgreement(token);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState('');
   const [submitError, setSubmitError] = useState('');
@@ -301,7 +300,9 @@ function AgreementContractPage() {
       }
 
       setSubmitMessage(data.message);
-      await reload();
+      window.setTimeout(() => {
+        window.location.href = data.redirectUrl || 'https://www.inviewcc.com';
+      }, 600);
     } catch (err) {
       setSubmitError(err.message);
     } finally {

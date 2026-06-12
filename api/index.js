@@ -85,6 +85,23 @@ function toMoneyNumber(value) {
   return Number.isFinite(number) ? number : 0;
 }
 
+function normalizeProductItems(value) {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map(item => String(item || '').trim())
+    .filter(Boolean)
+    .slice(0, 10);
+}
+
+function getPaymentProductItems(payment) {
+  if (Array.isArray(payment.productItems)) {
+    return normalizeProductItems(payment.productItems);
+  }
+
+  return [];
+}
+
 function getAppUrl(req) {
   return process.env.APP_URL || req.get('origin') || `${req.protocol}://${req.get('host')}`;
 }
@@ -108,6 +125,10 @@ function getAgreementUrl(req, token) {
   return `${getAppUrl(req).replace(/\/$/, '')}/agreement/${token}`;
 }
 
+function getCompanyHomeUrl() {
+  return process.env.COMPANY_HOME_URL || 'https://www.inviewcc.com';
+}
+
 function getClientIp(req) {
   const forwardedFor = req.headers['x-forwarded-for'];
   if (typeof forwardedFor === 'string' && forwardedFor.length > 0) {
@@ -117,6 +138,8 @@ function getClientIp(req) {
 }
 
 function mapPaymentToAgreement(payment) {
+  const productItems = getPaymentProductItems(payment);
+
   return {
     id: payment.id,
     companyName: payment.company?.companyName || '',
@@ -142,14 +165,14 @@ function mapPaymentToAgreement(payment) {
     manager: payment.manager || payment.user?.name || '',
     managerPhone: payment.user?.officePhoneNumber || payment.user?.phoneNumber || '',
     managerEmail: payment.user?.email || '',
-    productItems: [
-      payment.productName,
-      payment.production1,
-      payment.production2,
-      payment.titleText,
-      payment.descriptionText,
-      payment.memo,
-    ].filter(Boolean),
+    productItems: productItems.length
+      ? productItems
+      : [
+          payment.productName,
+          payment.titleText,
+          payment.descriptionText,
+          payment.memo,
+        ].filter(Boolean),
     smsContractStatus: payment.smsContractStatus,
     agreementStatus: payment.agreementStatus,
     agreementAt: payment.agreementAt ? payment.agreementAt.toISOString() : null,
@@ -869,6 +892,27 @@ apiRouter.delete('/events/:id', verifyToken, async (req, res) => {
   }
 });
 
+apiRouter.get('/staff-options', verifyToken, async (_req, res) => {
+  try {
+    const staff = await prisma.user.findMany({
+      where: { status: '재직' },
+      orderBy: [{ level: 'asc' }, { name: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        level: true,
+        team: true,
+        department: true,
+      },
+    });
+
+    res.json({ staff });
+  } catch (error) {
+    console.error('Fetch staff options error:', error);
+    res.status(500).json({ error: '직원 목록을 불러오지 못했습니다.' });
+  }
+});
+
 apiRouter.post('/company', verifyToken, async (req, res) => {
   const {
     userId,
@@ -894,6 +938,9 @@ apiRouter.post('/company', verifyToken, async (req, res) => {
   }
   if (!/^\d{3}-\d{2}-\d{5}$/.test(businessRegNumber)) {
     return res.status(400).json({ error: '사업자등록번호 형식이 올바르지 않습니다.' });
+  }
+  if (!/^\d{2,4}-\d{3,4}-\d{4}$/.test(tel)) {
+    return res.status(400).json({ error: '전화번호 형식이 올바르지 않습니다.' });
   }
   if (!companyEmail.includes('@')) {
     return res.status(400).json({ error: '유효한 이메일 주소를 입력해주세요.' });
@@ -945,7 +992,7 @@ apiRouter.post('/payment', verifyToken, async (req, res) => {
   if (!canAccessUser(req, targetUserId)) {
     return res.status(403).json({ error: '해당 사용자 정보에 접근할 권한이 없습니다.' });
   }
-  if (!productName || !startDate || !endDate || !approvedCompany || !taxInvoice || !paymentMethod) {
+  if (!productName || !startDate || !endDate || !approvedCompany || !paymentMethod) {
     return res.status(400).json({ error: '결제 필수 정보를 모두 입력해주세요.' });
   }
   if (Number.isNaN(parsedStartDate.getTime()) || Number.isNaN(parsedEndDate.getTime())) {
@@ -980,6 +1027,7 @@ apiRouter.post('/payment', verifyToken, async (req, res) => {
     const spendingCost = toMoneyNumber(paymentDetail.spendingCost);
     const vat = Math.round(approvedAmount / 11);
     const netProfit = Math.max(approvedAmount - vat - spendingCost, 0);
+    const productItems = normalizeProductItems(productInfo.products);
 
     const payment = await prisma.payment.create({
       data: {
@@ -989,7 +1037,7 @@ apiRouter.post('/payment', verifyToken, async (req, res) => {
         startDate: parsedStartDate,
         endDate: parsedEndDate,
         approvedCompany,
-        taxInvoice,
+        taxInvoice: taxInvoice || '발행',
         paymentMethod,
         approvedAmount,
         vat,
@@ -999,9 +1047,10 @@ apiRouter.post('/payment', verifyToken, async (req, res) => {
         paymentStatus: toOptionalString(paymentDetail.paymentStatus) || '결제대기',
         cardCompany: toOptionalString(paymentDetail.cardCompany),
         installmentMonths: toOptionalString(paymentDetail.installmentMonths),
-        manager: toOptionalString(productInfo.manager),
+        manager: toOptionalString(productInfo.manager) || req.user.name || null,
         teamLead: toOptionalString(productInfo.teamLead),
         departmentHead: toOptionalString(productInfo.departmentHead),
+        productItems,
         production1: toOptionalString(productInfo.production1),
         production2: toOptionalString(productInfo.production2),
         adProgress: toOptionalString(productInfo.adProgress) || 'OFF',
@@ -1101,6 +1150,7 @@ apiRouter.get('/ads', verifyToken, async (req, res) => {
       paymentStatus: payment.paymentStatus,
       production1: payment.production1 || '',
       production2: payment.production2 || '',
+      productItems: getPaymentProductItems(payment),
       adProgress: payment.adProgress,
       advertiserAccount: payment.advertiserAccount || '',
       approvalNumber: payment.approvalNumber || '',
@@ -1197,8 +1247,11 @@ apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
         cardCompany: payment.cardCompany || '',
         installmentMonths: payment.installmentMonths || '',
         paymentStatus: payment.paymentStatus,
+        teamLead: payment.teamLead || '',
+        departmentHead: payment.departmentHead || '',
         production1: payment.production1 || '',
         production2: payment.production2 || '',
+        productItems: getPaymentProductItems(payment),
         adProgress: payment.adProgress,
         advertiserAccount: payment.advertiserAccount || '',
         approvalNumber: payment.approvalNumber || '',
@@ -1366,7 +1419,7 @@ apiRouter.get('/agreements/:token', async (req, res) => {
     if (!consentToken) {
       return res.status(404).json({ error: '유효하지 않은 계약서 링크입니다.' });
     }
-    if (consentToken.expiredAt || consentToken.expiresAt < new Date()) {
+    if (!consentToken.usedAt && (consentToken.expiredAt || consentToken.expiresAt < new Date())) {
       return res.status(410).json({ error: '만료된 계약서 링크입니다.' });
     }
 
@@ -1395,8 +1448,17 @@ apiRouter.post('/agreements/:token/agree', async (req, res) => {
     if (!consentToken) {
       return res.status(404).json({ error: '유효하지 않은 계약서 링크입니다.' });
     }
-    if (consentToken.expiredAt || consentToken.expiresAt < new Date()) {
+    if (!consentToken.usedAt && (consentToken.expiredAt || consentToken.expiresAt < new Date())) {
       return res.status(410).json({ error: '만료된 계약서 링크입니다.' });
+    }
+
+    if (consentToken.usedAt || consentToken.payment.agreementAt) {
+      return res.json({
+        message: '이미 동의가 완료된 계약서입니다.',
+        agreedAt: (consentToken.usedAt || consentToken.payment.agreementAt).toISOString(),
+        agreedIp: consentToken.agreedIp || '',
+        redirectUrl: getCompanyHomeUrl(),
+      });
     }
 
     const agreedAt = new Date();
@@ -1414,7 +1476,7 @@ apiRouter.post('/agreements/:token/agree', async (req, res) => {
         where: { token },
         data: {
           usedAt: agreedAt,
-          expiredAt: agreedAt,
+          expiredAt: null,
           agreedIp,
         },
       }),
@@ -1433,6 +1495,7 @@ apiRouter.post('/agreements/:token/agree', async (req, res) => {
       message: '계약서 동의가 완료되었습니다.',
       agreedAt: agreedAt.toISOString(),
       agreedIp,
+      redirectUrl: getCompanyHomeUrl(),
     });
   } catch (error) {
     console.error('Agree contract error:', error);

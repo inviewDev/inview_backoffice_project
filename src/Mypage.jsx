@@ -102,7 +102,7 @@ function MyPage({ user, setUser }) {
     setIsLoading(true);
 
     const phoneRegex = /^\d{3}-\d{4}-\d{4}$/;
-    const officePhoneRegex = /^\d{2}-\d{4}-\d{4}$/;
+    const officePhoneRegex = /^\d{2,3}-\d{3,4}-\d{4}$/;
 
     if (field === 'phoneNumber' && value && !phoneRegex.test(value)) {
       setError('휴대전화번호 형식이 올바르지 않습니다. (예: 010-1234-5678)');
@@ -110,7 +110,7 @@ function MyPage({ user, setUser }) {
       return;
     }
     if (field === 'officePhoneNumber' && value && !officePhoneRegex.test(value)) {
-      setError('사내전화번호 형식이 올바르지 않습니다. (예: 02-1234-1234 또는 02-123-1234)');
+      setError('사내전화번호 형식이 올바르지 않습니다. (예: 02-1234-1234, 070-1234-5678)');
       setIsLoading(false);
       return;
     }
@@ -455,7 +455,7 @@ function MyPage({ user, setUser }) {
             }}
             disabled={isMemoLoading}
           >
-            완료
+            삭제
           </button>
         </div>
       ),
@@ -649,10 +649,14 @@ function MyPage({ user, setUser }) {
                   }}
                 >
                   <IMaskInput
-                    mask="00-0000-0000"
+                    mask={[
+                      { mask: '00-000-0000' },
+                      { mask: '00-0000-0000' },
+                      { mask: '000-0000-0000' },
+                    ]}
                     value={formData.officePhoneNumber}
                     onAccept={value => setFormData({ ...formData, officePhoneNumber: value })}
-                    placeholder="02-1234-1234"
+                    placeholder="070-1234-5678"
                     className="mypage_input"
                     disabled={isLoading}
                   />

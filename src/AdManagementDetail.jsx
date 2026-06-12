@@ -183,6 +183,7 @@ function AdManagementDetail() {
   ];
   const smsHistories = ad.smsHistories || [];
   const agreementPreviewUrl = `${window.location.origin}/contracts/ad-management/${ad.id}/agreement-preview`;
+  const productItems = Array.isArray(ad.productItems) ? ad.productItems : [];
 
   return (
     <section className="ad_view_block">
@@ -287,13 +288,19 @@ function AdManagementDetail() {
       <section className="ad_view_panel">
         <div className="ad_view_grid three">
           <Field label="담당자" value={ad.manager} />
+          <Field label="담당팀장" value={ad.teamLead} />
+          <Field label="담당부장" value={ad.departmentHead} />
           <Field label="제작사항-1" value={ad.production1} />
           <Field label="제작사항-2" value={ad.production2} />
           <Field label="광고진행" value={ad.adProgress} />
-          <Field label="상품1" value={ad.productName} wide />
-          <Field label="상품2" value={ad.titleText} wide />
-          <Field label="상품3" value={ad.descriptionText} wide />
-          <Field label="상품4" value={ad.memo} wide />
+          {Array.from({ length: 10 }, (_, index) => (
+            <Field
+              label={`상품${index + 1}`}
+              value={productItems[index]}
+              wide
+              key={`product_${index + 1}`}
+            />
+          ))}
         </div>
       </section>
 

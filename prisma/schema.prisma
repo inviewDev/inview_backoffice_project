@@ -103,6 +103,7 @@ model Payment {
   manager             String?
   teamLead            String?
   departmentHead      String?
+  productItems        Json?
   production1         String?
   production2         String?
   adProgress          String   @default("OFF")

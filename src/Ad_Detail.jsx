@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Modal } from 'react-bootstrap';
 import { IMaskInput } from 'react-imask';
@@ -24,6 +24,26 @@ const product_options = [
   'NAVER 대대행',
 ];
 
+const card_company_options = [
+  '롯데카드',
+  '신한카드',
+  'KB국민카드',
+  '삼성카드',
+  '현대카드',
+  'BC카드',
+  '우리카드',
+  '하나카드',
+  'NH농협카드',
+  '씨티카드',
+  '카카오뱅크카드',
+  '토스카드',
+];
+
+const installment_month_options = Array.from({ length: 12 }, (_, index) => `${index + 1}개월`);
+const team_lead_levels = new Set(['팀장']);
+const department_head_levels = new Set(['대표', '파트장']);
+const card_number_keys = ['cardNumber1', 'cardNumber2', 'cardNumber3', 'cardNumber4'];
+
 const initial_company_data = {
   companyName: '',
   ceoName: '',
@@ -42,7 +62,7 @@ const initial_payment_data = {
   startDate: null,
   endDate: null,
   approvedCompany: '(주)아이앤뷰커뮤니케이션',
-  taxInvoice: '',
+  taxInvoice: '발행',
   paymentMethod: '',
 };
 
@@ -81,7 +101,9 @@ const initial_extra_info = {
 };
 
 const business_number_segments = [3, 2, 5];
-const phone_number_segments = [3, 4, 4];
+const tel_number_segments = [4, 4, 4];
+const mobile_number_segments = [3, 4, 4];
+const card_number_segments = [4, 4, 4, 4];
 
 function getNumber(value) {
   return Number(String(value || '').replace(/[^\d.-]/g, '')) || 0;
@@ -116,6 +138,13 @@ function joinSegmentedValue(parts) {
   return parts.every(part => !part) ? '' : parts.join('-');
 }
 
+function createInitialProductInfo(user) {
+  return {
+    ...initial_product_info,
+    manager: user?.name || '',
+  };
+}
+
 function AdField({ label, children, className = '' }) {
   return (
     <label className={`ad_field ${className}`}>
@@ -126,16 +155,41 @@ function AdField({ label, children, className = '' }) {
 }
 
 function AdSegmentedInput({ value, segments, className = '', disabled, onChange }) {
+  const inputRefs = useRef([]);
   const parts = splitSegmentedValue(value, segments);
+
+  const focusInput = index => {
+    window.requestAnimationFrame(() => {
+      inputRefs.current[index]?.focus();
+    });
+  };
 
   return (
     <div className={`ad_segmented_control ${className}`}>
       {segments.map((length, index) => (
         <Fragment key={index}>
           <IMaskInput
+            inputRef={input => {
+              inputRefs.current[index] = input;
+            }}
             mask={'0'.repeat(length)}
             value={parts[index]}
-            onAccept={partValue => onChange(index, partValue)}
+            onAccept={partValue => {
+              const digits = getDigits(partValue);
+              onChange(index, digits);
+              if (!disabled && digits.length >= length && index < segments.length - 1) {
+                focusInput(index + 1);
+              }
+            }}
+            onKeyDown={event => {
+              if (event.key === '-' && index < segments.length - 1) {
+                event.preventDefault();
+                focusInput(index + 1);
+              }
+              if (event.key === 'Backspace' && !parts[index] && index > 0) {
+                focusInput(index - 1);
+              }
+            }}
             disabled={disabled}
           />
           {index < segments.length - 1 && <span>-</span>}
@@ -159,8 +213,9 @@ function AdDetail({ user }) {
   const [formData, setFormData] = useState(initial_company_data);
   const [paymentData, setPaymentData] = useState(initial_payment_data);
   const [paymentDetail, setPaymentDetail] = useState(initial_payment_detail);
-  const [productInfo, setProductInfo] = useState(initial_product_info);
+  const [productInfo, setProductInfo] = useState(() => createInitialProductInfo(user));
   const [extraInfo, setExtraInfo] = useState(initial_extra_info);
+  const [staffOptions, setStaffOptions] = useState([]);
   const [isLoading, setIsLoading] = useState({ company: false, payment: false });
   const [showPostcodeModal, setShowPostcodeModal] = useState(false);
   const [alertModal, setAlertModal] = useState({
@@ -183,6 +238,35 @@ function AdDetail({ user }) {
     };
   }, [paymentDetail.approvedAmount, paymentDetail.spendingCost]);
 
+  useEffect(() => {
+    setProductInfo(prev => ({
+      ...prev,
+      manager: user?.name || '',
+    }));
+  }, [user?.name]);
+
+  useEffect(() => {
+    const loadStaffOptions = async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+        const res = await fetch('/api/staff-options', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await res.json();
+
+        if (res.ok && Array.isArray(data.staff)) {
+          setStaffOptions(data.staff);
+        }
+      } catch (err) {
+        console.error('Load staff options error:', err);
+      }
+    };
+
+    loadStaffOptions();
+  }, []);
+
   const showAlert = ({ title = '입력 확인', message, variant = 'warning' }) => {
     setAlertModal({ show: true, title, message, variant });
   };
@@ -197,8 +281,8 @@ function AdDetail({ user }) {
     if (!/^\d{3}-\d{2}-\d{5}$/.test(formData.businessRegNumber)) {
       return '사업자등록번호 형식이 올바르지 않습니다. (예: 123-45-67890)';
     }
-    if (!/^\d{2,3}-\d{3,4}-\d{4}$/.test(formData.tel)) {
-      return '전화번호 형식이 올바르지 않습니다. (예: 02-1234-5678)';
+    if (!/^\d{2,4}-\d{3,4}-\d{4}$/.test(formData.tel)) {
+      return '전화번호 형식이 올바르지 않습니다. (예: 02-1234-5678, 0507-1234-5678)';
     }
     if (!/^\d{3}-\d{4}-\d{4}$/.test(formData.mobile)) {
       return '휴대전화번호 형식이 올바르지 않습니다. (예: 010-1234-5678)';
@@ -226,14 +310,11 @@ function AdDetail({ user }) {
     if (paymentData.endDate < paymentData.startDate) {
       return '종료일은 시작일보다 늦어야 합니다.';
     }
-    if (!paymentData.taxInvoice) {
-      return '세금계산서 발행 여부를 선택해주세요.';
-    }
     if (!paymentData.paymentMethod) {
       return '결제구분을 선택해주세요.';
     }
     if (paymentData.paymentMethod === '카드') {
-      if (!paymentDetail.cardCompany) return '카드사를 입력해주세요.';
+      if (!paymentDetail.cardCompany) return '카드사를 선택해주세요.';
       if (!paymentDetail.installmentMonths) return '할부개월수를 선택해주세요.';
     }
     if (!productInfo.manager) {
@@ -324,7 +405,7 @@ function AdDetail({ user }) {
       setFormData(initial_company_data);
       setPaymentData(initial_payment_data);
       setPaymentDetail(initial_payment_detail);
-      setProductInfo(initial_product_info);
+      setProductInfo(createInitialProductInfo(user));
       setExtraInfo(initial_extra_info);
     } catch (err) {
       console.error('Save payment error:', err);
@@ -392,6 +473,10 @@ function AdDetail({ user }) {
     formData.detailAddress,
   ].filter(Boolean).join(' ');
 
+  const teamLeadOptions = staffOptions.filter(staff => team_lead_levels.has(staff.level));
+  const departmentHeadOptions = staffOptions.filter(staff => department_head_levels.has(staff.level));
+  const orderedProductIndexes = [0, 5, 1, 6, 2, 7, 3, 8, 4, 9];
+
   return (
     <section className="ad_detail_block">
       <section className="ad_section">
@@ -428,20 +513,20 @@ function AdDetail({ user }) {
             <AdField label="Tel" className="segmented">
               <AdSegmentedInput
                 value={formData.tel}
-                segments={phone_number_segments}
+                segments={tel_number_segments}
                 disabled={isLoading.company}
                 onChange={(index, value) =>
-                  updateSegmentedCompanyField('tel', index, value, phone_number_segments)
+                  updateSegmentedCompanyField('tel', index, value, tel_number_segments)
                 }
               />
             </AdField>
             <AdField label="Mobile" className="segmented">
               <AdSegmentedInput
                 value={formData.mobile}
-                segments={phone_number_segments}
+                segments={mobile_number_segments}
                 disabled={isLoading.company}
                 onChange={(index, value) =>
-                  updateSegmentedCompanyField('mobile', index, value, phone_number_segments)
+                  updateSegmentedCompanyField('mobile', index, value, mobile_number_segments)
                 }
               />
             </AdField>
@@ -521,6 +606,11 @@ function AdDetail({ user }) {
                     locale={ko}
                     placeholderText="시작일"
                     disabled={isLoading.payment}
+                    showYearDropdown
+                    showMonthDropdown
+                    dropdownMode="select"
+                    scrollableYearDropdown
+                    yearDropdownItemNumber={12}
                   />
                   <span>-</span>
                   <DatePicker
@@ -530,6 +620,11 @@ function AdDetail({ user }) {
                     locale={ko}
                     placeholderText="종료일"
                     disabled={isLoading.payment}
+                    showYearDropdown
+                    showMonthDropdown
+                    dropdownMode="select"
+                    scrollableYearDropdown
+                    yearDropdownItemNumber={12}
                   />
                 </div>
               </AdField>
@@ -591,11 +686,16 @@ function AdDetail({ user }) {
               {paymentData.paymentMethod === '카드' && (
                 <>
                   <AdField label="카드사">
-                    <input
+                    <select
                       value={paymentDetail.cardCompany}
                       onChange={e => setPaymentDetail(prev => ({ ...prev, cardCompany: e.target.value }))}
                       disabled={isLoading.payment}
-                    />
+                    >
+                      <option value="">선택</option>
+                      {card_company_options.map(cardCompany => (
+                        <option value={cardCompany} key={cardCompany}>{cardCompany}</option>
+                      ))}
+                    </select>
                   </AdField>
                   <AdField label="유효기간">
                     <div className="ad_split_pair">
@@ -623,27 +723,21 @@ function AdDetail({ user }) {
                       disabled={isLoading.payment}
                     >
                       <option value="">선택</option>
-                      <option value="1개월">1개월</option>
-                      <option value="3개월">3개월</option>
-                      <option value="6개월">6개월</option>
-                      <option value="12개월">12개월</option>
+                      {installment_month_options.map(month => (
+                        <option value={month} key={month}>{month}</option>
+                      ))}
                     </select>
                   </AdField>
-                  <AdField label="카드번호" className="span_full">
-                    <div className="ad_card_number">
-                      {['cardNumber1', 'cardNumber2', 'cardNumber3', 'cardNumber4'].map((key, index) => (
-                        <span key={key}>
-                          <IMaskInput
-                            mask="0000"
-                            value={paymentDetail[key]}
-                            onAccept={value => setPaymentDetail(prev => ({ ...prev, [key]: value }))}
-                            placeholder="****"
-                            disabled={isLoading.payment}
-                          />
-                          {index < 3 && <i>-</i>}
-                        </span>
-                      ))}
-                    </div>
+                  <AdField label="카드번호" className="span_full segmented">
+                    <AdSegmentedInput
+                      value={card_number_keys.map(key => paymentDetail[key]).join('-')}
+                      segments={card_number_segments}
+                      className="card"
+                      disabled={isLoading.payment}
+                      onChange={(index, value) =>
+                        setPaymentDetail(prev => ({ ...prev, [card_number_keys[index]]: value }))
+                      }
+                    />
                   </AdField>
                 </>
               )}
@@ -659,20 +753,30 @@ function AdDetail({ user }) {
             <AdField label="담당자">
               <input
                 value={productInfo.manager}
-                onChange={e => setProductInfo(prev => ({ ...prev, manager: e.target.value }))}
+                readOnly
               />
             </AdField>
             <AdField label="담당팀장">
-              <input
+              <select
                 value={productInfo.teamLead}
                 onChange={e => setProductInfo(prev => ({ ...prev, teamLead: e.target.value }))}
-              />
+              >
+                <option value="">없음</option>
+                {teamLeadOptions.map(staff => (
+                  <option value={staff.name} key={staff.id}>{staff.name}</option>
+                ))}
+              </select>
             </AdField>
             <AdField label="담당부장">
-              <input
+              <select
                 value={productInfo.departmentHead}
                 onChange={e => setProductInfo(prev => ({ ...prev, departmentHead: e.target.value }))}
-              />
+              >
+                <option value="">없음</option>
+                {departmentHeadOptions.map(staff => (
+                  <option value={staff.name} key={staff.id}>{staff.level} {staff.name}</option>
+                ))}
+              </select>
             </AdField>
             <AdField label="제작사항-1">
               <select
@@ -709,10 +813,10 @@ function AdDetail({ user }) {
           </div>
 
           <div className="ad_products_grid">
-            {productInfo.products.map((product, index) => (
+            {orderedProductIndexes.map(index => (
               <AdField label={`상품${index + 1}`} key={`product_${index + 1}`}>
                 <input
-                  value={product}
+                  value={productInfo.products[index]}
                   onChange={e => updateProduct(index, e.target.value)}
                 />
               </AdField>
