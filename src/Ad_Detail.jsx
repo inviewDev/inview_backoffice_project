@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Modal } from 'react-bootstrap';
+import { Modal } from 'react-bootstrap';
 import { IMaskInput } from 'react-imask';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -53,7 +53,7 @@ const initial_payment_detail = {
   approvalNumber: '',
   paymentStatus: '결제대기',
   cardCompany: '',
-  installmentMonths: '1개월',
+  installmentMonths: '',
   expiryMonth: '',
   expiryYear: '',
   cardNumber1: '',
@@ -66,9 +66,9 @@ const initial_product_info = {
   manager: '',
   teamLead: '',
   departmentHead: '',
-  production1: '없음',
-  production2: '없음',
-  adProgress: 'OFF',
+  production1: '',
+  production2: '',
+  adProgress: '',
   products: Array(10).fill(''),
 };
 
@@ -112,16 +112,16 @@ function AdDetail({ user }) {
   const [formData, setFormData] = useState(initial_company_data);
   const [paymentData, setPaymentData] = useState(initial_payment_data);
   const [paymentDetail, setPaymentDetail] = useState(initial_payment_detail);
-  const [productInfo, setProductInfo] = useState({
-    ...initial_product_info,
-    manager: user?.name || '',
-  });
+  const [productInfo, setProductInfo] = useState(initial_product_info);
   const [extraInfo, setExtraInfo] = useState(initial_extra_info);
-  const [savedCompanyId, setSavedCompanyId] = useState(null);
-  const [error, setError] = useState({ company: '', payment: '' });
-  const [success, setSuccess] = useState({ company: '', payment: '' });
   const [isLoading, setIsLoading] = useState({ company: false, payment: false });
   const [showPostcodeModal, setShowPostcodeModal] = useState(false);
+  const [alertModal, setAlertModal] = useState({
+    show: false,
+    title: '',
+    message: '',
+    variant: 'warning',
+  });
 
   const paymentSummary = useMemo(() => {
     const approvedAmount = getNumber(paymentDetail.approvedAmount);
@@ -136,115 +136,123 @@ function AdDetail({ user }) {
     };
   }, [paymentDetail.approvedAmount, paymentDetail.spendingCost]);
 
-  const handleCompanySubmit = async e => {
-    e.preventDefault();
-    setError(prev => ({ ...prev, company: '' }));
-    setSuccess(prev => ({ ...prev, company: '' }));
-    setIsLoading(prev => ({ ...prev, company: true }));
+  const showAlert = ({ title = '입력 확인', message, variant = 'warning' }) => {
+    setAlertModal({ show: true, title, message, variant });
+  };
 
+  const validateCompanyData = () => {
     if (!formData.companyName) {
-      setError(prev => ({ ...prev, company: '상호명을 입력해주세요.' }));
-      setIsLoading(prev => ({ ...prev, company: false }));
-      return;
+      return '상호명을 입력해주세요.';
     }
     if (!formData.ceoName) {
-      setError(prev => ({ ...prev, company: '대표자 이름을 입력해주세요.' }));
-      setIsLoading(prev => ({ ...prev, company: false }));
-      return;
+      return '대표자 이름을 입력해주세요.';
     }
     if (!/^\d{3}-\d{2}-\d{5}$/.test(formData.businessRegNumber)) {
-      setError(prev => ({ ...prev, company: '사업자등록번호 형식이 올바르지 않습니다. (예: 123-45-67890)' }));
-      setIsLoading(prev => ({ ...prev, company: false }));
-      return;
+      return '사업자등록번호 형식이 올바르지 않습니다. (예: 123-45-67890)';
     }
     if (!/^\d{6}$/.test(formData.birthDate)) {
-      setError(prev => ({ ...prev, company: '생년월일은 6자리 숫자여야 합니다. (예: 991231)' }));
-      setIsLoading(prev => ({ ...prev, company: false }));
-      return;
+      return '생년월일은 6자리 숫자여야 합니다. (예: 991231)';
     }
     if (!/^\d{2,3}-\d{3,4}-\d{4}$/.test(formData.tel)) {
-      setError(prev => ({ ...prev, company: '전화번호 형식이 올바르지 않습니다. (예: 02-1234-5678)' }));
-      setIsLoading(prev => ({ ...prev, company: false }));
-      return;
+      return '전화번호 형식이 올바르지 않습니다. (예: 02-1234-5678)';
     }
     if (!/^\d{3}-\d{4}-\d{4}$/.test(formData.mobile)) {
-      setError(prev => ({ ...prev, company: '휴대전화번호 형식이 올바르지 않습니다. (예: 010-1234-5678)' }));
-      setIsLoading(prev => ({ ...prev, company: false }));
-      return;
+      return '휴대전화번호 형식이 올바르지 않습니다. (예: 010-1234-5678)';
     }
     if (!formData.postcode || !formData.address) {
-      setError(prev => ({ ...prev, company: '주소를 검색하여 입력해주세요.' }));
-      setIsLoading(prev => ({ ...prev, company: false }));
-      return;
+      return '주소를 검색하여 입력해주세요.';
     }
     if (!formData.companyEmail.includes('@')) {
-      setError(prev => ({ ...prev, company: '유효한 이메일 주소를 입력해주세요.' }));
-      setIsLoading(prev => ({ ...prev, company: false }));
-      return;
+      return '유효한 이메일 주소를 입력해주세요.';
     }
 
-    try {
-      const token = localStorage.getItem('access_token');
-      const res = await fetch('/api/company', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          ...formData,
-          userId: user.id,
-        }),
-      });
-      const data = await res.json();
+    return '';
+  };
 
-      if (!res.ok) throw new Error(data.error || '회사 정보 등록에 실패했습니다.');
-
-      setSuccess(prev => ({ ...prev, company: '회사 정보가 성공적으로 등록되었습니다.' }));
-      setSavedCompanyId(data.company?.id || null);
-      setFormData(initial_company_data);
-    } catch (err) {
-      console.error('Save company error:', err);
-      setError(prev => ({ ...prev, company: err.message }));
-    } finally {
-      setIsLoading(prev => ({ ...prev, company: false }));
+  const validatePaymentData = () => {
+    if (!paymentData.productName) {
+      return '상품명을 선택해주세요.';
     }
+    if (!paymentDetail.approvedAmount) {
+      return '승인금액을 입력해주세요.';
+    }
+    if (!paymentData.startDate || !paymentData.endDate) {
+      return '계약기간을 선택해주세요.';
+    }
+    if (paymentData.endDate < paymentData.startDate) {
+      return '종료일은 시작일보다 늦어야 합니다.';
+    }
+    if (!paymentData.taxInvoice) {
+      return '세금계산서 발행 여부를 선택해주세요.';
+    }
+    if (!paymentData.paymentMethod) {
+      return '결제구분을 선택해주세요.';
+    }
+    if (paymentData.paymentMethod === '카드') {
+      if (!paymentDetail.cardCompany) return '카드사를 입력해주세요.';
+      if (!paymentDetail.installmentMonths) return '할부개월수를 선택해주세요.';
+    }
+    if (!productInfo.manager) {
+      return '담당자를 입력해주세요.';
+    }
+
+    return '';
+  };
+
+  const createCompany = async token => {
+    const res = await fetch('/api/company', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        ...formData,
+        userId: user.id,
+      }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || '회사 정보 등록에 실패했습니다.');
+    return data.company?.id || null;
+  };
+
+  const getPaymentDetailPayload = () => {
+    if (paymentData.paymentMethod === '카드') return paymentDetail;
+
+    return {
+      ...paymentDetail,
+      cardCompany: '',
+      installmentMonths: '',
+      expiryMonth: '',
+      expiryYear: '',
+      cardNumber1: '',
+      cardNumber2: '',
+      cardNumber3: '',
+      cardNumber4: '',
+    };
   };
 
   const handlePaymentSubmit = async e => {
     e.preventDefault();
-    setError(prev => ({ ...prev, payment: '' }));
-    setSuccess(prev => ({ ...prev, payment: '' }));
-    setIsLoading(prev => ({ ...prev, payment: true }));
 
-    if (!paymentData.productName) {
-      setError(prev => ({ ...prev, payment: '상품명을 선택해주세요.' }));
-      setIsLoading(prev => ({ ...prev, payment: false }));
+    const companyValidationMessage = validateCompanyData();
+    if (companyValidationMessage) {
+      showAlert({ message: companyValidationMessage });
       return;
     }
-    if (!paymentData.startDate || !paymentData.endDate) {
-      setError(prev => ({ ...prev, payment: '계약기간을 선택해주세요.' }));
-      setIsLoading(prev => ({ ...prev, payment: false }));
+
+    const paymentValidationMessage = validatePaymentData();
+    if (paymentValidationMessage) {
+      showAlert({ message: paymentValidationMessage });
       return;
     }
-    if (paymentData.endDate < paymentData.startDate) {
-      setError(prev => ({ ...prev, payment: '종료일은 시작일보다 늦어야 합니다.' }));
-      setIsLoading(prev => ({ ...prev, payment: false }));
-      return;
-    }
-    if (!paymentData.taxInvoice) {
-      setError(prev => ({ ...prev, payment: '세금계산서 발행 여부를 선택해주세요.' }));
-      setIsLoading(prev => ({ ...prev, payment: false }));
-      return;
-    }
-    if (!paymentData.paymentMethod) {
-      setError(prev => ({ ...prev, payment: '결제구분을 선택해주세요.' }));
-      setIsLoading(prev => ({ ...prev, payment: false }));
-      return;
-    }
+
+    setIsLoading({ company: true, payment: true });
 
     try {
       const token = localStorage.getItem('access_token');
+      const companyId = await createCompany(token);
       const res = await fetch('/api/payment', {
         method: 'POST',
         headers: {
@@ -254,8 +262,8 @@ function AdDetail({ user }) {
         body: JSON.stringify({
           ...paymentData,
           userId: user.id,
-          companyId: savedCompanyId,
-          paymentDetail,
+          companyId,
+          paymentDetail: getPaymentDetailPayload(),
           productInfo,
           extraInfo,
         }),
@@ -264,20 +272,25 @@ function AdDetail({ user }) {
 
       if (!res.ok) throw new Error(data.error || '결제 정보 등록에 실패했습니다.');
 
-      setSuccess(prev => ({ ...prev, payment: '광고 결제 정보가 성공적으로 등록되었습니다.' }));
+      showAlert({
+        title: '등록 완료',
+        message: '광고 정보가 등록되었습니다.',
+        variant: 'success',
+      });
+      setFormData(initial_company_data);
       setPaymentData(initial_payment_data);
       setPaymentDetail(initial_payment_detail);
-      setProductInfo({
-        ...initial_product_info,
-        manager: user?.name || '',
-      });
+      setProductInfo(initial_product_info);
       setExtraInfo(initial_extra_info);
-      setSavedCompanyId(null);
     } catch (err) {
       console.error('Save payment error:', err);
-      setError(prev => ({ ...prev, payment: err.message }));
+      showAlert({
+        title: '등록 실패',
+        message: err.message,
+        variant: 'danger',
+      });
     } finally {
-      setIsLoading(prev => ({ ...prev, payment: false }));
+      setIsLoading({ company: false, payment: false });
     }
   };
 
@@ -300,9 +313,27 @@ function AdDetail({ user }) {
     }));
   };
 
+  const handlePaymentMethodChange = value => {
+    setPaymentData(prev => ({ ...prev, paymentMethod: value }));
+
+    if (value !== '카드') {
+      setPaymentDetail(prev => ({
+        ...prev,
+        cardCompany: '',
+        installmentMonths: '',
+        expiryMonth: '',
+        expiryYear: '',
+        cardNumber1: '',
+        cardNumber2: '',
+        cardNumber3: '',
+        cardNumber4: '',
+      }));
+    }
+  };
+
   return (
     <section className="ad_detail_block">
-      <form id="ad_company_form" className="ad_section" onSubmit={handleCompanySubmit}>
+      <section className="ad_section">
         <div className="ad_section_title">기본정보등록</div>
         <div className="ad_panel">
           <div className="ad_form_grid three">
@@ -311,7 +342,6 @@ function AdDetail({ user }) {
                 type="text"
                 value={formData.companyName}
                 onChange={e => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
-                placeholder="상호명을 입력하세요"
                 disabled={isLoading.company}
               />
             </AdField>
@@ -320,7 +350,6 @@ function AdDetail({ user }) {
                 type="text"
                 value={formData.ceoName}
                 onChange={e => setFormData(prev => ({ ...prev, ceoName: e.target.value }))}
-                placeholder="대표자 이름"
                 disabled={isLoading.company}
               />
             </AdField>
@@ -329,7 +358,6 @@ function AdDetail({ user }) {
                 mask="000-00-00000"
                 value={formData.businessRegNumber}
                 onAccept={value => setFormData(prev => ({ ...prev, businessRegNumber: value }))}
-                placeholder="123-45-67890"
                 disabled={isLoading.company}
               />
             </AdField>
@@ -338,7 +366,6 @@ function AdDetail({ user }) {
                 mask="000000"
                 value={formData.birthDate}
                 onAccept={value => setFormData(prev => ({ ...prev, birthDate: value }))}
-                placeholder="991231"
                 disabled={isLoading.company}
               />
             </AdField>
@@ -352,7 +379,6 @@ function AdDetail({ user }) {
                 ]}
                 value={formData.tel}
                 onAccept={value => setFormData(prev => ({ ...prev, tel: value }))}
-                placeholder="02-1234-5678"
                 disabled={isLoading.company}
               />
             </AdField>
@@ -361,7 +387,6 @@ function AdDetail({ user }) {
                 mask="000-0000-0000"
                 value={formData.mobile}
                 onAccept={value => setFormData(prev => ({ ...prev, mobile: value }))}
-                placeholder="010-1234-5678"
                 disabled={isLoading.company}
               />
             </AdField>
@@ -370,7 +395,6 @@ function AdDetail({ user }) {
                 <input
                   type="text"
                   value={formData.postcode}
-                  placeholder="우편번호"
                   readOnly
                   disabled={isLoading.company}
                   onClick={() => !isLoading.company && setShowPostcodeModal(true)}
@@ -378,10 +402,15 @@ function AdDetail({ user }) {
                 <input
                   type="text"
                   value={formData.address}
-                  placeholder="기본주소"
                   readOnly
                   disabled={isLoading.company}
                   onClick={() => !isLoading.company && setShowPostcodeModal(true)}
+                />
+                <input
+                  type="text"
+                  value={formData.detailAddress}
+                  onChange={e => setFormData(prev => ({ ...prev, detailAddress: e.target.value }))}
+                  disabled={isLoading.company}
                 />
                 <button
                   type="button"
@@ -397,16 +426,6 @@ function AdDetail({ user }) {
                 type="url"
                 value={formData.companyUrl}
                 onChange={e => setFormData(prev => ({ ...prev, companyUrl: e.target.value }))}
-                placeholder="https://example.com"
-                disabled={isLoading.company}
-              />
-            </AdField>
-            <AdField label="상세주소" className="span_full">
-              <input
-                type="text"
-                value={formData.detailAddress}
-                onChange={e => setFormData(prev => ({ ...prev, detailAddress: e.target.value }))}
-                placeholder="상세주소를 입력하세요"
                 disabled={isLoading.company}
               />
             </AdField>
@@ -415,33 +434,12 @@ function AdDetail({ user }) {
                 type="email"
                 value={formData.companyEmail}
                 onChange={e => setFormData(prev => ({ ...prev, companyEmail: e.target.value }))}
-                placeholder="contact@example.com"
                 disabled={isLoading.company}
               />
             </AdField>
           </div>
-
-          <div className="ad_section_actions">
-            <button type="submit" className="ad_primary_button" disabled={isLoading.company}>
-              {isLoading.company ? '저장 중...' : '기본정보 저장'}
-            </button>
-            <button
-              type="button"
-              className="ad_secondary_button"
-              onClick={() => {
-                setFormData(initial_company_data);
-                setSavedCompanyId(null);
-              }}
-              disabled={isLoading.company}
-            >
-              초기화
-            </button>
-          </div>
-
-          {error.company && <Alert variant="danger" className="ad_alert">{error.company}</Alert>}
-          {success.company && <Alert variant="success" className="ad_alert">{success.company}</Alert>}
         </div>
-      </form>
+      </section>
 
       <form id="ad_payment_form" className="ad_section" onSubmit={handlePaymentSubmit}>
         <div className="ad_section_title">결제정보등록</div>
@@ -540,7 +538,7 @@ function AdDetail({ user }) {
               <AdField label="결제구분">
                 <select
                   value={paymentData.paymentMethod}
-                  onChange={e => setPaymentData(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                  onChange={e => handlePaymentMethodChange(e.target.value)}
                   disabled={isLoading.payment}
                 >
                   <option value="">선택</option>
@@ -548,66 +546,67 @@ function AdDetail({ user }) {
                   <option value="현금">현금</option>
                 </select>
               </AdField>
-              <AdField label="카드사">
-                <input
-                  value={paymentDetail.cardCompany}
-                  onChange={e => setPaymentDetail(prev => ({ ...prev, cardCompany: e.target.value }))}
-                  placeholder="카드사"
-                  disabled={isLoading.payment}
-                />
-              </AdField>
-              <AdField label="유효기간">
-                <div className="ad_split_pair">
-                  <IMaskInput
-                    mask="00"
-                    value={paymentDetail.expiryMonth}
-                    onAccept={value => setPaymentDetail(prev => ({ ...prev, expiryMonth: value }))}
-                    placeholder="월"
-                    disabled={isLoading.payment}
-                  />
-                  <span>/</span>
-                  <IMaskInput
-                    mask="00"
-                    value={paymentDetail.expiryYear}
-                    onAccept={value => setPaymentDetail(prev => ({ ...prev, expiryYear: value }))}
-                    placeholder="년"
-                    disabled={isLoading.payment}
-                  />
-                </div>
-              </AdField>
-              <AdField label="할부개월수">
-                <select
-                  value={paymentDetail.installmentMonths}
-                  onChange={e => setPaymentDetail(prev => ({ ...prev, installmentMonths: e.target.value }))}
-                  disabled={isLoading.payment}
-                >
-                  <option value="1개월">1개월</option>
-                  <option value="3개월">3개월</option>
-                  <option value="6개월">6개월</option>
-                  <option value="12개월">12개월</option>
-                </select>
-              </AdField>
-              <AdField label="카드번호" className="span_full">
-                <div className="ad_card_number">
-                  {['cardNumber1', 'cardNumber2', 'cardNumber3', 'cardNumber4'].map((key, index) => (
-                    <span key={key}>
+              {paymentData.paymentMethod === '카드' && (
+                <>
+                  <AdField label="카드사">
+                    <input
+                      value={paymentDetail.cardCompany}
+                      onChange={e => setPaymentDetail(prev => ({ ...prev, cardCompany: e.target.value }))}
+                      disabled={isLoading.payment}
+                    />
+                  </AdField>
+                  <AdField label="유효기간">
+                    <div className="ad_split_pair">
                       <IMaskInput
-                        mask="0000"
-                        value={paymentDetail[key]}
-                        onAccept={value => setPaymentDetail(prev => ({ ...prev, [key]: value }))}
-                        placeholder="****"
+                        mask="00"
+                        value={paymentDetail.expiryMonth}
+                        onAccept={value => setPaymentDetail(prev => ({ ...prev, expiryMonth: value }))}
+                        placeholder="월"
                         disabled={isLoading.payment}
                       />
-                      {index < 3 && <i>-</i>}
-                    </span>
-                  ))}
-                </div>
-              </AdField>
+                      <span>/</span>
+                      <IMaskInput
+                        mask="00"
+                        value={paymentDetail.expiryYear}
+                        onAccept={value => setPaymentDetail(prev => ({ ...prev, expiryYear: value }))}
+                        placeholder="년"
+                        disabled={isLoading.payment}
+                      />
+                    </div>
+                  </AdField>
+                  <AdField label="할부개월수">
+                    <select
+                      value={paymentDetail.installmentMonths}
+                      onChange={e => setPaymentDetail(prev => ({ ...prev, installmentMonths: e.target.value }))}
+                      disabled={isLoading.payment}
+                    >
+                      <option value="">선택</option>
+                      <option value="1개월">1개월</option>
+                      <option value="3개월">3개월</option>
+                      <option value="6개월">6개월</option>
+                      <option value="12개월">12개월</option>
+                    </select>
+                  </AdField>
+                  <AdField label="카드번호" className="span_full">
+                    <div className="ad_card_number">
+                      {['cardNumber1', 'cardNumber2', 'cardNumber3', 'cardNumber4'].map((key, index) => (
+                        <span key={key}>
+                          <IMaskInput
+                            mask="0000"
+                            value={paymentDetail[key]}
+                            onAccept={value => setPaymentDetail(prev => ({ ...prev, [key]: value }))}
+                            placeholder="****"
+                            disabled={isLoading.payment}
+                          />
+                          {index < 3 && <i>-</i>}
+                        </span>
+                      ))}
+                    </div>
+                  </AdField>
+                </>
+              )}
             </div>
           </div>
-
-          {error.payment && <Alert variant="danger" className="ad_alert">{error.payment}</Alert>}
-          {success.payment && <Alert variant="success" className="ad_alert">{success.payment}</Alert>}
         </div>
       </form>
 
@@ -625,14 +624,12 @@ function AdDetail({ user }) {
               <input
                 value={productInfo.teamLead}
                 onChange={e => setProductInfo(prev => ({ ...prev, teamLead: e.target.value }))}
-                placeholder="없음"
               />
             </AdField>
             <AdField label="담당부장">
               <input
                 value={productInfo.departmentHead}
                 onChange={e => setProductInfo(prev => ({ ...prev, departmentHead: e.target.value }))}
-                placeholder="없음"
               />
             </AdField>
             <AdField label="제작사항-1">
@@ -640,6 +637,7 @@ function AdDetail({ user }) {
                 value={productInfo.production1}
                 onChange={e => setProductInfo(prev => ({ ...prev, production1: e.target.value }))}
               >
+                <option value="">선택</option>
                 <option value="없음">없음</option>
                 <option value="진행">진행</option>
                 <option value="완료">완료</option>
@@ -650,6 +648,7 @@ function AdDetail({ user }) {
                 value={productInfo.production2}
                 onChange={e => setProductInfo(prev => ({ ...prev, production2: e.target.value }))}
               >
+                <option value="">선택</option>
                 <option value="없음">없음</option>
                 <option value="진행">진행</option>
                 <option value="완료">완료</option>
@@ -660,6 +659,7 @@ function AdDetail({ user }) {
                 value={productInfo.adProgress}
                 onChange={e => setProductInfo(prev => ({ ...prev, adProgress: e.target.value }))}
               >
+                <option value="">선택</option>
                 <option value="OFF">OFF</option>
                 <option value="ON">ON</option>
               </select>
@@ -672,7 +672,6 @@ function AdDetail({ user }) {
                 <input
                   value={product}
                   onChange={e => updateProduct(index, e.target.value)}
-                  placeholder="상품 내용을 입력하세요"
                 />
               </AdField>
             ))}
@@ -688,35 +687,30 @@ function AdDetail({ user }) {
               <input
                 value={extraInfo.registrationUrl}
                 onChange={e => setExtraInfo(prev => ({ ...prev, registrationUrl: e.target.value }))}
-                placeholder="https://"
               />
             </AdField>
             <AdField label="제목문구">
               <input
                 value={extraInfo.titleText}
                 onChange={e => setExtraInfo(prev => ({ ...prev, titleText: e.target.value }))}
-                placeholder="제목 문구"
               />
             </AdField>
             <AdField label="설명문구">
               <input
                 value={extraInfo.descriptionText}
                 onChange={e => setExtraInfo(prev => ({ ...prev, descriptionText: e.target.value }))}
-                placeholder="설명 문구"
               />
             </AdField>
             <AdField label="광고주계정">
               <input
                 value={extraInfo.advertiserAccount}
                 onChange={e => setExtraInfo(prev => ({ ...prev, advertiserAccount: e.target.value }))}
-                placeholder="광고주 계정"
               />
             </AdField>
             <AdField label="비고">
               <input
                 value={extraInfo.memo}
                 onChange={e => setExtraInfo(prev => ({ ...prev, memo: e.target.value }))}
-                placeholder="비고"
               />
             </AdField>
             <AdField label="첨부파일">
@@ -775,6 +769,25 @@ function AdDetail({ user }) {
             닫기
           </button>
         </Modal.Footer>
+      </Modal>
+
+      <Modal
+        show={alertModal.show}
+        onHide={() => setAlertModal(prev => ({ ...prev, show: false }))}
+        dialogClassName="ad_top_alert_dialog"
+        contentClassName={`ad_top_alert_content ${alertModal.variant}`}
+      >
+        <Modal.Body>
+          <strong>{alertModal.title}</strong>
+          <p>{alertModal.message}</p>
+          <button
+            type="button"
+            className="ad_primary_button"
+            onClick={() => setAlertModal(prev => ({ ...prev, show: false }))}
+          >
+            확인
+          </button>
+        </Modal.Body>
       </Modal>
     </section>
   );
