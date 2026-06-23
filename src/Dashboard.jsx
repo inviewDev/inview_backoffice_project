@@ -31,6 +31,13 @@ const notice_items = [
 
 const months = ['01월', '02월', '03월', '04월', '05월', '06월', '07월', '08월', '09월', '10월', '11월', '12월'];
 
+function getKoreanCurrentYear() {
+  return Number(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+  }).format(new Date()));
+}
+
 function parseResponseText(text) {
   if (!text) return {};
 
@@ -58,19 +65,93 @@ function formatDate(value) {
   return String(value).slice(0, 10);
 }
 
-function getMonthIndex(value) {
-  if (!value) return -1;
+const sales_excluded_status_markers = ['\uCDE8\uC18C', '\uB300\uAE30'];
+
+function isCompletedSalesStatus(status) {
+  const text = String(status || '').trim();
+  return text.length > 0 && !sales_excluded_status_markers.some(marker => text.includes(marker));
+}
+
+function getYearMonth(value) {
+  const text = String(value || '');
+  const match = text.match(/^(\d{4})-(\d{2})/);
+
+  if (match) {
+    return {
+      year: Number(match[1]),
+      month: Number(match[2]),
+    };
+  }
+
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return -1;
-  return date.getMonth();
+  if (Number.isNaN(date.getTime())) return null;
+
+  return {
+    year: Number(new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Seoul',
+      year: 'numeric',
+    }).format(date)),
+    month: Number(new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Seoul',
+      month: 'numeric',
+    }).format(date)),
+  };
+}
+
+function createEmptySalesYears(currentYear) {
+  return Array.from({ length: 3 }, (_, index) => {
+    const year = currentYear - index;
+    const monthsData = Array.from({ length: 12 }, (_, monthIndex) => ({
+      month: monthIndex + 1,
+      total: 0,
+      count: 0,
+    }));
+
+    return {
+      year,
+      total: 0,
+      count: 0,
+      months: monthsData,
+    };
+  });
+}
+
+function buildSalesSummaryFromAds(ads) {
+  const currentYear = getKoreanCurrentYear();
+  const years = createEmptySalesYears(currentYear);
+  const yearMap = new Map(years.map(item => [item.year, item]));
+
+  ads.forEach(ad => {
+    if (!isCompletedSalesStatus(ad.paymentStatus)) return;
+
+    const date = getYearMonth(ad.createdAt || ad.contractStartDate);
+    if (!date || !yearMap.has(date.year) || date.month < 1 || date.month > 12) return;
+
+    const yearBucket = yearMap.get(date.year);
+    const monthBucket = yearBucket.months[date.month - 1];
+    const amount = Number(ad.approvedAmount) || 0;
+
+    monthBucket.total += amount;
+    monthBucket.count += 1;
+    yearBucket.total += amount;
+    yearBucket.count += 1;
+  });
+
+  return {
+    currentYear,
+    startYear: currentYear - 2,
+    excludedStatuses: ['취소', '대기'],
+    years,
+  };
 }
 
 function getMaxValue(values) {
   return Math.max(...values.map(value => Number(value) || 0), 1);
 }
 
-function MiniLineChart({ currentValues, previousValues, currentYear, previousYear }) {
-  const maxValue = getMaxValue([...currentValues, ...previousValues]);
+function MiniLineChart({ values, year, total }) {
+  const [hoveredIndex, setHoveredIndex] = useState(null);
+  const maxValue = getMaxValue(values);
   const width = 910;
   const height = 186;
   const left = 35;
@@ -89,14 +170,21 @@ function MiniLineChart({ currentValues, previousValues, currentYear, previousYea
       const point = getPoint(value, index);
       return `${point.x},${point.y}`;
     }).join(' ');
-  const currentArea = `${left},${top + chartHeight} ${pointsToString(currentValues)} ${left + chartWidth},${top + chartHeight}`;
-  const previousArea = `${left},${top + chartHeight} ${pointsToString(previousValues)} ${left + chartWidth},${top + chartHeight}`;
+  const currentArea = `${left},${top + chartHeight} ${pointsToString(values)} ${left + chartWidth},${top + chartHeight}`;
+  const hoveredPoint = hoveredIndex !== null ? getPoint(values[hoveredIndex], hoveredIndex) : null;
+  const tooltipWidth = 170;
+  const tooltipHeight = 48;
+  const tooltipX = hoveredPoint
+    ? Math.min(Math.max(hoveredPoint.x - tooltipWidth / 2, 4), width - tooltipWidth - 4)
+    : 0;
+  const tooltipY = hoveredPoint
+    ? Math.max(hoveredPoint.y - tooltipHeight - 12, 4)
+    : 0;
 
   return (
     <div className="dash_line_chart">
       <div className="dash_chart_legend">
-        <span><i className="dash_legend_blue" />{currentYear}</span>
-        <span><i className="dash_legend_pink" />{previousYear}</span>
+        <span><i className="dash_legend_blue" />{year} {formatCurrency(total)}</span>
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="연도별 매출 차트">
         {[0, 1, 2, 3, 4].map(index => (
@@ -110,10 +198,34 @@ function MiniLineChart({ currentValues, previousValues, currentYear, previousYea
           />
         ))}
         <line x1={left} x2={left + chartWidth} y1={top + chartHeight} y2={top + chartHeight} className="dash_axis_line" />
-        <polygon points={previousArea} className="dash_area_pink" />
         <polygon points={currentArea} className="dash_area_blue" />
-        <polyline points={pointsToString(previousValues)} className="dash_line_pink" />
-        <polyline points={pointsToString(currentValues)} className="dash_line_blue" />
+        <polyline points={pointsToString(values)} className="dash_line_blue" />
+        {values.map((value, index) => {
+          const point = getPoint(value, index);
+
+          return (
+            <g
+              key={`${year}_${index}`}
+              className="dash_line_point_group"
+              onMouseEnter={() => setHoveredIndex(index)}
+              onMouseLeave={() => setHoveredIndex(null)}
+              onFocus={() => setHoveredIndex(index)}
+              onBlur={() => setHoveredIndex(null)}
+              tabIndex={0}
+            >
+              <circle cx={point.x} cy={point.y} r="4.5" className="dash_line_point" />
+              <circle cx={point.x} cy={point.y} r="13" className="dash_line_hit" />
+              <title>{`${year}년 ${months[index]} 총 매출 ${formatCurrency(value)}`}</title>
+            </g>
+          );
+        })}
+        {hoveredPoint && (
+          <g className="dash_chart_tooltip">
+            <rect x={tooltipX} y={tooltipY} width={tooltipWidth} height={tooltipHeight} rx="8" />
+            <text x={tooltipX + 12} y={tooltipY + 19}>{`${year}년 ${months[hoveredIndex]}`}</text>
+            <text x={tooltipX + 12} y={tooltipY + 38}>{formatCurrency(values[hoveredIndex])}</text>
+          </g>
+        )}
       </svg>
       <div className="dash_month_axis">
         {months.map(month => <span key={month}>{month}</span>)}
@@ -161,6 +273,10 @@ function Dashboard({ user }) {
   const [payrollData, setPayrollData] = useState(null);
   const [payrollError, setPayrollError] = useState('');
   const [isPayrollLoading, setIsPayrollLoading] = useState(true);
+  const [salesSummary, setSalesSummary] = useState(null);
+  const [salesSummaryError, setSalesSummaryError] = useState('');
+  const [isSalesSummaryLoading, setIsSalesSummaryLoading] = useState(true);
+  const [selectedSalesYear, setSelectedSalesYear] = useState(() => getKoreanCurrentYear());
   const [searchText, setSearchText] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -206,26 +322,73 @@ function Dashboard({ user }) {
     }
   }, [user.id]);
 
+  useEffect(() => {
+    const fetchSalesSummary = async () => {
+      setIsSalesSummaryLoading(true);
+      setSalesSummaryError('');
+      const token = localStorage.getItem('access_token');
+
+      try {
+        const res = await fetch('/api/dashboard/monthly-sales', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await parseResponse(res);
+
+        if (!res.ok) {
+          throw new Error(data.error || '월별 매출 정보를 불러오지 못했습니다.');
+        }
+
+        setSalesSummary(data);
+        if (data?.currentYear) setSelectedSalesYear(data.currentYear);
+      } catch (err) {
+        console.error('Fetch dashboard monthly sales error:', err);
+        try {
+          const fallbackRes = await fetch('/api/ads', {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          const fallbackData = await parseResponse(fallbackRes);
+
+          if (!fallbackRes.ok) {
+            throw new Error(fallbackData.error || '월별 매출 정보를 불러오지 못했습니다.');
+          }
+
+          const fallbackSummary = buildSalesSummaryFromAds(Array.isArray(fallbackData.ads) ? fallbackData.ads : []);
+          setSalesSummary(fallbackSummary);
+          setSelectedSalesYear(fallbackSummary.currentYear);
+        } catch (fallbackError) {
+          console.error('Fetch dashboard monthly sales fallback error:', fallbackError);
+          setSalesSummaryError('월별 매출 정보를 불러오지 못했습니다.');
+        }
+      } finally {
+        setIsSalesSummaryLoading(false);
+      }
+    };
+
+    if (user?.id) {
+      fetchSalesSummary();
+    }
+  }, [user.id]);
+
   const salesDetails = useMemo(() => payrollData?.salesDetails || [], [payrollData?.salesDetails]);
   const totalSales = payrollData?.totalSales || payrollData?.totalApprovedAmount || 0;
   const totalCancellations = payrollData?.totalCancellations || payrollData?.totalCancellationAmount || 0;
   const userTeam = user.team || '미지정';
   const isDevelopmentManagementTeam = userTeam === '개발관리부' || userTeam === '개발관리팀';
 
-  const monthlyValues = useMemo(() => {
-    const values = Array(12).fill(0);
-    salesDetails.forEach(detail => {
-      const monthIndex = getMonthIndex(detail.registrationDate);
-      if (monthIndex >= 0) values[monthIndex] += Number(detail.approvedAmount) || 0;
-    });
-    if (!salesDetails.length && payrollData?.periodEnd) {
-      const monthIndex = getMonthIndex(payrollData.periodEnd);
-      if (monthIndex >= 0) values[monthIndex] = totalSales;
-    }
-    return values;
-  }, [payrollData, salesDetails, totalSales]);
-
-  const previousMonthlyValues = useMemo(() => monthlyValues.map(value => value * 0.65), [monthlyValues]);
+  const salesYearOptions = useMemo(() => salesSummary?.years || [], [salesSummary?.years]);
+  const selectedSalesSummary = useMemo(() => {
+    return salesYearOptions.find(item => Number(item.year) === Number(selectedSalesYear))
+      || salesYearOptions[0]
+      || { year: selectedSalesYear, total: 0, months: [] };
+  }, [salesYearOptions, selectedSalesYear]);
+  const selectedMonthlyValues = useMemo(() => {
+    const monthMap = new Map((selectedSalesSummary.months || []).map(item => [Number(item.month), Number(item.total) || 0]));
+    return Array.from({ length: 12 }, (_, index) => monthMap.get(index + 1) || 0);
+  }, [selectedSalesSummary.months]);
 
   const topSales = useMemo(() => {
     return [...salesDetails]
@@ -277,8 +440,7 @@ function Dashboard({ user }) {
 
   const formattedDate = currentTime.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
   const formattedTime = currentTime.toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' });
-  const currentYear = Number(currentTime.toLocaleString('en-US', { timeZone: 'Asia/Seoul', year: 'numeric' }));
-  const previousYear = currentYear - 1;
+  const currentYear = salesSummary?.currentYear || getKoreanCurrentYear();
 
   if (!user || !user.email || !user.role || !user.name) {
     return (
@@ -339,17 +501,30 @@ function Dashboard({ user }) {
 
         <div>
           <div className="dash_title_row">
-            <h1>{currentYear}년도 매출정보</h1>
+            <h1>{selectedSalesSummary.year}년도 매출정보</h1>
+            <div className="dash_year_buttons" aria-label="매출 연도 선택">
+              {salesYearOptions.map(item => (
+                <button
+                  type="button"
+                  key={item.year}
+                  className={Number(item.year) === Number(selectedSalesSummary.year) ? 'active' : ''}
+                  onClick={() => setSelectedSalesYear(item.year)}
+                >
+                  {item.year}
+                </button>
+              ))}
+            </div>
           </div>
           <section className="dash_card dash_year_card">
-            {isPayrollLoading ? (
+            {isSalesSummaryLoading ? (
               <div className="dash_center_state"><Spinner animation="border" size="sm" /> 매출 데이터를 불러오는 중...</div>
+            ) : salesSummaryError ? (
+              <div className="dash_center_state">{salesSummaryError}</div>
             ) : (
               <MiniLineChart
-                currentValues={monthlyValues}
-                previousValues={previousMonthlyValues}
-                currentYear={currentYear}
-                previousYear={previousYear}
+                values={selectedMonthlyValues}
+                year={selectedSalesSummary.year || currentYear}
+                total={selectedSalesSummary.total || 0}
               />
             )}
           </section>

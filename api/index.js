@@ -1530,6 +1530,72 @@ function sumBy(items, field) {
   return items.reduce((total, item) => total + (Number(item[field]) || 0), 0);
 }
 
+function getKoreanCurrentYear() {
+  return Number(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+  }).format(new Date()));
+}
+
+const DASHBOARD_EXCLUDED_PAYMENT_STATUS_MARKERS = ['\uCDE8\uC18C', '\uB300\uAE30'];
+
+function isDashboardCompletedSaleStatus(status) {
+  const text = String(status || '').trim();
+  return text.length > 0 && !DASHBOARD_EXCLUDED_PAYMENT_STATUS_MARKERS.some(marker => text.includes(marker));
+}
+
+apiRouter.get('/dashboard/monthly-sales', verifyToken, async (_req, res) => {
+  const currentYear = getKoreanCurrentYear();
+  const startYear = currentYear - 2;
+
+  try {
+    const rows = await prisma.$queryRaw`
+      select extract(year from "createdAt" at time zone 'Asia/Seoul')::int as year,
+             extract(month from "createdAt" at time zone 'Asia/Seoul')::int as month,
+             "paymentStatus" as status,
+             count(*)::int as count,
+             sum(coalesce("approvedAmount", 0))::float as total
+        from "Payment"
+       where extract(year from "createdAt" at time zone 'Asia/Seoul')::int between ${startYear} and ${currentYear}
+       group by 1, 2, 3
+       order by 1 desc, 2 asc
+    `;
+    const completedRows = rows.filter(row => isDashboardCompletedSaleStatus(row.status));
+
+    const years = Array.from({ length: 3 }, (_, index) => currentYear - index).map(year => {
+      const months = Array.from({ length: 12 }, (_, monthIndex) => {
+        const monthRows = completedRows.filter(item => (
+          Number(item.year) === year &&
+          Number(item.month) === monthIndex + 1
+        ));
+
+        return {
+          month: monthIndex + 1,
+          total: monthRows.reduce((sum, row) => sum + (Number(row.total) || 0), 0),
+          count: monthRows.reduce((sum, row) => sum + (Number(row.count) || 0), 0),
+        };
+      });
+
+      return {
+        year,
+        total: months.reduce((sum, month) => sum + month.total, 0),
+        count: months.reduce((sum, month) => sum + month.count, 0),
+        months,
+      };
+    });
+
+    res.json({
+      currentYear,
+      startYear,
+      excludedStatuses: ['취소', '대기'],
+      years,
+    });
+  } catch (error) {
+    console.error('Fetch dashboard monthly sales error:', error);
+    res.status(500).json({ error: '월별 매출 정보를 불러오지 못했습니다.' });
+  }
+});
+
 apiRouter.get('/payroll', verifyToken, async (req, res) => {
   const targetUserId = parseInt(req.query.userId || req.user.id, 10);
 

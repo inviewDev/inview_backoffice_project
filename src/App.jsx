@@ -65,6 +65,9 @@ function App() {
   const [user, setUser] = useState(null);
   const [tab, setTab] = useState('login');
   const [isLoading, setIsLoading] = useState(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() =>
+    localStorage.getItem('admin_sidebar_collapsed') === 'true'
+  );
   const location = useLocation();
 
   useEffect(() => {
@@ -145,6 +148,14 @@ function App() {
     setTab('login');
   };
 
+  const handleSidebarToggle = () => {
+    setIsSidebarCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('admin_sidebar_collapsed', String(next));
+      return next;
+    });
+  };
+
   const isActiveNav = item => {
     if (item.to.includes('?')) {
       return `${location.pathname}${location.search}` === item.to;
@@ -221,8 +232,17 @@ function App() {
   }
 
   return (
-    <div className="admin_shell">
+    <div className={`admin_shell ${isSidebarCollapsed ? 'sidebar_collapsed' : ''}`}>
       <aside className="admin_sidebar">
+        <button
+          type="button"
+          className="admin_sidebar_toggle"
+          onClick={handleSidebarToggle}
+          aria-label={isSidebarCollapsed ? '사이드바 펼치기' : '사이드바 접기'}
+          title={isSidebarCollapsed ? '사이드바 펼치기' : '사이드바 접기'}
+        >
+          <span aria-hidden="true">{isSidebarCollapsed ? '>' : '<'}</span>
+        </button>
         <Link to="/" className="admin_sidebar_logo">
           <img src="/img/logo/logo_wr.svg" alt="I&VIEW COMMUNICATION" />
         </Link>
@@ -246,7 +266,7 @@ function App() {
                     <span />
                   </span>
                 )}
-                <span>{item.label}</span>
+                <span className="admin_nav_text">{item.label}</span>
               </Link>
             );
           })}

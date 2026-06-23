@@ -47,7 +47,7 @@
 .mypage_input,
 .mypage_textarea { width: 100%; min-width: 0; border: 1px solid #d8dce6; border-radius: 6px; background: #fff; color: #333; font-size: 14px; font-weight: 500; letter-spacing: 0; line-height: 20px; outline: 0; transition: border-color 0.18s ease, box-shadow 0.18s ease; }
 .mypage_input { height: 32px; padding: 0 10px; }
-.mypage_textarea { min-height: 104px; padding: 12px 14px; resize: vertical; }
+.mypage_textarea { min-height: 104px; padding: 12px 14px; resize:none; }
 .mypage_input:focus,
 .mypage_textarea:focus { border-color: #1962fc; box-shadow: 0 0 0 3px rgba(25, 98, 252, 0.12); }
 .mypage_date_wrap,
