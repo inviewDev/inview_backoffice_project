@@ -415,6 +415,9 @@ apiRouter.post('/signup', async (req, res) => {
     if (/\s/.test(loginId)) {
       return res.status(400).json({ error: '아이디에는 공백을 사용할 수 없습니다.' });
     }
+    if (!/^[A-Za-z]+$/.test(loginId)) {
+      return res.status(400).json({ error: '아이디는 영문만 사용할 수 있습니다.' });
+    }
     const existingUser = await prisma.user.findUnique({ where: { email: loginId } });
     if (existingUser) return res.status(400).json({ error: '이미 존재하는 아이디입니다.' });
 
@@ -1306,11 +1309,6 @@ apiRouter.post('/ads/:id/sms-consent/send', verifyToken, async (req, res) => {
         },
         company: true,
         smsConsentTokens: {
-          where: {
-            usedAt: null,
-            expiredAt: null,
-            expiresAt: { gt: new Date() },
-          },
           orderBy: { createdAt: 'desc' },
           take: 1,
         },
@@ -1323,12 +1321,17 @@ apiRouter.post('/ads/:id/sms-consent/send', verifyToken, async (req, res) => {
     if (!canAccessUser(req, payment.userId)) {
       return res.status(403).json({ error: '해당 광고에 계약서를 발송할 권한이 없습니다.' });
     }
-    if (payment.agreementStatus === '동의' || payment.agreementAt) {
-      return res.status(400).json({ error: '이미 동의가 완료된 계약서입니다.' });
-    }
-
     let consentToken = payment.smsConsentTokens[0] || null;
-    if (!consentToken || !resend) {
+    const canReuseToken = Boolean(
+      resend &&
+      consentToken &&
+      (
+        consentToken.usedAt ||
+        (!consentToken.expiredAt && consentToken.expiresAt > new Date())
+      )
+    );
+
+    if (!canReuseToken) {
       const token = await createUniqueAgreementToken();
       consentToken = await prisma.smsConsentToken.create({
         data: {
@@ -1419,13 +1422,14 @@ apiRouter.get('/agreements/:token', async (req, res) => {
     if (!consentToken) {
       return res.status(404).json({ error: '유효하지 않은 계약서 링크입니다.' });
     }
-    if (!consentToken.usedAt && (consentToken.expiredAt || consentToken.expiresAt < new Date())) {
+    const isAlreadyAgreed = Boolean(consentToken.usedAt || consentToken.payment.agreementAt);
+    if (!isAlreadyAgreed && (consentToken.expiredAt || consentToken.expiresAt < new Date())) {
       return res.status(410).json({ error: '만료된 계약서 링크입니다.' });
     }
 
     res.json({
       token: consentToken.token,
-      isAgreed: Boolean(consentToken.usedAt || consentToken.payment.agreementAt),
+      isAgreed: isAlreadyAgreed,
       agreedAt: consentToken.usedAt ? consentToken.usedAt.toISOString() : null,
       expiresAt: consentToken.expiresAt.toISOString(),
       contract: mapPaymentToAgreement(consentToken.payment),
@@ -1448,11 +1452,12 @@ apiRouter.post('/agreements/:token/agree', async (req, res) => {
     if (!consentToken) {
       return res.status(404).json({ error: '유효하지 않은 계약서 링크입니다.' });
     }
-    if (!consentToken.usedAt && (consentToken.expiredAt || consentToken.expiresAt < new Date())) {
+    const isAlreadyAgreed = Boolean(consentToken.usedAt || consentToken.payment.agreementAt);
+    if (!isAlreadyAgreed && (consentToken.expiredAt || consentToken.expiresAt < new Date())) {
       return res.status(410).json({ error: '만료된 계약서 링크입니다.' });
     }
 
-    if (consentToken.usedAt || consentToken.payment.agreementAt) {
+    if (isAlreadyAgreed) {
       return res.json({
         message: '이미 동의가 완료된 계약서입니다.',
         agreedAt: (consentToken.usedAt || consentToken.payment.agreementAt).toISOString(),

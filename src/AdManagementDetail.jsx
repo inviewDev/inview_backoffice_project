@@ -19,6 +19,8 @@ const PRODUCTS = [
   'NAVER 브랜드검색',
 ];
 
+const orderedProductIndexes = [0, 5, 1, 6, 2, 7, 3, 8, 4, 9];
+
 function formatMoney(value) {
   const number = Number(value || 0);
   return number ? number.toLocaleString('ko-KR') : '-';
@@ -112,7 +114,7 @@ function AdManagementDetail() {
       return;
     }
 
-    const isResend = ad.smsContractStatus === '발송';
+    const isResend = ad.smsContractStatus === '발송' || Boolean(ad.latestSmsToken) || Boolean(ad.smsHistories?.length);
     const confirmMessage = `다음 휴대폰 번호로 SMS 계약서를 ${isResend ? '재발송' : '발송'}하시겠습니까?\n\n${phoneNumber}`;
     if (!window.confirm(confirmMessage)) return;
 
@@ -184,6 +186,8 @@ function AdManagementDetail() {
   const smsHistories = ad.smsHistories || [];
   const agreementPreviewUrl = `${window.location.origin}/contracts/ad-management/${ad.id}/agreement-preview`;
   const productItems = Array.isArray(ad.productItems) ? ad.productItems : [];
+  const hasSmsSendHistory = ad.smsContractStatus === '발송' || Boolean(ad.latestSmsToken) || smsHistories.length > 0;
+  const smsSendButtonText = isSendingSms ? '전송중' : hasSmsSendHistory ? '재발송' : '발송';
 
   return (
     <section className="ad_view_block">
@@ -236,8 +240,8 @@ function AdManagementDetail() {
             label="SMS계약서발송"
             value={ad.smsContractStatus}
             action={
-              <button type="button" onClick={handleSendSms} disabled={isSendingSms || ad.agreementStatus === '동의'}>
-                {isSendingSms ? '전송중' : ad.smsContractStatus === '발송' ? '재발송' : '발송'}
+              <button type="button" onClick={handleSendSms} disabled={isSendingSms}>
+                {smsSendButtonText}
               </button>
             }
           />
@@ -286,18 +290,20 @@ function AdManagementDetail() {
 
       <div className="ad_view_section_title">상품정보등록</div>
       <section className="ad_view_panel">
-        <div className="ad_view_grid three">
+        <div className="ad_view_grid three compact">
           <Field label="담당자" value={ad.manager} />
           <Field label="담당팀장" value={ad.teamLead} />
           <Field label="담당부장" value={ad.departmentHead} />
           <Field label="제작사항-1" value={ad.production1} />
           <Field label="제작사항-2" value={ad.production2} />
           <Field label="광고진행" value={ad.adProgress} />
-          {Array.from({ length: 10 }, (_, index) => (
+        </div>
+
+        <div className="ad_view_products_grid">
+          {orderedProductIndexes.map(index => (
             <Field
               label={`상품${index + 1}`}
               value={productItems[index]}
-              wide
               key={`product_${index + 1}`}
             />
           ))}

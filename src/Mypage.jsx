@@ -9,12 +9,44 @@ import moment from 'moment';
 import 'moment/locale/ko';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useReactTable, getCoreRowModel } from '@tanstack/react-table';
+import DateSelectPicker from './components/DateSelectPicker';
 import './styles/mypage.css';
 
 moment.locale('ko');
 const localizer = momentLocalizer(moment);
 const MAX_PROFILE_IMAGE_SIZE = 2 * 1024 * 1024;
 const PROFILE_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const current_year = new Date().getFullYear();
+const mypage_calendar_year_options = Array.from({ length: 16 }, (_, index) => current_year - 5 + index);
+
+function pad(value) {
+  return String(value).padStart(2, '0');
+}
+
+function renderMypageDateHeader({ date, changeYear, changeMonth }) {
+  return (
+    <div className="date_select_header mypage_calendar_date_header">
+      <select
+        value={date.getFullYear()}
+        onChange={event => changeYear(Number(event.target.value))}
+        aria-label="일정 연도"
+      >
+        {mypage_calendar_year_options.map(year => (
+          <option value={year} key={year}>{year}년</option>
+        ))}
+      </select>
+      <select
+        value={date.getMonth()}
+        onChange={event => changeMonth(Number(event.target.value))}
+        aria-label="일정 월"
+      >
+        {Array.from({ length: 12 }, (_, index) => (
+          <option value={index} key={index}>{pad(index + 1)}월</option>
+        ))}
+      </select>
+    </div>
+  );
+}
 
 async function parseApiResponse(res) {
   const text = await res.text();
@@ -692,21 +724,14 @@ function MyPage({ user, setUser }) {
                     handleUpdateField('birthDate', formData.birthDate);
                   }}
                 >
-                  <DatePicker
-                    selected={formData.birthDate}
+                  <DateSelectPicker
+                    value={formData.birthDate}
                     onChange={date => setFormData({ ...formData, birthDate: date })}
-                    locale={ko}
-                    dateFormat="yyyy-MM-dd"
-                    placeholderText="생년월일을 선택하세요"
-                    className="mypage_input"
-                    wrapperClassName="mypage_date_wrap"
-                    required
                     disabled={isLoading}
                     minDate={new Date(1900, 0, 1)}
                     maxDate={new Date()}
-                    showYearDropdown
-                    scrollableYearDropdown
-                    yearDropdownItemNumber={100}
+                    placeholder="생년월일"
+                    className="mypage_date_select"
                   />
                   <div className="mypage_form_actions">
                     <button type="submit" className="mypage_primary_button" disabled={isLoading}>저장</button>
@@ -901,6 +926,9 @@ function MyPage({ user, setUser }) {
                   locale={ko}
                   className="mypage_input"
                   wrapperClassName="mypage_date_wrap"
+                  popperClassName="date_select_calendar mypage_calendar_datepicker"
+                  showPopperArrow={false}
+                  renderCustomHeader={renderMypageDateHeader}
                   disabled={isEventLoading}
                 />
               </label>
@@ -917,6 +945,9 @@ function MyPage({ user, setUser }) {
                   locale={ko}
                   className="mypage_input"
                   wrapperClassName="mypage_date_wrap"
+                  popperClassName="date_select_calendar mypage_calendar_datepicker"
+                  showPopperArrow={false}
+                  renderCustomHeader={renderMypageDateHeader}
                   disabled={isEventLoading}
                 />
               </label>

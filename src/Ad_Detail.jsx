@@ -7,6 +7,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { ko } from 'date-fns/locale';
 import DaumPostcode from 'react-daum-postcode';
 import './styles/ad_detail.css';
+import './styles/date_select_picker.css';
 
 const product_options = [
   'G패키지',
@@ -43,6 +44,8 @@ const installment_month_options = Array.from({ length: 12 }, (_, index) => `${in
 const team_lead_levels = new Set(['팀장']);
 const department_head_levels = new Set(['대표', '파트장']);
 const card_number_keys = ['cardNumber1', 'cardNumber2', 'cardNumber3', 'cardNumber4'];
+const current_year = new Date().getFullYear();
+const contract_year_options = Array.from({ length: 21 }, (_, index) => current_year - 10 + index);
 
 const initial_company_data = {
   companyName: '',
@@ -115,6 +118,35 @@ function formatNumber(value) {
 
 function getDigits(value) {
   return String(value || '').replace(/\D/g, '');
+}
+
+function pad(value) {
+  return String(value).padStart(2, '0');
+}
+
+function renderContractDateHeader({ date, changeYear, changeMonth }) {
+  return (
+    <div className="date_select_header ad_contract_date_header">
+      <select
+        value={date.getFullYear()}
+        onChange={event => changeYear(Number(event.target.value))}
+        aria-label="계약기간 연도"
+      >
+        {contract_year_options.map(year => (
+          <option value={year} key={year}>{year}년</option>
+        ))}
+      </select>
+      <select
+        value={date.getMonth()}
+        onChange={event => changeMonth(Number(event.target.value))}
+        aria-label="계약기간 월"
+      >
+        {Array.from({ length: 12 }, (_, index) => (
+          <option value={index} key={index}>{pad(index + 1)}월</option>
+        ))}
+      </select>
+    </div>
+  );
 }
 
 function splitSegmentedValue(value, segments) {
@@ -606,11 +638,9 @@ function AdDetail({ user }) {
                     locale={ko}
                     placeholderText="시작일"
                     disabled={isLoading.payment}
-                    showYearDropdown
-                    showMonthDropdown
-                    dropdownMode="select"
-                    scrollableYearDropdown
-                    yearDropdownItemNumber={12}
+                    popperClassName="date_select_calendar ad_contract_calendar"
+                    showPopperArrow={false}
+                    renderCustomHeader={renderContractDateHeader}
                   />
                   <span>-</span>
                   <DatePicker
@@ -620,11 +650,9 @@ function AdDetail({ user }) {
                     locale={ko}
                     placeholderText="종료일"
                     disabled={isLoading.payment}
-                    showYearDropdown
-                    showMonthDropdown
-                    dropdownMode="select"
-                    scrollableYearDropdown
-                    yearDropdownItemNumber={12}
+                    popperClassName="date_select_calendar ad_contract_calendar"
+                    showPopperArrow={false}
+                    renderCustomHeader={renderContractDateHeader}
                   />
                 </div>
               </AdField>

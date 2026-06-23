@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import { Alert } from 'react-bootstrap';
 import { IMaskInput } from 'react-imask';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
-import { ko } from 'date-fns/locale';
+import DateSelectPicker from './components/DateSelectPicker';
 
 const initial_form_data = {
   loginId: '',
@@ -17,6 +15,7 @@ const initial_form_data = {
 };
 
 const team_options = ['1팀', '2팀', '3팀', '4팀', '5팀', '6팀', '개발관리팀'];
+const login_id_regex = /^[A-Za-z]+$/;
 
 function Signup() {
   const [formData, setFormData] = useState(initial_form_data);
@@ -35,8 +34,14 @@ function Signup() {
     }
   };
 
-  const handleChange = e =>
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = e => {
+    const { name, value } = e.target;
+
+    setFormData({
+      ...formData,
+      [name]: name === 'loginId' ? value.replace(/[^A-Za-z]/g, '') : value,
+    });
+  };
 
   const handlePhoneChange = value =>
     setFormData({ ...formData, phoneNumber: value });
@@ -51,6 +56,11 @@ function Signup() {
 
     if (formData.password !== formData.passwordConfirm) {
       setError('비밀번호가 일치하지 않습니다.');
+      return;
+    }
+
+    if (!login_id_regex.test(formData.loginId)) {
+      setError('아이디는 영문만 사용할 수 있습니다.');
       return;
     }
 
@@ -111,9 +121,11 @@ function Signup() {
             type="text"
             value={formData.loginId}
             onChange={handleChange}
-            placeholder="아이디"
+            placeholder="아이디(영문)"
             aria-label="아이디"
             required
+            pattern="[A-Za-z]+"
+            title="아이디는 영문만 사용할 수 있습니다."
             className="signup_auth_input"
             disabled={isLoading}
             autoComplete="username"
@@ -213,21 +225,14 @@ function Signup() {
 
         <label className="signup_auth_field">
           <span className="signup_auth_label">생년월일</span>
-          <DatePicker
-            selected={formData.birthDate}
+          <DateSelectPicker
+            value={formData.birthDate}
             onChange={handleDateChange}
-            locale={ko}
-            dateFormat="yyyy-MM-dd"
-            placeholderText="생년월일"
-            className="signup_auth_input"
-            wrapperClassName="signup_date_wrap"
-            required
             disabled={isLoading}
             minDate={new Date(1900, 0, 1)}
             maxDate={new Date()}
-            showYearDropdown
-            scrollableYearDropdown
-            yearDropdownItemNumber={100}
+            placeholder="생년월일"
+            className="signup_date_select"
           />
         </label>
 

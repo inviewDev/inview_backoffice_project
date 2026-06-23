@@ -1,35 +1,35 @@
-.ad_view_block { min-height: calc(100vh - 138px); padding: 40px 40px 80px; background: #f4f6fb; display: flex; flex-direction: column; gap: 14px; }
-.ad_view_section_title { color: #333; font-size: 17px; font-weight: 800; letter-spacing: 0; line-height: 28px; margin: 6px 0 -2px; }
-.ad_view_panel { border: 1px solid rgba(213, 219, 232, 0.74); border-radius: 10px; background: #fff; box-shadow: 4px 4px 20px rgba(137, 145, 169, 0.18); padding: 20px; }
+.ad_view_block { min-height: calc(100vh - 138px); padding: 40px 40px 80px; display: flex; flex-direction: column; gap: 0; }
+.ad_view_section_title { margin: 0 0 14px; color: #333; font-size: 18px; font-weight: 700; letter-spacing: 0; line-height: 28px; }
+.ad_view_panel + .ad_view_section_title { margin-top: 28px; }
+.ad_view_panel { border: 0; border-radius: 8px; background: #fff; box-shadow: 4px 4px 20px rgba(137, 145, 169, 0.2); padding: 20px; }
 .ad_view_grid { display: grid; gap: 12px; }
 .ad_view_grid.one { grid-template-columns: minmax(0, 1fr); }
 .ad_view_grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .ad_view_grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.ad_view_grid.compact { align-content: start; }
+.ad_view_grid.compact { margin-bottom: 16px; }
 .ad_view_field { display: grid; min-width: 0; min-height: 40px; grid-template-columns: 120px minmax(0, 1fr); }
 .ad_view_field.wide { grid-column: span 2; }
-.ad_view_label { display: flex; align-items: center; justify-content: center; min-width: 0; border: 1px solid #d8deea; border-right: 0; border-radius: 6px 0 0 6px; background: #dce2ef; color: #333; font-size: 14px; font-weight: 800; letter-spacing: 0; text-align: center; }
-.ad_view_value { display: flex; min-width: 0; align-items: center; justify-content: space-between; border: 1px solid #d8deea; border-radius: 0 6px 6px 0; background: #f3f5fa; color: #333; font-size: 14px; font-weight: 600; letter-spacing: 0; padding: 0 14px; }
-.ad_view_value span { min-width: 0; text-overflow: ellipsis; white-space: nowrap; }
-.ad_view_value.has_action { padding-right: 0; }
+.ad_view_label { display: flex; min-width: 0; min-height: 40px; align-items: center; justify-content: center; border: 1px solid #d8dce6; border-right: 0; border-radius: 6px 0 0 6px; background: #dce2ef; color: #333; font-size: 15px; font-weight: 600; letter-spacing: 0; line-height: 18px; text-align: center; }
+.ad_view_value { display: flex; min-width: 0; min-height: 40px; align-items: center; justify-content: flex-end; border: 1px solid #d8dce6; border-radius: 0 6px 6px 0; background: #f3f5fa; color: #333; font-size: 15px; font-weight: 500; letter-spacing: 0; padding: 0 14px; }
+.ad_view_value > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ad_view_value.has_action { justify-content: space-between; padding-right: 0; }
 .ad_view_value button { width: 70px; align-self: stretch; border-radius: 0 6px 6px 0; background: #1962fc; color: #fff; cursor: pointer; font-size: 13px; font-weight: 800; letter-spacing: 0; }
-.ad_view_value a { color: #1962fc; font-size: 14px; font-weight: 800; letter-spacing: 0; text-decoration: underline; padding-right: 14px; white-space: nowrap; }
-.ad_view_payment { display: grid; grid-template-columns: 520px minmax(0, 1fr); gap: 12px; align-items: start; }
-.ad_view_products { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.ad_view_product_chip { display: flex; min-height: 40px; align-items: center; justify-content: center; border-radius: 6px; background: #f3f5fa; color: #a3adbe; font-size: 13px; font-weight: 800; letter-spacing: 0; line-height: 18px; padding: 8px; text-align: center; }
-.ad_view_product_chip.active { background: #1962fc; color: #fff; }
-.ad_view_panel.sms { padding: 12px 20px; }
-.ad_view_panel.sms .ad_view_grid { align-items: start; }
-.ad_view_alert.sms_alert { grid-column: 1 / -1; max-width: none; margin: 0 0 12px; }
 .ad_view_value button:disabled { background: #a6b0c2; cursor: not-allowed; }
+.ad_view_value a { color: #1962fc; font-size: 14px; font-weight: 800; letter-spacing: 0; padding: 0 14px 0 0; text-decoration: underline; white-space: nowrap; }
+.ad_view_payment { display: grid; grid-template-columns: 512px minmax(0, 1fr); gap: 12px; align-items: start; }
+.ad_view_products { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+.ad_view_product_chip { display: flex; min-height: 40px; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 6px; background: #f3f5fa; color: #abb0be; font-size: 15px; font-weight: 600; letter-spacing: 0; line-height: 18px; padding: 8px; text-align: center; }
+.ad_view_product_chip.active { border-color: #1962fc; background: #1962fc; color: #fff; }
+.ad_view_products_grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ad_view_alert.sms_alert { max-width: none; margin: 0 0 12px; }
 .ad_view_panel.sms_history { padding: 0; overflow: hidden; }
 .ad_view_sms_table { margin: 0; table-layout: fixed; }
 .ad_view_sms_table th,
 .ad_view_sms_table td { height: 42px; border-color: #e1e6f0 !important; color: #333; font-size: 13px; font-weight: 700; letter-spacing: 0; vertical-align: middle; }
 .ad_view_sms_table th { background: #dce2ef; text-align: center; }
-.ad_view_sms_table td { background: #fff; padding: 8px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ad_view_sms_table td { overflow: hidden; background: #fff; padding: 8px 10px; text-overflow: ellipsis; white-space: nowrap; }
 .ad_view_sms_table td[colspan] { color: #8792a7; text-align: center; }
-.ad_view_panel.comments { margin-top: 20px; padding: 28px; }
+.ad_view_panel.comments { margin-top: 28px; padding: 28px; }
 .ad_view_panel.comments h2 { margin: 0 0 22px; color: #333; font-size: 15px; font-weight: 800; letter-spacing: 0; }
 .ad_view_comment_list { display: grid; gap: 10px; }
 .ad_view_comment { display: grid; grid-template-columns: 40px 72px minmax(0, 1fr) 150px; min-height: 40px; align-items: center; gap: 8px; }
@@ -47,31 +47,33 @@
 .ad_view_list_button { background: #ff2174; }
 .ad_view_state { display: flex; min-height: 420px; align-items: center; justify-content: center; gap: 10px; color: #73809d; font-size: 14px; font-weight: 700; letter-spacing: 0; }
 .ad_view_alert { max-width: 760px; margin: 0; border-radius: 8px; font-size: 14px; letter-spacing: 0; }
+.ad_view_alert + .ad_view_list_button { margin-top: 12px; }
 
 @media (max-width: 1440px) {
   .ad_view_payment { grid-template-columns: minmax(0, 1fr); }
   .ad_view_products { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1180px) {
   .ad_view_grid.three,
   .ad_view_grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ad_view_field.wide { grid-column: 1 / -1; }
+  .ad_view_products_grid { grid-template-columns: minmax(0, 1fr); }
   .ad_view_comment { grid-template-columns: 40px minmax(0, 1fr); }
   .ad_view_comment p,
   .ad_view_comment time { grid-column: 2; text-align: left; }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 860px) {
   .ad_view_block { padding: 20px 18px 64px; }
   .ad_view_grid.three,
   .ad_view_grid.two,
   .ad_view_products { grid-template-columns: minmax(0, 1fr); }
   .ad_view_field { grid-template-columns: minmax(0, 1fr); }
-  .ad_view_label { min-height: 38px; justify-content: flex-start; border-right: 1px solid #d8deea; border-radius: 6px 6px 0 0; padding: 0 14px; }
+  .ad_view_label { min-height: 38px; justify-content: flex-start; border-right: 1px solid #d8deea; border-radius: 6px 6px 0 0; padding: 0 14px; text-align: left; }
   .ad_view_value { min-height: 40px; border-radius: 0 0 6px 6px; }
   .ad_view_comment_form,
-  .ad_view_bottom_actions { grid-template-columns: minmax(0, 1fr); display: grid; }
+  .ad_view_bottom_actions { display: grid; grid-template-columns: minmax(0, 1fr); }
   .ad_view_register_button,
   .ad_view_list_button { width: 100%; }
 }
