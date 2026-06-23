@@ -228,8 +228,10 @@ function AdManagement() {
                 onChange={e => table.setPageSize(Number(e.target.value))}
                 aria-label="페이지 크기"
               >
+                <option value={10}>10</option>
                 <option value={20}>20</option>
                 <option value={50}>50</option>
+                <option value={100}>100</option>
                 <option value={Math.max(tableData.length, 1)}>Auto</option>
               </select>
               <div className="ad_manage_pages">

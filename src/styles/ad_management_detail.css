@@ -10,7 +10,7 @@
 .ad_view_field { display: grid; min-width: 0; min-height: 40px; grid-template-columns: 120px minmax(0, 1fr); }
 .ad_view_field.wide { grid-column: span 2; }
 .ad_view_label { display: flex; min-width: 0; min-height: 40px; align-items: center; justify-content: center; border: 1px solid #d8dce6; border-right: 0; border-radius: 6px 0 0 6px; background: #dce2ef; color: #333; font-size: 15px; font-weight: 600; letter-spacing: 0; line-height: 18px; text-align: center; }
-.ad_view_value { display: flex; min-width: 0; min-height: 40px; align-items: center; justify-content: flex-end; border: 1px solid #d8dce6; border-radius: 0 6px 6px 0; background: #f3f5fa; color: #333; font-size: 15px; font-weight: 500; letter-spacing: 0; padding: 0 14px; }
+.ad_view_value { display: flex; min-width: 0; min-height: 40px; align-items: center; justify-content: flex-start; border: 1px solid #d8dce6; border-radius: 0 6px 6px 0; background: #f3f5fa; color: #333; font-size: 15px; font-weight: 500; letter-spacing: 0; padding: 0 14px; }
 .ad_view_value > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ad_view_value.has_action { justify-content: space-between; padding-right: 0; }
 .ad_view_value button { width: 70px; align-self: stretch; border-radius: 0 6px 6px 0; background: #1962fc; color: #fff; cursor: pointer; font-size: 13px; font-weight: 800; letter-spacing: 0; }

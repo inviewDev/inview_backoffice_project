@@ -264,7 +264,7 @@ function UserList({ user: currentUser }) {
     },
     columnHelper.accessor('id', { header: 'ID', size: 60 }),
     columnHelper.accessor('name', { header: '이름', size: 100 }),
-    columnHelper.accessor('email', { header: '이메일', size: 200 }),
+    columnHelper.accessor('email', { header: '아이디', size: 200 }),
     columnHelper.accessor('team', { header: '팀', size: 120, enableFiltering: true, filterFn: 'includesString' }),
     columnHelper.accessor('department', { header: '부서', size: 120, enableFiltering: true, filterFn: 'includesString' }),
     columnHelper.accessor('role', { header: '권한', size: 150 }),
@@ -382,7 +382,7 @@ function UserList({ user: currentUser }) {
   const pendingColumns = [
     columnHelper.accessor('id', { header: 'ID', size: 60 }),
     columnHelper.accessor('name', { header: '이름', size: 100 }),
-    columnHelper.accessor('email', { header: '이메일', size: 200 }),
+    columnHelper.accessor('email', { header: '아이디', size: 200 }),
     columnHelper.accessor('team', { header: '팀', size: 120, enableFiltering: true, filterFn: 'includesString' }),
     columnHelper.accessor('department', { header: '부서', size: 120, enableFiltering: true, filterFn: 'includesString' }),
     columnHelper.accessor('level', { header: '직급', size: 120 }),

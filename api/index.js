@@ -94,12 +94,26 @@ function normalizeProductItems(value) {
     .slice(0, 10);
 }
 
+function normalizeProductItemSlots(value) {
+  if (!Array.isArray(value)) return Array(10).fill('');
+
+  return Array.from({ length: 10 }, (_, index) => String(value[index] || '').trim());
+}
+
 function getPaymentProductItems(payment) {
   if (Array.isArray(payment.productItems)) {
     return normalizeProductItems(payment.productItems);
   }
 
   return [];
+}
+
+function getPaymentProductItemSlots(payment) {
+  if (Array.isArray(payment.productItems)) {
+    return normalizeProductItemSlots(payment.productItems);
+  }
+
+  return Array(10).fill('');
 }
 
 function getAppUrl(req) {
@@ -1153,7 +1167,7 @@ apiRouter.get('/ads', verifyToken, async (req, res) => {
       paymentStatus: payment.paymentStatus,
       production1: payment.production1 || '',
       production2: payment.production2 || '',
-      productItems: getPaymentProductItems(payment),
+      productItems: getPaymentProductItemSlots(payment),
       adProgress: payment.adProgress,
       advertiserAccount: payment.advertiserAccount || '',
       approvalNumber: payment.approvalNumber || '',
@@ -1254,7 +1268,7 @@ apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
         departmentHead: payment.departmentHead || '',
         production1: payment.production1 || '',
         production2: payment.production2 || '',
-        productItems: getPaymentProductItems(payment),
+        productItems: getPaymentProductItemSlots(payment),
         adProgress: payment.adProgress,
         advertiserAccount: payment.advertiserAccount || '',
         approvalNumber: payment.approvalNumber || '',
