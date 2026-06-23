@@ -57,7 +57,7 @@ function AgreementLayout({ children }) {
     <main className="agreement_page">
       <section className="agreement_shell">
         <div className="agreement_logo">
-          <img src="/img/logo/logo_wr.svg" alt="I&VIEW Communication" />
+          <img src="/img/logo/logo_w.svg" alt="I&VIEW Communication" />
         </div>
         {children}
       </section>
