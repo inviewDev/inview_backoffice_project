@@ -25,6 +25,7 @@ const teamDepartmentMapping = {
   '2팀': '2부서',
   '5팀': '2부서',
   '6팀': '2부서',
+  '개발관리부': '운영부서',
   '개발관리팀': '운영부서',
 };
 const columnHelper = createColumnHelper();
@@ -317,7 +318,7 @@ function UserList({ user: currentUser }) {
     setAccountTarget(targetUser);
     setAccountForm({
       loginId: targetUser.email || '',
-      team: targetUser.team || '',
+      team: targetUser.level === '대표' ? '대표' : targetUser.team || '',
       role: targetUser.role || '사용자',
       resetPassword: false,
     });
@@ -629,11 +630,15 @@ function UserList({ user: currentUser }) {
 
   const selectedCount = Object.keys(rowSelection).filter(key => rowSelection[key]).length;
   const accountDepartment =
-    teamDepartmentMapping[accountForm.team] || accountTarget?.department || '기타부서';
+    accountTarget?.level === '대표'
+      ? '대표'
+      : teamDepartmentMapping[accountForm.team] || accountTarget?.department || '기타부서';
   const availableAccountTeams =
-    accountTarget?.team && !accountTeamOptions.includes(accountTarget.team)
-      ? [accountTarget.team, ...accountTeamOptions]
-      : accountTeamOptions;
+    accountTarget?.level === '대표'
+      ? ['대표']
+      : accountTarget?.team && !accountTeamOptions.includes(accountTarget.team)
+        ? [accountTarget.team, ...accountTeamOptions]
+        : accountTeamOptions;
 
   if (isLoading) {
     return (
@@ -941,7 +946,7 @@ function UserList({ user: currentUser }) {
                   onChange={event =>
                     setAccountForm(prev => ({ ...prev, team: event.target.value }))
                   }
-                  disabled={accountSaving}
+                  disabled={accountSaving || accountTarget?.level === '대표'}
                   required
                 >
                   {availableAccountTeams.map(option => (

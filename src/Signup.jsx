@@ -14,7 +14,7 @@ const initial_form_data = {
   birthDate: null,
 };
 
-const team_options = ['1팀', '2팀', '3팀', '4팀', '5팀', '6팀', '개발관리팀'];
+const team_options = ['1팀', '2팀', '3팀', '4팀', '5팀', '6팀', '개발관리부'];
 const login_id_regex = /^[A-Za-z]+$/;
 
 function Signup() {

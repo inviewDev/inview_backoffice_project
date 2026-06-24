@@ -378,6 +378,7 @@ const teamDepartmentMapping = {
   '5팀': '2부서',
   '6팀': '2부서',
   '개발관리부': '운영부서',
+  '개발관리팀': '운영부서',
 };
 
 apiRouter.get('/me', verifyToken, async (req, res) => {
@@ -1902,6 +1903,7 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
         email: true,
         team: true,
         department: true,
+        level: true,
       },
     });
 
@@ -1924,14 +1926,16 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
       }
     }
 
-    const mappedDepartment = teamDepartmentMapping[team];
-    if (team !== targetUser.team && !mappedDepartment) {
+    const isRepresentative = targetUser.level === '대표';
+    const effectiveTeam = isRepresentative ? '대표' : team;
+    const mappedDepartment = isRepresentative ? '대표' : teamDepartmentMapping[team];
+    if (!isRepresentative && team !== targetUser.team && !mappedDepartment) {
       return res.status(400).json({ error: '유효하지 않은 팀 값입니다.' });
     }
 
     const updateData = {
       email: loginId,
-      team,
+      team: effectiveTeam,
       department: mappedDepartment || targetUser.department,
       role,
     };
@@ -2018,7 +2022,9 @@ apiRouter.post('/users/:id/level', verifyToken, verifyMasterRole, async (req, re
   try {
     const updatedUser = await prisma.user.update({
       where: { id: parseInt(id) },
-      data: { level },
+      data: level === '대표'
+        ? { level, team: '대표', department: '대표' }
+        : { level },
       select: {
         id: true,
         email: true,
