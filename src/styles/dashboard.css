@@ -130,7 +130,7 @@
 .dash_calendar_panel .rbc-toolbar button { border-color: #d8dce6; color: #333; font-size: 12px; letter-spacing: 0; }
 .dash_calendar_panel .rbc-event { background: #1962fc; }
 .dash_sales_section { min-height: 1156px; margin: 80px -40px -80px; padding: 60px 40px 80px; background: #f8f9fc; }
-.dash_sales_section > .dash_section_title { width: 100%; max-width: 1600px; margin: 0 auto 40px; padding-left: 12px; font-size: 18px; }
+.dash_sales_section > .dash_section_title { width: 100%; max-width: 1600px; margin: 0 auto 20px; padding-left: 12px; font-size: 18px; }
 .dash_sales_card { width: 100%; max-width: 1600px; min-height: 954px; margin: 0 auto; padding: 40px; }
 .dash_filter_grid { display: flex; width: 100%; align-items: flex-end; gap: 20px; }
 .dash_filter_grid > * { width: calc(50% - 10px); min-width: 0; }
