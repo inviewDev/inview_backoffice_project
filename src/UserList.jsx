@@ -16,6 +16,17 @@ const teamOptions = ['전체', '1팀', '2팀', '3팀', '4팀', '5팀', '6팀', '
 const departmentOptions = ['전체', '1부서', '2부서', '운영부서', '기타부서'];
 const statusOptions = ['전체', '재직', '퇴사', '가입대기'];
 const levelOptions = ['대표', '파트장', '팀장', '과장', '대리', '주임', '사원'];
+const roleOptions = ['전체관리자', '관리자', '팀장', '사용자'];
+const accountTeamOptions = teamOptions.slice(1);
+const teamDepartmentMapping = {
+  '1팀': '1부서',
+  '3팀': '1부서',
+  '4팀': '1부서',
+  '2팀': '2부서',
+  '5팀': '2부서',
+  '6팀': '2부서',
+  '개발관리팀': '운영부서',
+};
 const columnHelper = createColumnHelper();
 
 function UserList({ user: currentUser }) {
@@ -32,8 +43,19 @@ function UserList({ user: currentUser }) {
   const [tab, setTab] = useState('users');
   const [bulkAction, setBulkAction] = useState(''); // 벌크 액션 선택
   const [bulkSaving, setBulkSaving] = useState(false); // 벌크 액션 로딩
+  const [bulkDeleteTargets, setBulkDeleteTargets] = useState([]);
+  const [bulkDeleteSaving, setBulkDeleteSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteSaving, setDeleteSaving] = useState(false);
+  const [accountTarget, setAccountTarget] = useState(null);
+  const [accountSaving, setAccountSaving] = useState(false);
+  const [accountForm, setAccountForm] = useState({
+    loginId: '',
+    team: '',
+    role: '',
+    resetPassword: false,
+  });
+  const isMaster = currentUser?.role === '전체관리자';
 
   // Modal 상태 관리
   const [showModal, setShowModal] = useState(false);
@@ -136,10 +158,16 @@ function UserList({ user: currentUser }) {
   // 벌크 액션 핸들러 (상태 변경만 예시로 구현, 필요시 확장)
   const handleBulkAction = async () => {
     if (!bulkAction || Object.keys(rowSelection).length === 0) return;
-    const token = localStorage.getItem('access_token');
     // 실제 사용자 ID 추출 (행 인덱스가 아닌 original.id 사용)
-    const selectedUsers = table.getSelectedRowModel().rows; 
-    const selectedIds = selectedUsers.map(row => row.original.id);
+    const selectedUsers = table.getSelectedRowModel().rows.map(row => row.original);
+    const selectedIds = selectedUsers.map(user => user.id);
+
+    if (bulkAction === 'delete') {
+      setBulkDeleteTargets(selectedUsers);
+      return;
+    }
+
+    const token = localStorage.getItem('access_token');
     setBulkSaving(true);
     const failedResults = [];
     const failedIds = [];
@@ -209,6 +237,51 @@ function UserList({ user: currentUser }) {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (!isMaster || bulkDeleteTargets.length === 0) return;
+
+    const token = localStorage.getItem('access_token');
+    const targetIds = bulkDeleteTargets.map(user => user.id);
+    setBulkDeleteSaving(true);
+
+    try {
+      const res = await fetch('/api/users/bulk-delete', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userIds: targetIds }),
+      });
+      const responseText = await res.text();
+      let payload = {};
+
+      try {
+        payload = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        payload = { error: responseText };
+      }
+
+      if (!res.ok) {
+        throw new Error(payload.error || '사용자 일괄 삭제에 실패했습니다.');
+      }
+
+      const deletedIds = new Set(payload.deletedUserIds || targetIds);
+      setData(prev => prev.filter(user => !deletedIds.has(user.id)));
+      setPendingData(prev => prev.filter(user => !deletedIds.has(user.id)));
+      setRowSelection({});
+      setBulkAction('');
+      setBulkDeleteTargets([]);
+      showCustomModal(payload.message || `${deletedIds.size}명의 사용자 계정이 삭제되었습니다.`);
+      await Promise.all([fetchUsers(), fetchPendingUsers()]);
+    } catch (err) {
+      console.error('Bulk delete users error:', err);
+      showCustomModal('사용자 일괄 삭제 실패: ' + err.message, 'danger');
+    } finally {
+      setBulkDeleteSaving(false);
+    }
+  };
+
   const handleDeleteUser = async () => {
     if (!deleteTarget) return;
 
@@ -240,9 +313,83 @@ function UserList({ user: currentUser }) {
     }
   };
 
+  const openAccountSettings = targetUser => {
+    setAccountTarget(targetUser);
+    setAccountForm({
+      loginId: targetUser.email || '',
+      team: targetUser.team || '',
+      role: targetUser.role || '사용자',
+      resetPassword: false,
+    });
+  };
+
+  const closeAccountSettings = (force = false) => {
+    if (accountSaving && !force) return;
+    setAccountTarget(null);
+    setAccountForm({
+      loginId: '',
+      team: '',
+      role: '',
+      resetPassword: false,
+    });
+  };
+
+  const handleAccountSettingsSave = async event => {
+    event.preventDefault();
+    if (!accountTarget || !isMaster) return;
+
+    if (
+      accountForm.resetPassword &&
+      !window.confirm(`${accountTarget.name}님의 비밀번호를 1111로 초기화하시겠습니까?`)
+    ) {
+      return;
+    }
+
+    const token = localStorage.getItem('access_token');
+    setAccountSaving(true);
+
+    try {
+      const res = await fetch(`/api/users/${accountTarget.id}/account-settings`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(accountForm),
+      });
+      const responseText = await res.text();
+      let payload = {};
+
+      try {
+        payload = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        payload = { error: responseText };
+      }
+
+      if (!res.ok) {
+        throw new Error(payload.error || '계정 설정 저장에 실패했습니다.');
+      }
+
+      setData(prev =>
+        prev.map(user => (user.id === accountTarget.id ? payload.user : user))
+      );
+      setPendingData(prev =>
+        prev.map(user => (user.id === accountTarget.id ? payload.user : user))
+      );
+      closeAccountSettings(true);
+      showCustomModal(payload.message || '계정 설정이 저장되었습니다.');
+      await Promise.all([fetchUsers(), fetchPendingUsers()]);
+    } catch (err) {
+      console.error('Update account settings error:', err);
+      showCustomModal('계정 설정 저장 실패: ' + err.message, 'danger');
+    } finally {
+      setAccountSaving(false);
+    }
+  };
+
   // userColumns 정의
   const userColumns = [
-    {
+    ...(isMaster ? [{
       id: 'select',
       header: ({ table }) => (
         <Form.Check
@@ -261,13 +408,30 @@ function UserList({ user: currentUser }) {
       ),
       size: 50,
       enableSorting: false,
-    },
+    }] : []),
     columnHelper.accessor('id', { header: 'ID', size: 60 }),
     columnHelper.accessor('name', { header: '이름', size: 100 }),
     columnHelper.accessor('email', { header: '아이디', size: 200 }),
     columnHelper.accessor('team', { header: '팀', size: 120, enableFiltering: true, filterFn: 'includesString' }),
     columnHelper.accessor('department', { header: '부서', size: 120, enableFiltering: true, filterFn: 'includesString' }),
     columnHelper.accessor('role', { header: '권한', size: 150 }),
+    ...(isMaster ? [{
+      id: 'accountSettings',
+      header: '계정설정',
+      cell: ({ row }) => (
+        <Button
+          variant="outline-primary"
+          size="sm"
+          className="userlist_account_button"
+          onClick={() => openAccountSettings(row.original)}
+        >
+          설정
+        </Button>
+      ),
+      size: 96,
+      enableSorting: false,
+      enableFiltering: false,
+    }] : []),
     columnHelper.accessor('status', {
       header: '상태',
       size: 120,
@@ -303,7 +467,7 @@ function UserList({ user: currentUser }) {
           }
         };
 
-        return (
+        return isMaster ? (
           <Form.Select value={currentStatus} onChange={handleChange}>
             {statusOptions.slice(1).map(opt => (
               <option key={opt} value={opt}>
@@ -311,6 +475,8 @@ function UserList({ user: currentUser }) {
               </option>
             ))}
           </Form.Select>
+        ) : (
+          <span>{currentStatus}</span>
         );
       },
     }),
@@ -347,7 +513,7 @@ function UserList({ user: currentUser }) {
           }
         };
 
-        return (
+        return isMaster ? (
           <Form.Select value={currentLevel} onChange={handleChange}>
             {levelOptions.map(opt => (
               <option key={opt} value={opt}>
@@ -355,10 +521,12 @@ function UserList({ user: currentUser }) {
               </option>
             ))}
           </Form.Select>
+        ) : (
+          <span>{currentLevel}</span>
         );
       },
     }),
-    {
+    ...(isMaster ? [{
       id: 'delete',
       header: '삭제',
       cell: ({ row }) => (
@@ -375,7 +543,7 @@ function UserList({ user: currentUser }) {
       size: 90,
       enableSorting: false,
       enableFiltering: false,
-    },
+    }] : []),
   ];
 
   // pendingColumns 정의 (체크박스 없음, 단일 액션만)
@@ -389,7 +557,7 @@ function UserList({ user: currentUser }) {
     {
       id: 'actions',
       header: '액션',
-      cell: ({ row }) => (
+      cell: ({ row }) => isMaster ? (
         <div className="userlist_action_buttons">
           <Button
             variant="success"
@@ -415,6 +583,8 @@ function UserList({ user: currentUser }) {
             삭제
           </Button>
         </div>
+      ) : (
+        <span className="userlist_readonly_text">조회 전용</span>
       ),
       size: 220,
       enableSorting: false,
@@ -448,13 +618,22 @@ function UserList({ user: currentUser }) {
     enableSorting: true,
     enableFilters: true,
     enableColumnFilters: true,
-    enableRowSelection: tab === 'users', // pending 탭에서는 선택 비활성화
+    enableRowSelection: row =>
+      isMaster &&
+      tab === 'users' &&
+      row.original.id !== currentUser?.id,
     enableColumnOrdering: true,
     enableExpanding: true,
     debugTable: false,
   });
 
   const selectedCount = Object.keys(rowSelection).filter(key => rowSelection[key]).length;
+  const accountDepartment =
+    teamDepartmentMapping[accountForm.team] || accountTarget?.department || '기타부서';
+  const availableAccountTeams =
+    accountTarget?.team && !accountTeamOptions.includes(accountTarget.team)
+      ? [accountTarget.team, ...accountTeamOptions]
+      : accountTeamOptions;
 
   if (isLoading) {
     return (
@@ -492,7 +671,7 @@ function UserList({ user: currentUser }) {
           </Tabs>
           
           {/* 벌크 액션 UI - users 탭에서만 */}
-          {tab === 'users' && selectedCount > 0 && (
+          {isMaster && tab === 'users' && selectedCount > 0 && (
             <Alert variant="info" className="userlist_bulk_alert">
               <strong>{selectedCount}명 선택됨</strong>
               <Form.Select
@@ -504,9 +683,10 @@ function UserList({ user: currentUser }) {
                 <option value="">-----------</option>
                 <option value="재직">재직처리</option>
                 <option value="퇴사">퇴사처리</option>
+                <option value="delete">삭제</option>
               </Form.Select>
               <Button
-                variant="primary"
+                variant={bulkAction === 'delete' ? 'danger' : 'primary'}
                 size="sm"
                 onClick={handleBulkAction}
                 disabled={!bulkAction || bulkSaving}
@@ -679,6 +859,153 @@ function UserList({ user: currentUser }) {
           </div>
         </Container>
       </section>
+
+      <Modal
+        show={bulkDeleteTargets.length > 0}
+        onHide={() => !bulkDeleteSaving && setBulkDeleteTargets([])}
+        centered
+        className="custom-width-modal userlist_bulk_delete_modal"
+      >
+        <Modal.Header closeButton={!bulkDeleteSaving}>
+          <Modal.Title className="text-danger">직원 일괄 삭제</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className="userlist_bulk_delete_title">
+            선택한 {bulkDeleteTargets.length}명의 계정을 삭제할까요?
+          </p>
+          <div className="userlist_bulk_delete_list">
+            {bulkDeleteTargets.map(target => (
+              <div key={target.id}>
+                <strong>{target.name || '-'}</strong>
+                <span>{target.email || '-'}</span>
+              </div>
+            ))}
+          </div>
+          <p className="userlist_delete_modal_warn">
+            선택된 직원의 개인 메모, 일정, 광고, 회사 및 급여 데이터도 함께 삭제됩니다.
+            삭제 후에는 복구할 수 없습니다.
+          </p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setBulkDeleteTargets([])}
+            disabled={bulkDeleteSaving}
+          >
+            취소
+          </Button>
+          <Button variant="danger" onClick={handleBulkDelete} disabled={bulkDeleteSaving}>
+            {bulkDeleteSaving ? '삭제 중...' : `${bulkDeleteTargets.length}명 삭제`}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        show={Boolean(accountTarget)}
+        onHide={closeAccountSettings}
+        centered
+        className="custom-width-modal userlist_account_modal"
+      >
+        <Form onSubmit={handleAccountSettingsSave}>
+          <Modal.Header closeButton={!accountSaving}>
+            <Modal.Title>계정 설정</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <div className="userlist_account_subject">
+              <strong>{accountTarget?.name || '-'}</strong>
+              <span>{accountTarget?.email || '-'}</span>
+            </div>
+
+            <div className="userlist_account_form">
+              <label className="userlist_account_row">
+                <span>아이디</span>
+                <div>
+                  <Form.Control
+                    type="text"
+                    value={accountForm.loginId}
+                    onChange={event =>
+                      setAccountForm(prev => ({ ...prev, loginId: event.target.value.trim() }))
+                    }
+                    disabled={accountSaving}
+                    autoComplete="off"
+                    required
+                  />
+                  <small>아이디는 영문만 사용할 수 있습니다.</small>
+                </div>
+              </label>
+
+              <label className="userlist_account_row">
+                <span>팀</span>
+                <Form.Select
+                  value={accountForm.team}
+                  onChange={event =>
+                    setAccountForm(prev => ({ ...prev, team: event.target.value }))
+                  }
+                  disabled={accountSaving}
+                  required
+                >
+                  {availableAccountTeams.map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </Form.Select>
+              </label>
+
+              <div className="userlist_account_row">
+                <span>부서</span>
+                <div className="userlist_account_readonly">{accountDepartment}</div>
+              </div>
+
+              <label className="userlist_account_row">
+                <span>권한</span>
+                <Form.Select
+                  value={accountForm.role}
+                  onChange={event =>
+                    setAccountForm(prev => ({ ...prev, role: event.target.value }))
+                  }
+                  disabled={accountSaving || accountTarget?.id === currentUser?.id}
+                  required
+                >
+                  {roleOptions.map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </Form.Select>
+              </label>
+
+              <label className="userlist_password_reset">
+                <Form.Check
+                  type="checkbox"
+                  checked={accountForm.resetPassword}
+                  onChange={event =>
+                    setAccountForm(prev => ({ ...prev, resetPassword: event.target.checked }))
+                  }
+                  disabled={accountSaving}
+                />
+                <span>
+                  <strong>비밀번호 초기화</strong>
+                  <small>저장하면 비밀번호가 1111로 변경됩니다.</small>
+                </span>
+              </label>
+            </div>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={closeAccountSettings} disabled={accountSaving}>
+              취소
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={
+                accountSaving ||
+                !accountForm.loginId ||
+                !accountForm.team ||
+                !accountForm.role
+              }
+            >
+              {accountSaving ? '저장 중...' : '저장'}
+            </Button>
+          </Modal.Footer>
+        </Form>
+      </Modal>
 
       <Modal
         show={Boolean(deleteTarget)}

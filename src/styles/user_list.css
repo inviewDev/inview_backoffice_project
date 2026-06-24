@@ -23,7 +23,7 @@
 .userlist_filter .form-control-plaintext { min-height: 40px; color: #73809d !important; font-size: 13px; font-weight: 700; letter-spacing: 0; }
 .userlist_table_card { overflow: hidden; border-radius: 10px; background: #fff; box-shadow: 4px 4px 20px rgba(137, 145, 169, 0.2); padding: 20px; }
 .userlist_table_wrap { width: 100%; overflow: auto; border-radius: 6px; }
-.userlist_table.table { min-width: 980px; margin: 0; border-collapse: collapse; table-layout: fixed; }
+.userlist_table.table { min-width: 1120px; margin: 0; border-collapse: collapse; table-layout: fixed; }
 .userlist_table.table > :not(caption) > * > * { border: 0; box-shadow: none; }
 .userlist_table th,
 .userlist_table td { height: 54px; padding: 9px 12px; color: #333; font-size: 13px; font-weight: 700; letter-spacing: 0; line-height: 18px; text-align: center; vertical-align: middle; }
@@ -40,6 +40,9 @@
 .userlist_action_buttons { display: flex; align-items: center; justify-content: center; gap: 6px; }
 .userlist_delete_button,
 .userlist_action_buttons .btn-outline-danger { border-color: #ffb7c9; color: #d11a2a; background: #fff; }
+.userlist_account_button { border-color: #9bbcff; background: #fff; color: #1962fc; }
+.userlist_account_button:hover { border-color: #1962fc; background: #1962fc; color: #fff; }
+.userlist_readonly_text { color: #8792a7; font-size: 12px; font-weight: 700; letter-spacing: 0; }
 .userlist_delete_button:hover:not(:disabled),
 .userlist_action_buttons .btn-outline-danger:hover:not(:disabled) { border-color: #d11a2a; background: #d11a2a; color: #fff; }
 .userlist_delete_button:disabled,
@@ -64,6 +67,36 @@
 .userlist_delete_modal_title { margin: 0; color: #202636; font-size: 16px; font-weight: 800; letter-spacing: 0; line-height: 1.45; }
 .userlist_delete_modal_desc { margin: 6px 0 0; color: #73809d; font-size: 13px; font-weight: 700; letter-spacing: 0; word-break: break-all; }
 .userlist_delete_modal_warn { margin: 14px 0 0; border-radius: 8px; background: #fff1f3; color: #c51635; font-size: 13px; font-weight: 800; letter-spacing: 0; line-height: 1.5; padding: 10px 12px; }
+.userlist_bulk_delete_modal .modal-dialog { width: calc(100% - 32px); max-width: 560px; }
+.userlist_bulk_delete_title { margin: 0 0 14px; color: #202636; font-size: 16px; font-weight: 800; letter-spacing: 0; line-height: 1.45; }
+.userlist_bulk_delete_list { display: flex; max-height: 220px; flex-direction: column; gap: 6px; overflow-y: auto; padding-right: 4px; }
+.userlist_bulk_delete_list > div { display: flex; min-height: 38px; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 12px; border: 1px solid #e1e6f0; border-radius: 6px; background: #f8faff; }
+.userlist_bulk_delete_list strong { color: #333; font-size: 13px; font-weight: 800; letter-spacing: 0; }
+.userlist_bulk_delete_list span { overflow: hidden; color: #73809d; font-size: 12px; font-weight: 700; letter-spacing: 0; text-overflow: ellipsis; white-space: nowrap; }
+.userlist_account_modal .modal-dialog { width: calc(100% - 32px); max-width: 620px; }
+.userlist_account_modal .modal-body { padding: 24px; }
+.userlist_account_subject { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; padding: 14px 16px; border-radius: 8px; background: #f3f5fa; }
+.userlist_account_subject strong { color: #202636; font-size: 16px; font-weight: 800; letter-spacing: 0; }
+.userlist_account_subject span { overflow: hidden; color: #73809d; font-size: 13px; font-weight: 700; letter-spacing: 0; text-overflow: ellipsis; white-space: nowrap; }
+.userlist_account_form { display: flex; flex-direction: column; gap: 12px; }
+.userlist_account_row { display: flex; width: 100%; min-height: 42px; align-items: stretch; margin: 0; }
+.userlist_account_row > span { display: flex; width: 120px; flex: 0 0 120px; align-items: center; justify-content: center; border: 1px solid #d8deea; border-right: 0; border-radius: 6px 0 0 6px; background: #dce2ef; color: #333; font-size: 14px; font-weight: 800; letter-spacing: 0; }
+.userlist_account_row > div:not(.userlist_account_readonly) { min-width: 0; flex: 1 1 auto; }
+.userlist_account_row .form-control,
+.userlist_account_row .form-select,
+.userlist_account_readonly { width: 100%; min-height: 42px; border: 1px solid #d8deea; border-radius: 0 6px 6px 0; color: #333; font-size: 14px; font-weight: 700; letter-spacing: 0; box-shadow: none; }
+.userlist_account_row .form-control,
+.userlist_account_row .form-select { height: 42px; }
+.userlist_account_row .form-control:focus,
+.userlist_account_row .form-select:focus { z-index: 1; border-color: #1962fc; box-shadow: 0 0 0 3px rgba(25, 98, 252, 0.1); }
+.userlist_account_row small { display: block; margin: 5px 0 0 10px; color: #8792a7; font-size: 12px; font-weight: 600; line-height: 16px; }
+.userlist_account_readonly { display: flex; min-width: 0; flex: 1 1 auto; align-items: center; padding: 0 12px; background: #f3f5fa; }
+.userlist_password_reset { display: flex; align-items: center; gap: 12px; margin: 4px 0 0; padding: 14px 16px; border: 1px solid #ffc7d5; border-radius: 8px; background: #fff3f6; cursor: pointer; }
+.userlist_password_reset .form-check { min-height: 0; margin: 0; }
+.userlist_password_reset .form-check-input { width: 18px; height: 18px; margin: 0; cursor: pointer; }
+.userlist_password_reset > span { display: flex; flex-direction: column; gap: 2px; }
+.userlist_password_reset strong { color: #c51635; font-size: 14px; font-weight: 800; letter-spacing: 0; }
+.userlist_password_reset small { color: #8c5260; font-size: 12px; font-weight: 700; letter-spacing: 0; line-height: 16px; }
 
 @media (max-width: 900px) {
   .userlist_block { padding: 20px 18px 64px; }
@@ -72,4 +105,17 @@
   .userlist_filter,
   .userlist_table_card { padding: 14px; }
   .userlist_pager { grid-template-columns: 1fr; height: auto; padding: 12px; }
+}
+
+@media (max-width: 560px) {
+  .userlist_bulk_delete_list > div { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .userlist_bulk_delete_list span { width: 100%; white-space: normal; word-break: break-all; }
+  .userlist_account_modal .modal-body { padding: 20px 16px; }
+  .userlist_account_subject { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .userlist_account_subject span { width: 100%; white-space: normal; word-break: break-all; }
+  .userlist_account_row { flex-direction: column; }
+  .userlist_account_row > span { width: 100%; min-height: 38px; flex-basis: auto; justify-content: flex-start; border-right: 1px solid #d8deea; border-radius: 6px 6px 0 0; padding: 0 12px; }
+  .userlist_account_row .form-control,
+  .userlist_account_row .form-select,
+  .userlist_account_readonly { border-radius: 0 0 6px 6px; }
 }

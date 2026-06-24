@@ -33,6 +33,10 @@ const STATUS_OPTIONS = ['가입대기', '재직', '퇴사'];
 const LEVEL_OPTIONS = ['대표', '파트장', '팀장', '과장', '대리', '주임', '사원'];
 const MAX_PROFILE_IMAGE_SIZE = 2 * 1024 * 1024;
 const PROFILE_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+const USER_DELETE_TRANSACTION_OPTIONS = {
+  maxWait: 10000,
+  timeout: 120000,
+};
 
 function isAdminRole(role) {
   return role === '전체관리자' || role === '관리자';
@@ -1870,6 +1874,106 @@ apiRouter.post('/users/:id/status', verifyToken, verifyMasterRole, async (req, r
   }
 });
 
+apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, async (req, res) => {
+  const targetUserId = parseInt(req.params.id, 10);
+  const loginId = String(req.body.loginId || '').trim();
+  const team = String(req.body.team || '').trim();
+  const role = String(req.body.role || '').trim();
+  const resetPassword = req.body.resetPassword === true;
+
+  if (!Number.isInteger(targetUserId)) {
+    return res.status(400).json({ error: '사용자 ID가 올바르지 않습니다.' });
+  }
+  if (!loginId || !team || !role) {
+    return res.status(400).json({ error: '아이디, 팀, 권한을 모두 입력해주세요.' });
+  }
+  if (!ROLE_OPTIONS.includes(role)) {
+    return res.status(400).json({ error: '유효하지 않은 권한 값입니다.' });
+  }
+  if (targetUserId === req.user.id && role !== '전체관리자') {
+    return res.status(400).json({ error: '현재 로그인한 계정의 전체관리자 권한은 해제할 수 없습니다.' });
+  }
+
+  try {
+    const targetUser = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: {
+        id: true,
+        email: true,
+        team: true,
+        department: true,
+      },
+    });
+
+    if (!targetUser) {
+      return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+    }
+
+    if (loginId !== targetUser.email) {
+      if (!/^[A-Za-z]+$/.test(loginId)) {
+        return res.status(400).json({ error: '아이디는 영문만 사용할 수 있습니다.' });
+      }
+
+      const duplicateUser = await prisma.user.findUnique({
+        where: { email: loginId },
+        select: { id: true },
+      });
+
+      if (duplicateUser) {
+        return res.status(400).json({ error: '이미 사용 중인 아이디입니다.' });
+      }
+    }
+
+    const mappedDepartment = teamDepartmentMapping[team];
+    if (team !== targetUser.team && !mappedDepartment) {
+      return res.status(400).json({ error: '유효하지 않은 팀 값입니다.' });
+    }
+
+    const updateData = {
+      email: loginId,
+      team,
+      department: mappedDepartment || targetUser.department,
+      role,
+    };
+
+    if (resetPassword) {
+      updateData.passwordHash = await bcrypt.hash('1111', 10);
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: targetUserId },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+        level: true,
+        team: true,
+        department: true,
+        phoneNumber: true,
+        birthDate: true,
+        officePhoneNumber: true,
+      },
+    });
+
+    res.json({
+      message: resetPassword
+        ? '계정 설정이 저장되었으며 비밀번호가 1111로 초기화되었습니다.'
+        : '계정 설정이 저장되었습니다.',
+      passwordReset: resetPassword,
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error('Update account settings error:', error);
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: '이미 사용 중인 아이디입니다.' });
+    }
+    res.status(500).json({ error: '계정 설정 저장 중 오류가 발생했습니다.' });
+  }
+});
+
 apiRouter.post('/users/:id/role', verifyToken, verifyMasterRole, async (req, res) => {
   const { id } = req.params;
   const { role } = req.body;
@@ -1936,6 +2040,80 @@ apiRouter.post('/users/:id/level', verifyToken, verifyMasterRole, async (req, re
   }
 });
 
+async function deleteUsersWithRelations(tx, targetUserIds) {
+  const payrolls = await tx.payroll.findMany({
+    where: { userId: { in: targetUserIds } },
+    select: { id: true },
+  });
+  const payrollIds = payrolls.map(payroll => payroll.id);
+
+  if (payrollIds.length > 0) {
+    await tx.salesDetail.deleteMany({ where: { payrollId: { in: payrollIds } } });
+    await tx.cancellationDetail.deleteMany({ where: { payrollId: { in: payrollIds } } });
+  }
+
+  const companies = await tx.company.findMany({
+    where: { userId: { in: targetUserIds } },
+    select: { id: true },
+  });
+  const companyIds = companies.map(company => company.id);
+
+  await tx.payment.deleteMany({
+    where: {
+      OR: [
+        { userId: { in: targetUserIds } },
+        ...(companyIds.length > 0 ? [{ companyId: { in: companyIds } }] : []),
+      ],
+    },
+  });
+  await tx.company.deleteMany({ where: { userId: { in: targetUserIds } } });
+  await tx.payroll.deleteMany({ where: { userId: { in: targetUserIds } } });
+  await tx.passwordResetToken.deleteMany({ where: { userId: { in: targetUserIds } } });
+  await tx.personalMemo.deleteMany({ where: { userId: { in: targetUserIds } } });
+  await tx.calendarEvent.deleteMany({ where: { userId: { in: targetUserIds } } });
+
+  return tx.user.deleteMany({ where: { id: { in: targetUserIds } } });
+}
+
+apiRouter.post('/users/bulk-delete', verifyToken, verifyMasterRole, async (req, res) => {
+  const rawUserIds = Array.isArray(req.body.userIds) ? req.body.userIds : [];
+  const targetUserIds = [...new Set(rawUserIds.map(id => Number(id)).filter(Number.isInteger))];
+
+  if (targetUserIds.length === 0) {
+    return res.status(400).json({ error: '삭제할 사용자를 선택해주세요.' });
+  }
+  if (targetUserIds.includes(req.user.id)) {
+    return res.status(400).json({ error: '현재 로그인한 계정은 일괄 삭제할 수 없습니다.' });
+  }
+
+  try {
+    const targetUsers = await prisma.user.findMany({
+      where: { id: { in: targetUserIds } },
+      select: { id: true, email: true, name: true },
+    });
+
+    if (targetUsers.length !== targetUserIds.length) {
+      return res.status(404).json({ error: '선택한 사용자 중 존재하지 않는 계정이 있습니다.' });
+    }
+
+    await prisma.$transaction(
+      async tx => {
+        await deleteUsersWithRelations(tx, targetUserIds);
+      },
+      USER_DELETE_TRANSACTION_OPTIONS,
+    );
+
+    res.json({
+      message: `${targetUsers.length}명의 사용자 계정이 삭제되었습니다.`,
+      deletedUsers: targetUsers,
+      deletedUserIds: targetUserIds,
+    });
+  } catch (error) {
+    console.error('Bulk delete users error:', error);
+    res.status(500).json({ error: '사용자 일괄 삭제 중 오류가 발생했습니다.' });
+  }
+});
+
 apiRouter.delete('/users/:id', verifyToken, verifyMasterRole, async (req, res) => {
   const targetUserId = parseInt(req.params.id, 10);
 
@@ -1948,54 +2126,24 @@ apiRouter.delete('/users/:id', verifyToken, verifyMasterRole, async (req, res) =
   }
 
   try {
-    const deletedUser = await prisma.$transaction(async tx => {
-      const targetUser = await tx.user.findUnique({
-        where: { id: targetUserId },
-        select: { id: true, email: true, name: true },
-      });
+    const deletedUser = await prisma.$transaction(
+      async tx => {
+        const targetUser = await tx.user.findUnique({
+          where: { id: targetUserId },
+          select: { id: true, email: true, name: true },
+        });
 
-      if (!targetUser) {
-        const notFoundError = new Error('사용자를 찾을 수 없습니다.');
-        notFoundError.statusCode = 404;
-        throw notFoundError;
-      }
+        if (!targetUser) {
+          const notFoundError = new Error('사용자를 찾을 수 없습니다.');
+          notFoundError.statusCode = 404;
+          throw notFoundError;
+        }
 
-      const payrolls = await tx.payroll.findMany({
-        where: { userId: targetUserId },
-        select: { id: true },
-      });
-      const payrollIds = payrolls.map(payroll => payroll.id);
-
-      if (payrollIds.length > 0) {
-        await tx.salesDetail.deleteMany({ where: { payrollId: { in: payrollIds } } });
-        await tx.cancellationDetail.deleteMany({ where: { payrollId: { in: payrollIds } } });
-      }
-
-      const companies = await tx.company.findMany({
-        where: { userId: targetUserId },
-        select: { id: true },
-      });
-      const companyIds = companies.map(company => company.id);
-
-      await tx.payment.deleteMany({
-        where: {
-          OR: [
-            { userId: targetUserId },
-            ...(companyIds.length > 0 ? [{ companyId: { in: companyIds } }] : []),
-          ],
-        },
-      });
-      await tx.company.deleteMany({ where: { userId: targetUserId } });
-      await tx.payroll.deleteMany({ where: { userId: targetUserId } });
-      await tx.passwordResetToken.deleteMany({ where: { userId: targetUserId } });
-      await tx.personalMemo.deleteMany({ where: { userId: targetUserId } });
-      await tx.calendarEvent.deleteMany({ where: { userId: targetUserId } });
-
-      return tx.user.delete({
-        where: { id: targetUserId },
-        select: { id: true, email: true, name: true },
-      });
-    });
+        await deleteUsersWithRelations(tx, [targetUserId]);
+        return targetUser;
+      },
+      USER_DELETE_TRANSACTION_OPTIONS,
+    );
 
     res.json({ message: '사용자 삭제가 완료되었습니다.', user: deletedUser });
   } catch (error) {
