@@ -1537,6 +1537,23 @@ function getKoreanCurrentYear() {
   }).format(new Date()));
 }
 
+function getKoreanCurrentDateParts() {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+
+  return {
+    year: Number(values.year),
+    month: Number(values.month),
+    day: Number(values.day),
+    date: `${values.year}-${String(values.month).padStart(2, '0')}-${String(values.day).padStart(2, '0')}`,
+  };
+}
+
 const DASHBOARD_EXCLUDED_PAYMENT_STATUS_MARKERS = ['\uCDE8\uC18C', '\uB300\uAE30'];
 
 function isDashboardCompletedSaleStatus(status) {
@@ -1593,6 +1610,51 @@ apiRouter.get('/dashboard/monthly-sales', verifyToken, async (_req, res) => {
   } catch (error) {
     console.error('Fetch dashboard monthly sales error:', error);
     res.status(500).json({ error: '월별 매출 정보를 불러오지 못했습니다.' });
+  }
+});
+
+apiRouter.get('/dashboard/top-sales', verifyToken, async (_req, res) => {
+  const currentDate = getKoreanCurrentDateParts();
+
+  try {
+    const rows = await prisma.$queryRaw`
+      select coalesce(nullif(btrim(payment.manager), ''), nullif(btrim(app_user.name), ''), '미지정') as manager,
+             payment."paymentStatus" as status,
+             (payment."createdAt" at time zone 'Asia/Seoul')::date::text as date,
+             count(*)::int as count,
+             sum(coalesce(payment."approvedAmount", 0))::float as total
+        from "Payment" payment
+        left join "User" app_user on app_user.id = payment."userId"
+       where extract(year from payment."createdAt" at time zone 'Asia/Seoul')::int = ${currentDate.year}
+         and extract(month from payment."createdAt" at time zone 'Asia/Seoul')::int = ${currentDate.month}
+       group by 1, 2, 3
+       order by 3 asc
+    `;
+    const completedRows = rows.filter(row => isDashboardCompletedSaleStatus(row.status));
+    const summarize = targetRows => {
+      const managerMap = new Map();
+
+      targetRows.forEach(row => {
+        const manager = String(row.manager || '미지정').trim() || '미지정';
+        const existing = managerMap.get(manager) || { manager, total: 0, count: 0 };
+        existing.total += Number(row.total) || 0;
+        existing.count += Number(row.count) || 0;
+        managerMap.set(manager, existing);
+      });
+
+      return [...managerMap.values()]
+        .sort((a, b) => b.total - a.total || b.count - a.count || a.manager.localeCompare(b.manager, 'ko'))
+        .slice(0, 10);
+    };
+
+    res.json({
+      currentDate: currentDate.date,
+      today: summarize(completedRows.filter(row => row.date === currentDate.date)),
+      month: summarize(completedRows),
+    });
+  } catch (error) {
+    console.error('Fetch dashboard top sales error:', error);
+    res.status(500).json({ error: '실적 Top 10 정보를 불러오지 못했습니다.' });
   }
 });
 

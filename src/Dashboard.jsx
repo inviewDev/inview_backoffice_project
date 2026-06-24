@@ -104,6 +104,38 @@ function getYearMonth(value) {
   };
 }
 
+function getKoreanDateParts(value = new Date()) {
+  const text = String(value || '');
+  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+  if (match) {
+    return {
+      year: Number(match[1]),
+      month: Number(match[2]),
+      day: Number(match[3]),
+      date: `${match[1]}-${match[2]}-${match[3]}`,
+    };
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+
+  return {
+    year: Number(values.year),
+    month: Number(values.month),
+    day: Number(values.day),
+    date: `${values.year}-${String(values.month).padStart(2, '0')}-${String(values.day).padStart(2, '0')}`,
+  };
+}
+
 function createEmptySalesYears(currentYear) {
   return Array.from({ length: 3 }, (_, index) => {
     const year = currentYear - index;
@@ -151,8 +183,50 @@ function buildSalesSummaryFromAds(ads) {
   };
 }
 
+function buildTopSalesSummaryFromAds(ads) {
+  const currentDate = getKoreanDateParts();
+  const todayMap = new Map();
+  const monthMap = new Map();
+  const addToManager = (targetMap, ad) => {
+    const manager = String(ad.manager || '미지정').trim() || '미지정';
+    const existing = targetMap.get(manager) || { manager, total: 0, count: 0 };
+    existing.total += Number(ad.approvedAmount) || 0;
+    existing.count += 1;
+    targetMap.set(manager, existing);
+  };
+  const toTopTen = targetMap => [...targetMap.values()]
+    .sort((a, b) => b.total - a.total || b.count - a.count || a.manager.localeCompare(b.manager, 'ko'))
+    .slice(0, 10);
+
+  ads.forEach(ad => {
+    if (!isCompletedSalesStatus(ad.paymentStatus)) return;
+
+    const date = getKoreanDateParts(ad.createdAt || ad.contractStartDate);
+    if (!date || date.year !== currentDate.year || date.month !== currentDate.month) return;
+
+    addToManager(monthMap, ad);
+    if (date.date === currentDate.date) addToManager(todayMap, ad);
+  });
+
+  return {
+    currentDate: currentDate.date,
+    today: toTopTen(todayMap),
+    month: toTopTen(monthMap),
+  };
+}
+
 function getMaxValue(values) {
   return Math.max(...values.map(value => Number(value) || 0), 1);
+}
+
+function getNiceScaleMax(values) {
+  const maxValue = getMaxValue(values);
+  if (!values.some(value => Number(value) > 0)) return 1000000;
+
+  const magnitude = 10 ** Math.floor(Math.log10(maxValue));
+  const increment = magnitude / 2;
+
+  return Math.ceil(maxValue / increment) * increment;
 }
 
 function MiniLineChart({ series, yearOptions, selectedYears, onYearToggle }) {
@@ -293,31 +367,51 @@ function MiniLineChart({ series, yearOptions, selectedYears, onYearToggle }) {
 }
 
 function TopBarChart({ title, values, color }) {
-  const maxValue = getMaxValue(values.map(item => item.value));
+  const scaleMax = getNiceScaleMax(values.map(item => item.total));
+  const colorValue = color === 'blue' ? '#1962fc' : '#ff2174';
+  const scaleValues = [1, 0.75, 0.5, 0.25, 0];
 
   return (
-    <section className="dash_panel dash_bar_panel">
+    <section className="dash_bar_section">
       <h2 className="dash_section_title">{title}</h2>
-      <div className="dash_bar_chart">
-        <div className="dash_bar_scale">
-          {[1, 0.75, 0.5, 0.25, 0].map(scale => (
-            <span key={scale}>{formatNumber(maxValue * scale)}</span>
-          ))}
-        </div>
-        <div className="dash_bar_plot">
-          {[0, 1, 2, 3, 4].map(index => <span key={index} className="dash_bar_grid" />)}
-          <div className="dash_bar_items">
-            {values.length > 0 ? values.map((item, index) => (
-              <div className="dash_bar_item" key={`${item.label}_${index}`}>
-                <div
-                  className={`dash_bar ${color === 'blue' ? 'blue' : 'pink'}`}
-                  style={{ height: `${Math.max((item.value / maxValue) * 100, 4)}%` }}
-                />
-                <span>{item.label}</span>
-              </div>
-            )) : (
-              <div className="dash_empty_chart">표시할 매출 데이터가 없습니다.</div>
-            )}
+      <div className="dash_panel dash_bar_panel">
+        <div className="dash_bar_chart">
+          <div className="dash_bar_scale">
+            {scaleValues.map(scale => (
+              <span key={scale}>{formatNumber(scaleMax * scale)}</span>
+            ))}
+          </div>
+          <div className="dash_bar_plot">
+            {scaleValues.map(scale => <span key={scale} className="dash_bar_grid" />)}
+            <div className="dash_bar_items">
+              {values.length > 0 ? values.map((item, index) => {
+                const height = Math.max((Number(item.total) / scaleMax) * 178, 4);
+
+                return (
+                  <button
+                    type="button"
+                    className="dash_bar_item"
+                    key={`${item.manager}_${index}`}
+                    aria-label={`${item.manager} 총 매출 ${formatCurrency(item.total)}, ${item.count}건`}
+                  >
+                    <span className="dash_bar_track">
+                      <span
+                        className={`dash_bar ${color === 'blue' ? 'blue' : 'pink'}`}
+                        style={{ height: `${height}px` }}
+                      >
+                        <span className="dash_bar_tooltip" style={{ '--bar-color': colorValue }}>
+                          <strong>{item.manager}</strong>
+                          <span>{formatCurrency(item.total)} · {item.count}건</span>
+                        </span>
+                      </span>
+                    </span>
+                    <span className="dash_bar_label" title={item.manager}>{item.manager}</span>
+                  </button>
+                );
+              }) : (
+                <div className="dash_empty_chart">표시할 매출 데이터가 없습니다.</div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -335,6 +429,9 @@ function Dashboard({ user }) {
   const [salesSummaryError, setSalesSummaryError] = useState('');
   const [isSalesSummaryLoading, setIsSalesSummaryLoading] = useState(true);
   const [selectedSalesYears, setSelectedSalesYears] = useState([]);
+  const [topSalesSummary, setTopSalesSummary] = useState({ today: [], month: [] });
+  const [topSalesError, setTopSalesError] = useState('');
+  const [isTopSalesLoading, setIsTopSalesLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -377,6 +474,54 @@ function Dashboard({ user }) {
 
     if (user?.id) {
       fetchPayroll();
+    }
+  }, [user.id]);
+
+  useEffect(() => {
+    const fetchTopSales = async () => {
+      setIsTopSalesLoading(true);
+      setTopSalesError('');
+      const token = localStorage.getItem('access_token');
+
+      try {
+        const res = await fetch('/api/dashboard/top-sales', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await parseResponse(res);
+
+        if (!res.ok) {
+          throw new Error(data.error || '실적 Top 10 정보를 불러오지 못했습니다.');
+        }
+
+        setTopSalesSummary(data);
+      } catch (error) {
+        console.error('Fetch dashboard top sales error:', error);
+        try {
+          const fallbackRes = await fetch('/api/ads', {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          const fallbackData = await parseResponse(fallbackRes);
+
+          if (!fallbackRes.ok) {
+            throw new Error(fallbackData.error || '실적 Top 10 정보를 불러오지 못했습니다.');
+          }
+
+          setTopSalesSummary(buildTopSalesSummaryFromAds(Array.isArray(fallbackData.ads) ? fallbackData.ads : []));
+        } catch (fallbackError) {
+          console.error('Fetch dashboard top sales fallback error:', fallbackError);
+          setTopSalesError('실적 Top 10 정보를 불러오지 못했습니다.');
+        }
+      } finally {
+        setIsTopSalesLoading(false);
+      }
+    };
+
+    if (user?.id) {
+      fetchTopSales();
     }
   }, [user.id]);
 
@@ -459,28 +604,6 @@ function Dashboard({ user }) {
         : [...current, numericYear]
     );
   };
-
-  const topSales = useMemo(() => {
-    return [...salesDetails]
-      .sort((a, b) => (Number(b.approvedAmount) || 0) - (Number(a.approvedAmount) || 0))
-      .slice(0, 10)
-      .map((detail, index) => ({
-        label: detail.product || `${index + 1}위`,
-        value: Number(detail.approvedAmount) || 0,
-      }));
-  }, [salesDetails]);
-
-  const todaySales = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    return salesDetails
-      .filter(detail => formatDate(detail.registrationDate) === today)
-      .sort((a, b) => (Number(b.approvedAmount) || 0) - (Number(a.approvedAmount) || 0))
-      .slice(0, 10)
-      .map((detail, index) => ({
-        label: detail.product || `${index + 1}위`,
-        value: Number(detail.approvedAmount) || 0,
-      }));
-  }, [salesDetails]);
 
   const tableRows = useMemo(() => {
     const normalizedSearch = searchText.trim().toLowerCase();
@@ -592,8 +715,17 @@ function Dashboard({ user }) {
 
       <div className="dashboard_middle_grid">
         <div className="dashboard_chart_stack">
-          <TopBarChart title="오늘 실적 Top 10" values={todaySales} color="pink" />
-          <TopBarChart title="이번 달 실적 Top 10" values={topSales} color="blue" />
+          {topSalesError && <Alert variant="warning" className="dash_top_sales_error">{topSalesError}</Alert>}
+          {isTopSalesLoading ? (
+            <div className="dash_panel dash_bar_loading">
+              <Spinner animation="border" size="sm" /> 실적 데이터를 불러오는 중...
+            </div>
+          ) : (
+            <>
+              <TopBarChart title="오늘 실적 Top 10" values={topSalesSummary.today || []} color="pink" />
+              <TopBarChart title="이번 달 실적 Top 10" values={topSalesSummary.month || []} color="blue" />
+            </>
+          )}
         </div>
 
         <aside className="dashboard_side_stack">
