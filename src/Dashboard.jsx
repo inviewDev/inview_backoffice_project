@@ -2,10 +2,24 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, Spinner } from 'react-bootstrap';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
 import { useNavigate } from 'react-router-dom';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import {
+  faAnglesLeft,
+  faAnglesRight,
+  faChevronLeft,
+  faChevronRight,
+  faCoins,
+  faMagnifyingGlass,
+  faSquareCheck,
+} from '@fortawesome/free-solid-svg-icons';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import { ko } from 'date-fns/locale';
 import moment from 'moment';
 import 'moment/locale/ko';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import './styles/dashboard.css';
+import './styles/date_select_picker.css';
 
 moment.locale('ko');
 const localizer = momentLocalizer(moment);
@@ -26,6 +40,7 @@ const calendar_events = [
 const notice_items = [
   { id: 11, title: '추후 연동 예정', author: '-', date: '-' },
   { id: 10, title: '추후 연동 예정', author: '-', date: '-' },
+  { id: 9, title: '추후 연동 예정', author: '-', date: '-' },
   { id: 9, title: '추후 연동 예정', author: '-', date: '-' },
 ];
 
@@ -134,6 +149,40 @@ function getKoreanDateParts(value = new Date()) {
     day: Number(values.day),
     date: `${values.year}-${String(values.month).padStart(2, '0')}-${String(values.day).padStart(2, '0')}`,
   };
+}
+
+function parseDateInput(value) {
+  const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12);
+}
+
+const dashboardDateYears = Array.from({ length: 101 }, (_, index) => 2000 + index);
+
+function renderDashboardDateHeader({ date, changeYear, changeMonth }) {
+  return (
+    <div className="date_select_header">
+      <select
+        value={date.getFullYear()}
+        onChange={event => changeYear(Number(event.target.value))}
+        aria-label="조회 연도"
+      >
+        {dashboardDateYears.map(year => (
+          <option value={year} key={year}>{year}년</option>
+        ))}
+      </select>
+      <select
+        value={date.getMonth()}
+        onChange={event => changeMonth(Number(event.target.value))}
+        aria-label="조회 월"
+      >
+        {Array.from({ length: 12 }, (_, index) => (
+          <option value={index} key={index}>{String(index + 1).padStart(2, '0')}월</option>
+        ))}
+      </select>
+    </div>
+  );
 }
 
 function createEmptySalesYears(currentYear) {
@@ -401,7 +450,7 @@ function TopBarChart({ title, values, color }) {
                       >
                         <span className="dash_bar_tooltip" style={{ '--bar-color': colorValue }}>
                           <strong>{item.manager}</strong>
-                          <span>{formatCurrency(item.total)} · {item.count}건</span>
+                          <span>{formatCurrency(item.total)}</span>
                         </span>
                       </span>
                     </span>
@@ -428,13 +477,14 @@ function Dashboard({ user }) {
   const [salesSummary, setSalesSummary] = useState(null);
   const [salesSummaryError, setSalesSummaryError] = useState('');
   const [isSalesSummaryLoading, setIsSalesSummaryLoading] = useState(true);
-  const [selectedSalesYears, setSelectedSalesYears] = useState([]);
+  const [selectedSalesYears, setSelectedSalesYears] = useState(() => [getKoreanCurrentYear()]);
   const [topSalesSummary, setTopSalesSummary] = useState({ today: [], month: [] });
   const [topSalesError, setTopSalesError] = useState('');
   const [isTopSalesLoading, setIsTopSalesLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [selectedDateRange, setSelectedDateRange] = useState('week');
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -544,7 +594,7 @@ function Dashboard({ user }) {
         }
 
         setSalesSummary(data);
-        setSelectedSalesYears((data?.years || []).map(item => Number(item.year)));
+        setSelectedSalesYears([Number(data?.currentYear) || getKoreanCurrentYear()]);
       } catch (err) {
         console.error('Fetch dashboard monthly sales error:', err);
         try {
@@ -561,7 +611,7 @@ function Dashboard({ user }) {
 
           const fallbackSummary = buildSalesSummaryFromAds(Array.isArray(fallbackData.ads) ? fallbackData.ads : []);
           setSalesSummary(fallbackSummary);
-          setSelectedSalesYears(fallbackSummary.years.map(item => Number(item.year)));
+          setSelectedSalesYears([fallbackSummary.currentYear]);
         } catch (fallbackError) {
           console.error('Fetch dashboard monthly sales fallback error:', fallbackError);
           setSalesSummaryError('월별 매출 정보를 불러오지 못했습니다.');
@@ -633,6 +683,7 @@ function Dashboard({ user }) {
 
   const formattedDate = currentTime.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
   const formattedTime = currentTime.toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' });
+  const currentSalesYear = salesSummary?.currentYear || getKoreanCurrentYear();
   if (!user || !user.email || !user.role || !user.name) {
     return (
       <div className="admin_loading">
@@ -692,7 +743,7 @@ function Dashboard({ user }) {
 
         <div>
           <div className="dash_title_row">
-            <h1>연도별 매출정보</h1>
+            <h1>{currentSalesYear}년도 매출정보</h1>
           </div>
           <section className="dash_card dash_year_card">
             {isSalesSummaryLoading ? (
@@ -729,47 +780,51 @@ function Dashboard({ user }) {
         </div>
 
         <aside className="dashboard_side_stack">
-          <section className="dash_panel dash_notice_panel">
+          <section className="dash_notice_section">
             <h2 className="dash_section_title">공지사항</h2>
-            <div className="dash_notice_table">
-              <div className="dash_notice_head">
-                <span>번호</span>
-                <span>제목</span>
-                <span>작성자</span>
-                <span>작성일자</span>
-              </div>
-              {notice_items.map(item => (
-                <div className="dash_notice_row" key={item.id}>
-                  <span>{item.id}</span>
-                  <strong>{item.title}</strong>
-                  <span>{item.author}</span>
-                  <span>{item.date}</span>
+            <div className="dash_panel dash_notice_panel">
+              <div className="dash_notice_table">
+                <div className="dash_notice_head">
+                  <span>번호</span>
+                  <span>제목</span>
+                  <span>작성자</span>
+                  <span>작성일자</span>
                 </div>
-              ))}
+                {notice_items.map(item => (
+                  <div className="dash_notice_row" key={item.id}>
+                    <span>{item.id}</span>
+                    <strong>{item.title}</strong>
+                    <span>{item.author}</span>
+                    <span>{item.date}</span>
+                  </div>
+                ))}
+              </div>
+              <button type="button" className="dash_more_button">더보기 ›</button>
             </div>
-            <button type="button" className="dash_more_button">더보기 ›</button>
           </section>
 
-          <section className="dash_panel dash_calendar_panel">
+          <section className="dash_calendar_section">
             <h2 className="dash_section_title">일정</h2>
-            <Calendar
-              localizer={localizer}
-              events={calendar_events}
-              startAccessor="start"
-              endAccessor="end"
-              style={{ height: 260 }}
-              defaultView="month"
-              views={['month']}
-              messages={{
-                date: '날짜',
-                time: '시간',
-                event: '일정',
-                month: '월',
-                previous: '이전',
-                next: '다음',
-                today: '오늘',
-              }}
-            />
+            <div className="dash_panel dash_calendar_panel">
+              <Calendar
+                localizer={localizer}
+                events={calendar_events}
+                startAccessor="start"
+                endAccessor="end"
+                style={{ height: 260 }}
+                defaultView="month"
+                views={['month']}
+                messages={{
+                  date: '날짜',
+                  time: '시간',
+                  event: '일정',
+                  month: '월',
+                  previous: '이전',
+                  next: '다음',
+                  today: '오늘',
+                }}
+              />
+            </div>
           </section>
         </aside>
       </div>
@@ -778,40 +833,78 @@ function Dashboard({ user }) {
         <h2 className="dash_section_title">매출현황</h2>
         <div className="dash_sales_card">
           <div className="dash_filter_grid">
-            <label>
-              등록일
-              <div className="dash_date_range">
-                <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
-                <span>~</span>
-                <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+            <div className="dash_filter_left">
+              <label>
+                등록일
+                <div className="dash_date_range">
+                  <DatePicker
+                    selected={parseDateInput(dateFrom)}
+                    onChange={date => {
+                      setDateFrom(date ? getKoreanDateParts(date).date : '');
+                      setSelectedDateRange('');
+                    }}
+                    dateFormat="yyyy-MM-dd"
+                    locale={ko}
+                    minDate={new Date(2000, 0, 1)}
+                    maxDate={new Date(2100, 11, 31)}
+                    placeholderText="시작일"
+                    className="dash_date_input"
+                    wrapperClassName="dash_date_picker"
+                    popperClassName="date_select_calendar dash_date_calendar"
+                    showPopperArrow={false}
+                    renderCustomHeader={renderDashboardDateHeader}
+                  />
+                  <span>~</span>
+                  <DatePicker
+                    selected={parseDateInput(dateTo)}
+                    onChange={date => {
+                      setDateTo(date ? getKoreanDateParts(date).date : '');
+                      setSelectedDateRange('');
+                    }}
+                    dateFormat="yyyy-MM-dd"
+                    locale={ko}
+                    minDate={parseDateInput(dateFrom) || new Date(2000, 0, 1)}
+                    maxDate={new Date(2100, 11, 31)}
+                    placeholderText="종료일"
+                    className="dash_date_input"
+                    wrapperClassName="dash_date_picker"
+                    popperClassName="date_select_calendar dash_date_calendar"
+                    showPopperArrow={false}
+                    renderCustomHeader={renderDashboardDateHeader}
+                  />
+                </div>
+              </label>
+              <div className="dash_range_buttons">
+                <button type="button" className={selectedDateRange === 'today' ? 'active' : ''} onClick={() => {
+                  const today = getKoreanDateParts().date;
+                  setDateFrom(today);
+                  setDateTo(today);
+                  setSelectedDateRange('today');
+                }}>오늘</button>
+                <button type="button" className={selectedDateRange === 'week' ? 'active' : ''} onClick={() => {
+                  const now = new Date();
+                  const weekAgo = new Date(now);
+                  weekAgo.setDate(now.getDate() - 7);
+                  setDateFrom(getKoreanDateParts(weekAgo).date);
+                  setDateTo(getKoreanDateParts(now).date);
+                  setSelectedDateRange('week');
+                }}>1주</button>
+                <button type="button" className={selectedDateRange === 'month' ? 'active' : ''} onClick={() => {
+                  const now = new Date();
+                  const monthAgo = new Date(now);
+                  monthAgo.setMonth(now.getMonth() - 1);
+                  setDateFrom(getKoreanDateParts(monthAgo).date);
+                  setDateTo(getKoreanDateParts(now).date);
+                  setSelectedDateRange('month');
+                }}>한달</button>
+                <button type="button" className={selectedDateRange === 'all' ? 'active' : ''} onClick={() => {
+                  setDateFrom('');
+                  setDateTo('');
+                  setSelectedDateRange('all');
+                }}>전체</button>
               </div>
-            </label>
-            <div className="dash_range_buttons">
-              <button type="button" onClick={() => {
-                const today = new Date().toISOString().split('T')[0];
-                setDateFrom(today);
-                setDateTo(today);
-              }}>오늘</button>
-              <button type="button" onClick={() => {
-                const now = new Date();
-                const weekAgo = new Date(now);
-                weekAgo.setDate(now.getDate() - 7);
-                setDateFrom(weekAgo.toISOString().split('T')[0]);
-                setDateTo(now.toISOString().split('T')[0]);
-              }}>1주</button>
-              <button type="button" onClick={() => {
-                const now = new Date();
-                const monthAgo = new Date(now);
-                monthAgo.setMonth(now.getMonth() - 1);
-                setDateFrom(monthAgo.toISOString().split('T')[0]);
-                setDateTo(now.toISOString().split('T')[0]);
-              }}>한달</button>
-              <button type="button" onClick={() => {
-                setDateFrom('');
-                setDateTo('');
-              }}>전체</button>
             </div>
-            <label>
+            <label className="dash_search_filter">
               통합검색
               <div className="dash_search_box">
                 <input
@@ -820,24 +913,41 @@ function Dashboard({ user }) {
                   onChange={e => setSearchText(e.target.value)}
                   placeholder="상품명, 담당자, 부서 검색"
                 />
-                <button type="button">검색</button>
+                <button type="button">
+                  <FontAwesomeIcon icon={faMagnifyingGlass} aria-hidden="true" />
+                  검색
+                </button>
               </div>
             </label>
           </div>
 
           <div className="dash_total_row">
             <div className="dash_total_sales">
-              <span>총 매출</span>
+              <span><FontAwesomeIcon icon={faSquareCheck} aria-hidden="true" />총 매출</span>
               <strong>{formatCurrency(totalSales)}</strong>
             </div>
             <div className="dash_total_cancel">
-              <span>총 취소매출</span>
+              <span><FontAwesomeIcon icon={faSquareCheck} aria-hidden="true" />총 취소매출</span>
               <strong>{formatCurrency(totalCancellations)}</strong>
             </div>
           </div>
 
           <div className="dash_table_wrap">
             <table className="dash_sales_table">
+              <colgroup>
+                <col style={{ width: 50 }} />
+                <col style={{ width: 140 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 200 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 200 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 200 }} />
+                <col style={{ width: 100 }} />
+                <col style={{ width: 95 }} />
+                <col style={{ width: 95 }} />
+                <col style={{ width: 140 }} />
+              </colgroup>
               <thead>
                 <tr>
                   <th>순번</th>
@@ -856,7 +966,16 @@ function Dashboard({ user }) {
               </thead>
               <tbody>
                 {tableRows.length > 0 ? tableRows.map(row => (
-                  <tr key={row.id}>
+                  <tr
+                    key={row.id}
+                    className={
+                      row.paymentStatus.includes('취소')
+                        ? 'status_cancel'
+                        : row.paymentStatus.includes('대기')
+                          ? 'status_pending'
+                          : 'status_approved'
+                    }
+                  >
                     <td>{row.id}</td>
                     <td>{row.registrationDate}</td>
                     <td>{row.product}</td>
@@ -884,13 +1003,16 @@ function Dashboard({ user }) {
               <option value="50">50</option>
             </select>
             <div className="dash_pagination">
-              <button type="button">‹‹</button>
-              <button type="button">‹</button>
+              <button type="button" aria-label="첫 페이지"><FontAwesomeIcon icon={faAnglesLeft} /></button>
+              <button type="button" aria-label="이전 페이지"><FontAwesomeIcon icon={faChevronLeft} /></button>
               <span className="active">1</span>
-              <button type="button">›</button>
-              <button type="button">››</button>
+              <button type="button" aria-label="다음 페이지"><FontAwesomeIcon icon={faChevronRight} /></button>
+              <button type="button" aria-label="마지막 페이지"><FontAwesomeIcon icon={faAnglesRight} /></button>
             </div>
-            <span>1-{Math.max(tableRows.length, 1)} 총 {tableRows.length}건</span>
+            <span className="dash_table_count">
+              <em>1-{Math.max(tableRows.length, 1)}</em>
+              <strong><FontAwesomeIcon icon={faCoins} aria-hidden="true" />{tableRows.length}건</strong>
+            </span>
           </div>
         </div>
       </section>

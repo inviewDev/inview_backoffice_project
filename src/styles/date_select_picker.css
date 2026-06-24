@@ -9,16 +9,26 @@
 .mypage_date_select { align-self: stretch; grid-template-columns: minmax(0, 1fr) minmax(0, 0.75fr) minmax(0, 0.75fr) 46px; gap: 4px; }
 .mypage_date_select select,.mypage_date_select .date_select_calendar_button { height: 32px; border-radius: 6px; font-size: 12px; }
 .mypage_date_select select { padding: 0 4px; }
-.date_select_calendar.react-datepicker-popper { z-index: 120; }
-.date_select_calendar .react-datepicker { overflow: hidden; border: 1px solid #d8dce6; border-radius: 12px; background: #fff; box-shadow: 0 16px 38px rgba(31, 42, 68, 0.16); color: #333; font-family: inherit; }
-.date_select_calendar .react-datepicker__header { border-bottom: 1px solid #edf0f6; background: #f6f8fd; padding: 12px 12px 8px; }
+.date_select_calendar.react-datepicker-popper { z-index: 130; padding-top: 8px; }
+.date_select_calendar .react-datepicker { overflow: hidden; border: 1px solid #d8dce6; border-radius: 12px; background: #fff; box-shadow: 0 16px 38px rgba(31, 42, 68, 0.18); color: #333; font-family: inherit; }
+.date_select_calendar .react-datepicker__header { border-bottom: 1px solid #edf0f6; background: #f6f8fd; padding: 12px 12px 10px; }
 .date_select_header { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-.ad_field_control .date_select_header select { height: 34px; border: 1px solid #d8dce6; border-radius: 8px; background: #fff; color: #253044; font-size: 13px; font-weight: 800; outline: 0; padding: 0 10px; }
+.date_select_header select { width: 100%; height: 34px; border: 1px solid #d8dce6; border-radius: 8px; background: #fff; color: #253044; cursor: pointer; font-size: 13px; font-weight: 800; letter-spacing: 0; outline: 0; padding: 0 28px 0 10px; }
+.date_select_header select:focus { border-color: #1962fc; box-shadow: 0 0 0 3px rgba(25, 98, 252, 0.12); }
+.date_select_calendar .react-datepicker__current-month { margin-bottom: 8px; color: #253044; font-size: 14px; font-weight: 800; letter-spacing: 0; }
+.date_select_calendar .react-datepicker__month { margin: 8px 10px 12px; }
+.date_select_calendar .react-datepicker__week { white-space: nowrap; }
 .date_select_calendar .react-datepicker__day-name,.date_select_calendar .react-datepicker__day { width: 34px; height: 34px; margin: 1px; color: #3a4356; font-size: 13px; font-weight: 700; line-height: 34px; }
-.date_select_calendar .react-datepicker__day-name { color: #7a8498; }
-.date_select_calendar .react-datepicker__day:hover { border-radius: 8px; background: rgba(25, 98, 252, 0.1); }
-.date_select_calendar .react-datepicker__day--selected,.date_select_calendar .react-datepicker__day--keyboard-selected { border-radius: 8px; background: #1962fc; color: #fff; }
+.date_select_calendar .react-datepicker__day-name { color: #7a8498; font-weight: 800; }
+.date_select_calendar .react-datepicker__day:hover { border-radius: 8px; background: rgba(25, 98, 252, 0.1); color: #1962fc; }
+.date_select_calendar .react-datepicker__day--today { border-radius: 8px; box-shadow: inset 0 0 0 1px #1962fc; color: #1962fc; }
+.date_select_calendar .react-datepicker__day--selected,.date_select_calendar .react-datepicker__day--keyboard-selected { border-radius: 8px; background: #1962fc; box-shadow: none; color: #fff; }
+.date_select_calendar .react-datepicker__day--outside-month { color: #b7becc; }
 .date_select_calendar .react-datepicker__day--disabled { color: #c4cbd8; }
+.date_select_calendar .react-datepicker__day--disabled:hover { background: transparent; color: #c4cbd8; }
+.date_select_calendar .react-datepicker__navigation { top: 18px; width: 30px; height: 30px; border-radius: 7px; }
+.date_select_calendar .react-datepicker__navigation:hover { background: rgba(25, 98, 252, 0.08); }
+.date_select_calendar .react-datepicker__navigation-icon::before { width: 7px; height: 7px; border-color: #667085; border-width: 2px 2px 0 0; }
 .mypage_calendar_datepicker.react-datepicker-popper { z-index: 130; }
 .mypage_calendar_datepicker .react-datepicker { display: flex; min-width: 350px; }
 .mypage_calendar_datepicker .react-datepicker__month-container { float: none; }

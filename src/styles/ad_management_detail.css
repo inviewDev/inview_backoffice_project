@@ -1,79 +1,93 @@
-.ad_view_block { min-height: calc(100vh - 138px); padding: 40px 40px 80px; display: flex; flex-direction: column; gap: 0; }
+.ad_view_block { display: flex; width: 100%; max-width: 1680px; min-height: calc(100vh - 138px); flex-direction: column; gap: 0; margin: 0 auto; padding: 40px 40px 80px; }
 .ad_view_section_title { margin: 0 0 14px; color: #333; font-size: 18px; font-weight: 700; letter-spacing: 0; line-height: 28px; }
 .ad_view_panel + .ad_view_section_title { margin-top: 28px; }
-.ad_view_panel { border: 0; border-radius: 8px; background: #fff; box-shadow: 4px 4px 20px rgba(137, 145, 169, 0.2); padding: 20px; }
-.ad_view_grid { display: grid; gap: 12px; }
-.ad_view_grid.one { grid-template-columns: minmax(0, 1fr); }
-.ad_view_grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.ad_view_grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ad_view_panel { width: 100%; padding: 20px; border: 0; border-radius: 8px; background: #fff; box-shadow: 4px 4px 20px rgba(137, 145, 169, 0.2); }
+.ad_view_grid { display: flex; width: 100%; flex-wrap: wrap; gap: 12px; }
 .ad_view_grid.compact { margin-bottom: 16px; }
-.ad_view_field { display: grid; min-width: 0; min-height: 40px; grid-template-columns: 120px minmax(0, 1fr); }
-.ad_view_field.wide { grid-column: span 2; }
-.ad_view_label { display: flex; min-width: 0; min-height: 40px; align-items: center; justify-content: center; border: 1px solid #d8dce6; border-right: 0; border-radius: 6px 0 0 6px; background: #dce2ef; color: #333; font-size: 15px; font-weight: 600; letter-spacing: 0; line-height: 18px; text-align: center; }
-.ad_view_value { display: flex; min-width: 0; min-height: 40px; align-items: center; justify-content: flex-start; border: 1px solid #d8dce6; border-radius: 0 6px 6px 0; background: #f3f5fa; color: #333; font-size: 15px; font-weight: 500; letter-spacing: 0; padding: 0 14px; }
+.ad_view_grid.one .ad_view_field { width: 100%; flex-basis: 100%; }
+.ad_view_grid.two .ad_view_field { width: calc(50% - 6px); flex-basis: calc(50% - 6px); }
+.ad_view_grid.three .ad_view_field { width: calc(33.333% - 8px); flex-basis: calc(33.333% - 8px); }
+.ad_view_grid.two .ad_view_field.wide { width: 100%; flex-basis: 100%; }
+.ad_view_grid.three .ad_view_field.wide { width: calc(66.666% - 4px); flex-basis: calc(66.666% - 4px); }
+.ad_view_field { display: flex; min-width: 0; min-height: 40px; flex: 0 0 auto; }
+.ad_view_label { display: flex; width: 120px; min-width: 0; min-height: 40px; flex: 0 0 120px; align-items: center; justify-content: center; border: 1px solid #d8dce6; border-right: 0; border-radius: 6px 0 0 6px; background: #dce2ef; color: #333; font-size: 15px; font-weight: 600; letter-spacing: 0; line-height: 18px; text-align: center; }
+.ad_view_value { display: flex; min-width: 0; min-height: 40px; flex: 1 1 auto; align-items: center; justify-content: flex-start; padding: 0 14px; border: 1px solid #d8dce6; border-radius: 0 6px 6px 0; background: #f3f5fa; color: #333; font-size: 15px; font-weight: 500; letter-spacing: 0; }
 .ad_view_value > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ad_view_value.has_action { justify-content: space-between; padding-right: 0; }
 .ad_view_value button { width: 70px; align-self: stretch; border-radius: 0 6px 6px 0; background: #1962fc; color: #fff; cursor: pointer; font-size: 13px; font-weight: 800; letter-spacing: 0; }
 .ad_view_value button:disabled { background: #a6b0c2; cursor: not-allowed; }
-.ad_view_value a { color: #1962fc; font-size: 14px; font-weight: 800; letter-spacing: 0; padding: 0 14px 0 0; text-decoration: underline; white-space: nowrap; }
-.ad_view_payment { display: grid; grid-template-columns: 512px minmax(0, 1fr); gap: 12px; align-items: start; }
-.ad_view_products { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
-.ad_view_product_chip { display: flex; min-height: 40px; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 6px; background: #f3f5fa; color: #abb0be; font-size: 15px; font-weight: 600; letter-spacing: 0; line-height: 18px; padding: 8px; text-align: center; }
+.ad_view_value a { padding: 0 14px 0 0; color: #1962fc; font-size: 14px; font-weight: 800; letter-spacing: 0; text-decoration: underline; white-space: nowrap; }
+.ad_view_payment { display: flex; width: 100%; align-items: flex-start; gap: 12px; }
+.ad_view_payment > :first-child { width: 100%; max-width: 512px; flex: 0 1 512px; }
+.ad_view_payment > :last-child { min-width: 0; max-width:1035px; margin-bottom:0;}
+.ad_view_products { display: flex; width: 100%; flex-wrap: wrap; gap: 4px; }
+.ad_view_product_chip { display: flex;width:100%; max-width: calc(33.333% - 3px); min-height: 40px; flex: 1 1 calc(33.333% - 3px); align-items: center; justify-content: center; padding: 8px; border: 1px solid transparent; border-radius: 6px; background: #f3f5fa; color: #abb0be; font-size: 15px; font-weight: 600; letter-spacing: 0; line-height: 18px; text-align: center; }
 .ad_view_product_chip.active { border-color: #1962fc; background: #1962fc; color: #fff; }
-.ad_view_products_grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ad_view_products_grid { display: flex; width: 100%; flex-wrap: wrap; gap: 12px; }
+.ad_view_products_grid > * { width: calc(50% - 6px); flex: 1 1 calc(50% - 6px); }
 .ad_view_alert.sms_alert { max-width: none; margin: 0 0 12px; }
-.ad_view_panel.sms_history { padding: 0; overflow: hidden; }
+.ad_view_panel.sms_history { overflow: hidden; padding: 0; }
 .ad_view_sms_table { margin: 0; table-layout: fixed; }
 .ad_view_sms_table th,
 .ad_view_sms_table td { height: 42px; border-color: #e1e6f0 !important; color: #333; font-size: 13px; font-weight: 700; letter-spacing: 0; vertical-align: middle; }
 .ad_view_sms_table th { background: #dce2ef; text-align: center; }
-.ad_view_sms_table td { overflow: hidden; background: #fff; padding: 8px 10px; text-overflow: ellipsis; white-space: nowrap; }
+.ad_view_sms_table td { overflow: hidden; padding: 8px 10px; background: #fff; text-overflow: ellipsis; white-space: nowrap; }
 .ad_view_sms_table td[colspan] { color: #8792a7; text-align: center; }
 .ad_view_panel.comments { margin-top: 28px; padding: 28px; }
 .ad_view_panel.comments h2 { margin: 0 0 22px; color: #333; font-size: 15px; font-weight: 800; letter-spacing: 0; }
-.ad_view_comment_list { display: grid; gap: 10px; }
-.ad_view_comment { display: grid; grid-template-columns: 40px 72px minmax(0, 1fr) 150px; min-height: 40px; align-items: center; gap: 8px; }
-.ad_view_comment_avatar { display: flex; width: 40px; height: 40px; align-items: center; justify-content: center; border-radius: 50%; background: linear-gradient(145deg, #ff7a45, #7331d7); color: #fff; font-size: 14px; font-weight: 800; letter-spacing: 0; }
-.ad_view_comment strong { color: #333; font-size: 14px; font-weight: 800; letter-spacing: 0; }
-.ad_view_comment p { min-width: 0; height: 40px; overflow: hidden; margin: 0; border: 1px solid #e1e5ef; border-radius: 6px; color: #333; font-size: 14px; font-weight: 600; letter-spacing: 0; line-height: 38px; padding: 0 18px; text-overflow: ellipsis; white-space: nowrap; }
-.ad_view_comment time { color: #a6adba; font-size: 13px; font-weight: 600; letter-spacing: 0; text-align: right; }
-.ad_view_comment_form { display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 10px; margin-top: 18px; }
-.ad_view_comment_form input { height: 40px; border: 1px solid #d8deea; border-radius: 6px; color: #333; font-size: 14px; outline: 0; padding: 0 14px; }
-.ad_view_comment_form button { height: 40px; border-radius: 6px; background: #1962fc; color: #fff; cursor: pointer; font-size: 14px; font-weight: 800; letter-spacing: 0; }
+.ad_view_comment_list { display: flex; flex-direction: column; gap: 10px; }
+.ad_view_comment { display: flex; width: 100%; min-height: 40px; align-items: center; gap: 8px; }
+.ad_view_comment_avatar { display: flex; width: 40px; height: 40px; flex: 0 0 40px; align-items: center; justify-content: center; border-radius: 50%; background: linear-gradient(145deg, #ff7a45, #7331d7); color: #fff; font-size: 14px; font-weight: 800; letter-spacing: 0; }
+.ad_view_comment strong { width: 72px; flex: 0 0 72px; color: #333; font-size: 14px; font-weight: 800; letter-spacing: 0; }
+.ad_view_comment p { min-width: 0; height: 40px; flex: 1 1 auto; overflow: hidden; margin: 0; padding: 0 18px; border: 1px solid #e1e5ef; border-radius: 6px; color: #333; font-size: 14px; font-weight: 600; letter-spacing: 0; line-height: 38px; text-overflow: ellipsis; white-space: nowrap; }
+.ad_view_comment time { width: 150px; flex: 0 0 150px; color: #a6adba; font-size: 13px; font-weight: 600; letter-spacing: 0; text-align: right; }
+.ad_view_comment_form { display: flex; width: 100%; gap: 10px; margin-top: 18px; }
+.ad_view_comment_form input { min-width: 0; height: 40px; flex: 1 1 auto; padding: 0 14px; border: 1px solid #d8deea; border-radius: 6px; color: #333; font-size: 14px; outline: 0; }
+.ad_view_comment_form button { width: 120px; height: 40px; flex: 0 0 120px; border-radius: 6px; background: #1962fc; color: #fff; cursor: pointer; font-size: 14px; font-weight: 800; letter-spacing: 0; }
 .ad_view_bottom_actions { display: flex; justify-content: center; gap: 10px; margin-top: 22px; }
 .ad_view_register_button,
 .ad_view_list_button { display: inline-flex; width: 160px; height: 40px; align-items: center; justify-content: center; border-radius: 6px; color: #fff; cursor: pointer; font-size: 14px; font-weight: 800; letter-spacing: 0; }
 .ad_view_register_button { background: rgba(25, 98, 252, 0.42); cursor: not-allowed; }
 .ad_view_list_button { background: #ff2174; }
 .ad_view_state { display: flex; min-height: 420px; align-items: center; justify-content: center; gap: 10px; color: #73809d; font-size: 14px; font-weight: 700; letter-spacing: 0; }
-.ad_view_alert { max-width: 760px; margin: 0; border-radius: 8px; font-size: 14px; letter-spacing: 0; }
+.ad_view_alert { width: 100%; max-width: 760px; margin: 0; border-radius: 8px; font-size: 14px; letter-spacing: 0; }
 .ad_view_alert + .ad_view_list_button { margin-top: 12px; }
 
 @media (max-width: 1440px) {
-  .ad_view_payment { grid-template-columns: minmax(0, 1fr); }
-  .ad_view_products { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .ad_view_payment { flex-direction: column; }
+  .ad_view_payment > :first-child { max-width: none; flex-basis: auto; }
+  .ad_view_product_chip { width: calc(25% - 3px); flex-basis: calc(25% - 3px); }
 }
 
 @media (max-width: 1180px) {
-  .ad_view_grid.three,
-  .ad_view_grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .ad_view_field.wide { grid-column: 1 / -1; }
-  .ad_view_products_grid { grid-template-columns: minmax(0, 1fr); }
-  .ad_view_comment { grid-template-columns: 40px minmax(0, 1fr); }
-  .ad_view_comment p,
-  .ad_view_comment time { grid-column: 2; text-align: left; }
+  .ad_view_grid.three .ad_view_field,
+  .ad_view_grid.two .ad_view_field { width: calc(50% - 6px); flex-basis: calc(50% - 6px); }
+  .ad_view_grid .ad_view_field.wide { width: 100%; flex-basis: 100%; }
+  .ad_view_products_grid > * { width: 100%; flex-basis: 100%; }
+  .ad_view_comment { align-items: flex-start; flex-wrap: wrap; }
+  .ad_view_comment p { flex-basis: calc(100% - 120px); }
+  .ad_view_comment time { width: auto; flex: 1 1 100%; margin-left: 120px; text-align: left; }
 }
 
 @media (max-width: 860px) {
   .ad_view_block { padding: 20px 18px 64px; }
-  .ad_view_grid.three,
-  .ad_view_grid.two,
-  .ad_view_products { grid-template-columns: minmax(0, 1fr); }
-  .ad_view_field { grid-template-columns: minmax(0, 1fr); }
-  .ad_view_label { min-height: 38px; justify-content: flex-start; border-right: 1px solid #d8deea; border-radius: 6px 6px 0 0; padding: 0 14px; text-align: left; }
-  .ad_view_value { min-height: 40px; border-radius: 0 0 6px 6px; }
+  .ad_view_grid.three .ad_view_field,
+  .ad_view_grid.two .ad_view_field,
+  .ad_view_product_chip { width: 100%; flex-basis: 100%; }
+  .ad_view_field { flex-direction: column; }
+  .ad_view_label { width: 100%; min-height: 38px; flex-basis: auto; justify-content: flex-start; border-right: 1px solid #d8deea; border-radius: 6px 6px 0 0; padding: 0 14px; text-align: left; }
+  .ad_view_value { width: 100%; min-height: 40px; border-radius: 0 0 6px 6px; }
   .ad_view_comment_form,
-  .ad_view_bottom_actions { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .ad_view_bottom_actions { flex-direction: column; }
+  .ad_view_comment_form button,
   .ad_view_register_button,
-  .ad_view_list_button { width: 100%; }
+  .ad_view_list_button { width: 100%; flex-basis: auto; }
+}
+
+@media (max-width: 560px) {
+  .ad_view_panel { padding: 16px; }
+  .ad_view_panel.comments { padding: 20px 16px; }
+  .ad_view_comment strong { width: auto; flex: 1 1 auto; }
+  .ad_view_comment p { order: 3; flex-basis: 100%; }
+  .ad_view_comment time { order: 4; margin-left: 48px; }
 }
