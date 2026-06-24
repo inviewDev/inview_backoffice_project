@@ -30,12 +30,18 @@ const notice_items = [
 ];
 
 const months = ['01월', '02월', '03월', '04월', '05월', '06월', '07월', '08월', '09월', '10월', '11월', '12월'];
+const salesSeriesColors = ['#1962fc', '#ff3b5c', '#20b26b'];
 
 function getKoreanCurrentYear() {
   return Number(new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Seoul',
     year: 'numeric',
   }).format(new Date()));
+}
+
+function getSalesSeriesColor(year, currentYear = getKoreanCurrentYear()) {
+  const yearOffset = Math.max(0, Math.min(currentYear - Number(year), salesSeriesColors.length - 1));
+  return salesSeriesColors[yearOffset];
 }
 
 function parseResponseText(text) {
@@ -149,15 +155,15 @@ function getMaxValue(values) {
   return Math.max(...values.map(value => Number(value) || 0), 1);
 }
 
-function MiniLineChart({ values, year, total }) {
-  const [hoveredIndex, setHoveredIndex] = useState(null);
-  const maxValue = getMaxValue(values);
+function MiniLineChart({ series, yearOptions, selectedYears, onYearToggle }) {
+  const [hoveredPoint, setHoveredPoint] = useState(null);
+  const maxValue = getMaxValue(series.flatMap(item => item.values));
   const width = 910;
   const height = 186;
-  const left = 35;
-  const right = 18;
-  const top = 20;
-  const bottom = 32;
+  const left = 44;
+  const right = 44;
+  const top = 16;
+  const bottom = 2;
   const chartWidth = width - left - right;
   const chartHeight = height - top - bottom;
   const getPoint = (value, index) => {
@@ -165,65 +171,117 @@ function MiniLineChart({ values, year, total }) {
     const y = top + chartHeight - ((Number(value) || 0) / maxValue) * chartHeight;
     return { x, y };
   };
-  const pointsToString = values =>
-    values.map((value, index) => {
+  const pointsToString = values => values
+    .map((value, index) => {
       const point = getPoint(value, index);
       return `${point.x},${point.y}`;
-    }).join(' ');
-  const currentArea = `${left},${top + chartHeight} ${pointsToString(values)} ${left + chartWidth},${top + chartHeight}`;
-  const hoveredPoint = hoveredIndex !== null ? getPoint(values[hoveredIndex], hoveredIndex) : null;
+    })
+    .join(' ');
+  const tooltipPoint = hoveredPoint
+    ? getPoint(hoveredPoint.value, hoveredPoint.monthIndex)
+    : null;
   const tooltipWidth = 170;
   const tooltipHeight = 48;
-  const tooltipX = hoveredPoint
-    ? Math.min(Math.max(hoveredPoint.x - tooltipWidth / 2, 4), width - tooltipWidth - 4)
+  const tooltipX = tooltipPoint
+    ? Math.min(Math.max(tooltipPoint.x - tooltipWidth / 2, 4), width - tooltipWidth - 4)
     : 0;
-  const tooltipY = hoveredPoint
-    ? Math.max(hoveredPoint.y - tooltipHeight - 12, 4)
+  const tooltipY = tooltipPoint
+    ? Math.max(tooltipPoint.y - tooltipHeight - 12, 4)
     : 0;
 
   return (
     <div className="dash_line_chart">
-      <div className="dash_chart_legend">
-        <span><i className="dash_legend_blue" />{year} {formatCurrency(total)}</span>
+      <div className="dash_chart_legend" aria-label="매출 연도 선택">
+        {yearOptions.map(item => {
+          const isActive = selectedYears.includes(Number(item.year));
+          const color = getSalesSeriesColor(item.year);
+
+          return (
+            <button
+              type="button"
+              key={item.year}
+              className={isActive ? 'active' : ''}
+              aria-pressed={isActive}
+              style={{ '--series-color': color }}
+              onClick={() => onYearToggle(item.year)}
+            >
+              <i aria-hidden="true" />
+              {item.year}
+            </button>
+          );
+        })}
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="연도별 매출 차트">
+        <defs>
+          {series.map(item => (
+            <linearGradient key={item.year} id={`salesAreaGradient-${item.year}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={item.color} stopOpacity="0.18" />
+              <stop offset="100%" stopColor={item.color} stopOpacity="0.02" />
+            </linearGradient>
+          ))}
+        </defs>
         {[0, 1, 2, 3, 4].map(index => (
           <line
             key={index}
-            x1={left}
-            x2={left + chartWidth}
-            y1={top + (chartHeight / 4) * index}
-            y2={top + (chartHeight / 4) * index}
-            className="dash_grid_line"
+            x1="0"
+            x2={width}
+            y1={(height - bottom) / 4 * index}
+            y2={(height - bottom) / 4 * index}
+            className={index === 4 ? 'dash_axis_line' : 'dash_grid_line'}
           />
         ))}
-        <line x1={left} x2={left + chartWidth} y1={top + chartHeight} y2={top + chartHeight} className="dash_axis_line" />
-        <polygon points={currentArea} className="dash_area_blue" />
-        <polyline points={pointsToString(values)} className="dash_line_blue" />
-        {values.map((value, index) => {
-          const point = getPoint(value, index);
+        {[...series].reverse().map(item => {
+          const areaPoints = `${left},${top + chartHeight} ${pointsToString(item.values)} ${left + chartWidth},${top + chartHeight}`;
 
           return (
-            <g
-              key={`${year}_${index}`}
-              className="dash_line_point_group"
-              onMouseEnter={() => setHoveredIndex(index)}
-              onMouseLeave={() => setHoveredIndex(null)}
-              onFocus={() => setHoveredIndex(index)}
-              onBlur={() => setHoveredIndex(null)}
-              tabIndex={0}
-            >
-              <circle cx={point.x} cy={point.y} r="4.5" className="dash_line_point" />
-              <circle cx={point.x} cy={point.y} r="13" className="dash_line_hit" />
-              <title>{`${year}년 ${months[index]} 총 매출 ${formatCurrency(value)}`}</title>
+            <g key={`series-${item.year}`}>
+              <polygon points={areaPoints} fill={`url(#salesAreaGradient-${item.year})`} />
+              <polyline
+                points={pointsToString(item.values)}
+                className="dash_sales_line"
+                style={{ stroke: item.color }}
+              />
+              {item.values.map((value, monthIndex) => {
+                const point = getPoint(value, monthIndex);
+                const hoverValue = {
+                  year: item.year,
+                  monthIndex,
+                  value,
+                  color: item.color,
+                };
+
+                return (
+                  <g
+                    key={`${item.year}_${monthIndex}`}
+                    className="dash_line_point_group"
+                    aria-label={`${item.year}년 ${months[monthIndex]} 총 매출 ${formatCurrency(value)}`}
+                    onPointerEnter={() => setHoveredPoint(hoverValue)}
+                    onPointerLeave={() => setHoveredPoint(null)}
+                    onFocus={() => setHoveredPoint(hoverValue)}
+                    onBlur={() => setHoveredPoint(null)}
+                    tabIndex={0}
+                  >
+                    <circle
+                      cx={point.x}
+                      cy={point.y}
+                      r="4.5"
+                      className="dash_line_point"
+                      style={{ fill: item.color }}
+                    />
+                    <circle cx={point.x} cy={point.y} r="20" className="dash_line_hit" />
+                  </g>
+                );
+              })}
             </g>
           );
         })}
-        {hoveredPoint && (
+        {tooltipPoint && hoveredPoint && (
           <g className="dash_chart_tooltip">
             <rect x={tooltipX} y={tooltipY} width={tooltipWidth} height={tooltipHeight} rx="8" />
-            <text x={tooltipX + 12} y={tooltipY + 19}>{`${year}년 ${months[hoveredIndex]}`}</text>
-            <text x={tooltipX + 12} y={tooltipY + 38}>{formatCurrency(values[hoveredIndex])}</text>
+            <text x={tooltipX + 12} y={tooltipY + 19}>{`${hoveredPoint.year}년 ${months[hoveredPoint.monthIndex]}`}</text>
+            <text x={tooltipX + 12} y={tooltipY + 38} style={{ fill: hoveredPoint.color }}>
+              {formatCurrency(hoveredPoint.value)}
+            </text>
           </g>
         )}
       </svg>
@@ -276,7 +334,7 @@ function Dashboard({ user }) {
   const [salesSummary, setSalesSummary] = useState(null);
   const [salesSummaryError, setSalesSummaryError] = useState('');
   const [isSalesSummaryLoading, setIsSalesSummaryLoading] = useState(true);
-  const [selectedSalesYear, setSelectedSalesYear] = useState(() => getKoreanCurrentYear());
+  const [selectedSalesYears, setSelectedSalesYears] = useState([]);
   const [searchText, setSearchText] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -341,7 +399,7 @@ function Dashboard({ user }) {
         }
 
         setSalesSummary(data);
-        if (data?.currentYear) setSelectedSalesYear(data.currentYear);
+        setSelectedSalesYears((data?.years || []).map(item => Number(item.year)));
       } catch (err) {
         console.error('Fetch dashboard monthly sales error:', err);
         try {
@@ -358,7 +416,7 @@ function Dashboard({ user }) {
 
           const fallbackSummary = buildSalesSummaryFromAds(Array.isArray(fallbackData.ads) ? fallbackData.ads : []);
           setSalesSummary(fallbackSummary);
-          setSelectedSalesYear(fallbackSummary.currentYear);
+          setSelectedSalesYears(fallbackSummary.years.map(item => Number(item.year)));
         } catch (fallbackError) {
           console.error('Fetch dashboard monthly sales fallback error:', fallbackError);
           setSalesSummaryError('월별 매출 정보를 불러오지 못했습니다.');
@@ -380,15 +438,27 @@ function Dashboard({ user }) {
   const isDevelopmentManagementTeam = userTeam === '개발관리부' || userTeam === '개발관리팀';
 
   const salesYearOptions = useMemo(() => salesSummary?.years || [], [salesSummary?.years]);
-  const selectedSalesSummary = useMemo(() => {
-    return salesYearOptions.find(item => Number(item.year) === Number(selectedSalesYear))
-      || salesYearOptions[0]
-      || { year: selectedSalesYear, total: 0, months: [] };
-  }, [salesYearOptions, selectedSalesYear]);
-  const selectedMonthlyValues = useMemo(() => {
-    const monthMap = new Map((selectedSalesSummary.months || []).map(item => [Number(item.month), Number(item.total) || 0]));
-    return Array.from({ length: 12 }, (_, index) => monthMap.get(index + 1) || 0);
-  }, [selectedSalesSummary.months]);
+  const selectedSalesSeries = useMemo(() => {
+    return salesYearOptions
+      .map(item => {
+        const monthMap = new Map((item.months || []).map(month => [Number(month.month), Number(month.total) || 0]));
+
+        return {
+          year: Number(item.year),
+          color: getSalesSeriesColor(item.year, salesSummary?.currentYear),
+          values: Array.from({ length: 12 }, (_, monthIndex) => monthMap.get(monthIndex + 1) || 0),
+        };
+      })
+      .filter(item => selectedSalesYears.includes(item.year));
+  }, [salesSummary?.currentYear, salesYearOptions, selectedSalesYears]);
+  const toggleSalesYear = year => {
+    const numericYear = Number(year);
+    setSelectedSalesYears(current =>
+      current.includes(numericYear)
+        ? current.filter(item => item !== numericYear)
+        : [...current, numericYear]
+    );
+  };
 
   const topSales = useMemo(() => {
     return [...salesDetails]
@@ -440,8 +510,6 @@ function Dashboard({ user }) {
 
   const formattedDate = currentTime.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
   const formattedTime = currentTime.toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' });
-  const currentYear = salesSummary?.currentYear || getKoreanCurrentYear();
-
   if (!user || !user.email || !user.role || !user.name) {
     return (
       <div className="admin_loading">
@@ -501,19 +569,7 @@ function Dashboard({ user }) {
 
         <div>
           <div className="dash_title_row">
-            <h1>{selectedSalesSummary.year}년도 매출정보</h1>
-            <div className="dash_year_buttons" aria-label="매출 연도 선택">
-              {salesYearOptions.map(item => (
-                <button
-                  type="button"
-                  key={item.year}
-                  className={Number(item.year) === Number(selectedSalesSummary.year) ? 'active' : ''}
-                  onClick={() => setSelectedSalesYear(item.year)}
-                >
-                  {item.year}
-                </button>
-              ))}
-            </div>
+            <h1>연도별 매출정보</h1>
           </div>
           <section className="dash_card dash_year_card">
             {isSalesSummaryLoading ? (
@@ -522,9 +578,10 @@ function Dashboard({ user }) {
               <div className="dash_center_state">{salesSummaryError}</div>
             ) : (
               <MiniLineChart
-                values={selectedMonthlyValues}
-                year={selectedSalesSummary.year || currentYear}
-                total={selectedSalesSummary.total || 0}
+                series={selectedSalesSeries}
+                yearOptions={salesYearOptions}
+                selectedYears={selectedSalesYears}
+                onYearToggle={toggleSalesYear}
               />
             )}
           </section>

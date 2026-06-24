@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Spinner } from 'react-bootstrap';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
 import UserList from './UserList.jsx';
 import Signup from './Signup.jsx';
 import Login from './Login.jsx';
@@ -241,7 +243,10 @@ function App() {
           aria-label={isSidebarCollapsed ? '사이드바 펼치기' : '사이드바 접기'}
           title={isSidebarCollapsed ? '사이드바 펼치기' : '사이드바 접기'}
         >
-          <span aria-hidden="true">{isSidebarCollapsed ? '>' : '<'}</span>
+          <FontAwesomeIcon
+            icon={isSidebarCollapsed ? faChevronRight : faChevronLeft}
+            aria-hidden="true"
+          />
         </button>
         <Link to="/" className="admin_sidebar_logo">
           <img src="/img/logo/logo_wr.svg" alt="I&VIEW COMMUNICATION" />
