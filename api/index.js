@@ -1273,17 +1273,19 @@ apiRouter.get('/ads', verifyToken, async (req, res) => {
     let orderBy;
 
     if (sortBy === 'manager') {
-      orderBy = { manager: sortOrder };
+      orderBy = [{ manager: sortOrder }, { createdAt: 'desc' }, { id: 'desc' }];
     } else if (sortBy === 'team' || sortBy === 'department') {
-      orderBy = { managerTeam: sortOrder };
+      orderBy = [{ managerTeam: sortOrder }, { createdAt: 'desc' }, { id: 'desc' }];
     } else if (['companyName', 'ceoName', 'businessRegNumber', 'tel', 'mobile'].includes(sortBy)) {
-      orderBy = { company: { [sortBy]: sortOrder } };
+      orderBy = [{ company: { [sortBy]: sortOrder } }, { createdAt: 'desc' }, { id: 'desc' }];
     } else if (sortBy === 'contractDate') {
-      orderBy = { startDate: sortOrder };
+      orderBy = [{ startDate: sortOrder }, { createdAt: 'desc' }, { id: 'desc' }];
+    } else if (sortBy === 'createdAt') {
+      orderBy = [{ createdAt: sortOrder }, { id: sortOrder }];
     } else if (directSortFields.has(sortBy)) {
-      orderBy = { [sortBy]: sortOrder };
+      orderBy = [{ [sortBy]: sortOrder }, { createdAt: 'desc' }, { id: 'desc' }];
     } else {
-      orderBy = { createdAt: 'desc' };
+      orderBy = [{ createdAt: 'desc' }, { id: 'desc' }];
     }
 
     const paymentQuery = {
@@ -2075,7 +2077,19 @@ apiRouter.post('/agreements/:token/agree', async (req, res) => {
 });
 
 function toDateString(value) {
-  return value ? value.toISOString().split('T')[0] : '';
+  if (!value) return '';
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 function sumBy(items, field) {
@@ -2172,13 +2186,13 @@ apiRouter.get('/dashboard/monthly-sales', verifyToken, async (_req, res) => {
 
   try {
     const rows = await prisma.$queryRaw`
-      select extract(year from "createdAt" at time zone 'Asia/Seoul')::int as year,
-             extract(month from "createdAt" at time zone 'Asia/Seoul')::int as month,
+      select extract(year from "createdAt" + interval '9 hours')::int as year,
+             extract(month from "createdAt" + interval '9 hours')::int as month,
              "paymentStatus" as status,
              count(*)::int as count,
              sum(coalesce("approvedAmount", 0))::float as total
         from "Payment"
-       where extract(year from "createdAt" at time zone 'Asia/Seoul')::int between ${startYear} and ${currentYear}
+       where extract(year from "createdAt" + interval '9 hours')::int between ${startYear} and ${currentYear}
        group by 1, 2, 3
        order by 1 desc, 2 asc
     `;
@@ -2225,13 +2239,13 @@ apiRouter.get('/dashboard/top-sales', verifyToken, async (_req, res) => {
     const rows = await prisma.$queryRaw`
       select coalesce(nullif(btrim(payment.manager), ''), nullif(btrim(app_user.name), ''), '미지정') as manager,
              payment."paymentStatus" as status,
-             (payment."createdAt" at time zone 'Asia/Seoul')::date::text as date,
+             (payment."createdAt" + interval '9 hours')::date::text as date,
              count(*)::int as count,
              sum(coalesce(payment."approvedAmount", 0))::float as total
         from "Payment" payment
         left join "User" app_user on app_user.id = payment."userId"
-       where extract(year from payment."createdAt" at time zone 'Asia/Seoul')::int = ${currentDate.year}
-         and extract(month from payment."createdAt" at time zone 'Asia/Seoul')::int = ${currentDate.month}
+       where extract(year from payment."createdAt" + interval '9 hours')::int = ${currentDate.year}
+         and extract(month from payment."createdAt" + interval '9 hours')::int = ${currentDate.month}
        group by 1, 2, 3
        order by 3 asc
     `;
@@ -2329,9 +2343,9 @@ apiRouter.get('/dashboard/sales', verifyToken, async (req, res) => {
 
     if (dateFrom || dateTo) {
       const createdAt = {};
-      if (dateFrom) createdAt.gte = new Date(`${dateFrom}T00:00:00.000Z`);
+      if (dateFrom) createdAt.gte = new Date(`${dateFrom}T00:00:00+09:00`);
       if (dateTo) {
-        const endExclusive = new Date(`${dateTo}T00:00:00.000Z`);
+        const endExclusive = new Date(`${dateTo}T00:00:00+09:00`);
         endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
         createdAt.lt = endExclusive;
       }

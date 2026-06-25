@@ -17,7 +17,8 @@ import TablePagination from './components/TablePagination';
 import './styles/ad_management.css';
 
 const columnHelper = createColumnHelper();
-const AD_MANAGEMENT_STATE_KEY = 'ad_management_list_state';
+const AD_MANAGEMENT_STATE_KEY = 'ad_management_list_state_v2';
+const DEFAULT_SORTING = [{ id: 'createdAt', desc: true }];
 const DEFAULT_PAGINATION = {
   pageIndex: 0,
   pageSize: 10,
@@ -38,7 +39,9 @@ function readAdManagementState(userId) {
     return {
       query: typeof cached.query === 'string' ? cached.query : '',
       globalFilter: typeof cached.globalFilter === 'string' ? cached.globalFilter : '',
-      sorting: Array.isArray(cached.sorting) ? cached.sorting.slice(0, 1) : [],
+      sorting: Array.isArray(cached.sorting) && cached.sorting.length > 0
+        ? cached.sorting.slice(0, 1)
+        : DEFAULT_SORTING,
       pagination: {
         pageIndex,
         pageSize,
@@ -48,7 +51,7 @@ function readAdManagementState(userId) {
     return {
       query: '',
       globalFilter: '',
-      sorting: [],
+      sorting: DEFAULT_SORTING,
       pagination: DEFAULT_PAGINATION,
     };
   }

@@ -100,7 +100,7 @@ function parseDate(value, fallback = null) {
     Number(hour),
     Number(minute),
     Number(second),
-  ));
+  ) - (9 * 60 * 60 * 1000));
 
   return Number.isNaN(date.getTime()) ? fallback : date;
 }
@@ -113,7 +113,9 @@ function parseContractDates(term, fallback) {
 }
 
 function dateKey(value) {
-  return value ? new Date(value).toISOString().slice(0, 10) : '';
+  if (!value) return '';
+  const koreanDate = new Date(new Date(value).getTime() + (9 * 60 * 60 * 1000));
+  return koreanDate.toISOString().slice(0, 10);
 }
 
 function dateTimeKey(value) {
