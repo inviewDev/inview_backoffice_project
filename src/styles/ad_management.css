@@ -15,8 +15,8 @@
 .ad_manage_alert { width: auto; margin: 0 20px 16px; border-radius: 8px; font-size: 14px; letter-spacing: 0; }
 .ad_manage_panel { display: flex; width: 100%; min-height: calc(100vh - 238px); flex-direction: column; padding: 20px 20px 40px; border-radius: 10px; background: #fff; box-shadow: 4px 4px 20px rgba(137, 145, 169, 0.2); }
 .ad_manage_state { display: flex; min-height: 420px; flex: 1 1 auto; align-items: center; justify-content: center; gap: 10px; color: #73809d; font-size: 14px; font-weight: 600; letter-spacing: 0; }
-.ad_manage_table_wrap { width: 100%; min-height: 0; flex: 1 1 auto; overflow: auto; border-radius: 0; }
-.ad_manage_table { width: 100%; min-width: 3264px; border-collapse: collapse; table-layout: fixed; }
+.ad_manage_table_wrap { width: 100%; height:595px; flex: 1 1 auto; overflow: auto; border-radius: 0; }
+.ad_manage_table { width: 100%; min-width: 3264px; border-collapse: collapse; table-layout: fixed; margin-bottom:0; }
 .ad_manage_table th,
 .ad_manage_table td { height: 54px; padding: 9px 10px; border: 0; color: #333; font-size: 15px; font-weight: 500; letter-spacing: 0; line-height: 18px; text-align: center; vertical-align: middle; }
 .ad_manage_table th { height: 36px; background: #1962fc; color: #fff; font-size: 15px; }
