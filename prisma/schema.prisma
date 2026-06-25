@@ -30,6 +30,7 @@ model User {
   payrolls            Payroll[]            @relation("UserPayrolls") // 추가: 급여 명세서와 관계
   companies           Company[]            @relation("UserCompanies")
   payments            Payment[]            @relation("UserPayments")
+  adComments          AdComment[]           @relation("UserAdComments")
   smsSendHistories    SmsSendHistory[]     @relation("UserSmsSendHistories")
   passwordResetTokens PasswordResetToken[] @relation("UserPasswordResetTokens")
 
@@ -120,10 +121,26 @@ model Payment {
   updatedAt           DateTime @updatedAt
   user                User     @relation("UserPayments", fields: [userId], references: [id])
   company             Company? @relation(fields: [companyId], references: [id])
+  comments            AdComment[]
   smsConsentTokens    SmsConsentToken[]
   smsSendHistories    SmsSendHistory[]
 
   @@map("Payment")
+}
+
+model AdComment {
+  id        Int      @id @default(autoincrement())
+  paymentId Int
+  userId    Int
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  payment   Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  user      User     @relation("UserAdComments", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId, createdAt])
+  @@index([userId])
+  @@map("AdComment")
 }
 
 model SmsConsentToken {

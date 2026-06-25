@@ -381,6 +381,23 @@ function canEditAdPayment(user) {
   return user?.role === '전체관리자' || user?.level === '대표';
 }
 
+function canViewAd(user, paymentUserId) {
+  return user?.id === paymentUserId || isAdminRole(user?.role) || user?.level === '대표';
+}
+
+function serializeAdComment(comment, currentUser) {
+  return {
+    id: comment.id,
+    userId: comment.userId,
+    author: comment.user?.name || '사용자',
+    authorProfileImage: comment.user?.profileImage || '',
+    content: comment.content,
+    createdAt: comment.createdAt.toISOString(),
+    updatedAt: comment.updatedAt.toISOString(),
+    canManage: comment.userId === currentUser.id || isAdminRole(currentUser.role),
+  };
+}
+
 async function verifyAdminRole(req, res, next) {
   try {
     const currentRole = await getCurrentUserRole(req.user.id);
@@ -1217,7 +1234,7 @@ apiRouter.get('/ads', verifyToken, async (req, res) => {
                 is: {
                   OR: [
                     { name: { contains: search, mode: 'insensitive' } },
-                    { department: { contains: search, mode: 'insensitive' } },
+                    { team: { contains: search, mode: 'insensitive' } },
                   ],
                 },
               },
@@ -1240,7 +1257,6 @@ apiRouter.get('/ads', verifyToken, async (req, res) => {
       : {};
     const where = { ...accessFilter, ...searchFilter };
     const directSortFields = new Set([
-      'manager',
       'smsContractStatus',
       'agreementStatus',
       'agreementAt',
@@ -1261,8 +1277,10 @@ apiRouter.get('/ads', verifyToken, async (req, res) => {
     ]);
     let orderBy;
 
-    if (sortBy === 'department') {
-      orderBy = { user: { department: sortOrder } };
+    if (sortBy === 'manager') {
+      orderBy = { user: { name: sortOrder } };
+    } else if (sortBy === 'team' || sortBy === 'department') {
+      orderBy = { user: { team: sortOrder } };
     } else if (['companyName', 'ceoName', 'businessRegNumber', 'tel', 'mobile'].includes(sortBy)) {
       orderBy = { company: { [sortBy]: sortOrder } };
     } else if (sortBy === 'contractDate') {
@@ -1301,7 +1319,7 @@ apiRouter.get('/ads', verifyToken, async (req, res) => {
         user: {
           select: {
             name: true,
-            department: true,
+            team: true,
           },
         },
         company: {
@@ -1328,8 +1346,8 @@ apiRouter.get('/ads', verifyToken, async (req, res) => {
 
     const ads = payments.map(payment => ({
       id: payment.id,
-      manager: payment.manager || payment.user?.name || '',
-      department: payment.user?.department || '',
+      manager: payment.user?.name || payment.manager || '',
+      team: payment.user?.team || '',
       companyName: payment.company?.companyName || '',
       ceoName: payment.company?.ceoName || '',
       businessRegNumber: payment.company?.businessRegNumber || '',
@@ -1408,6 +1426,26 @@ apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
             },
           },
         },
+        comments: {
+          orderBy: [
+            { createdAt: 'desc' },
+            { id: 'desc' },
+          ],
+          take: 5,
+          include: {
+            user: {
+              select: {
+                name: true,
+                profileImage: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            comments: true,
+          },
+        },
       },
     });
 
@@ -1415,8 +1453,7 @@ apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
       return res.status(404).json({ error: '광고 정보를 찾을 수 없습니다.' });
     }
 
-    const canViewAllAds = isAdminRole(currentUser.role) || currentUser.level === '대표';
-    if (payment.userId !== currentUser.id && !canViewAllAds) {
+    if (!canViewAd(currentUser, payment.userId)) {
       return res.status(403).json({ error: '해당 광고 정보를 조회할 권한이 없습니다.' });
     }
 
@@ -1477,12 +1514,250 @@ apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
           phoneNumber: history.phoneNumber,
           senderName: history.sender?.name || '-',
         })),
-        comments: [],
+        comments: payment.comments.map(comment => serializeAdComment(comment, currentUser)),
+        commentPagination: {
+          page: 1,
+          pageSize: 5,
+          pageCount: Math.max(Math.ceil(payment._count.comments / 5), 1),
+          total: payment._count.comments,
+        },
       },
     });
   } catch (error) {
     console.error('Get ad detail error:', error);
     res.status(500).json({ error: '광고 상세 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+apiRouter.get('/ads/:id/comments', verifyToken, async (req, res) => {
+  const adId = parseInt(req.params.id, 10);
+  const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+  const requestedPageSize = parseInt(req.query.pageSize, 10) || 5;
+  const pageSizeOptions = [5, 10, 20, 50];
+  const pageSize = pageSizeOptions.includes(requestedPageSize) ? requestedPageSize : 5;
+
+  if (!Number.isInteger(adId)) {
+    return res.status(400).json({ error: '광고 ID가 올바르지 않습니다.' });
+  }
+
+  try {
+    const [currentUser, payment] = await Promise.all([
+      getCurrentUserAccess(req.user.id),
+      prisma.payment.findUnique({
+        where: { id: adId },
+        select: { id: true, userId: true },
+      }),
+    ]);
+
+    if (!currentUser) {
+      return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
+    }
+    if (!payment) {
+      return res.status(404).json({ error: '광고 정보를 찾을 수 없습니다.' });
+    }
+    if (!canViewAd(currentUser, payment.userId)) {
+      return res.status(403).json({ error: '해당 광고의 댓글을 조회할 권한이 없습니다.' });
+    }
+
+    const total = await prisma.adComment.count({
+      where: { paymentId: adId },
+    });
+    const pageCount = Math.max(Math.ceil(total / pageSize), 1);
+    const safePage = Math.min(page, pageCount);
+    const comments = await prisma.adComment.findMany({
+      where: { paymentId: adId },
+      orderBy: [
+        { createdAt: 'desc' },
+        { id: 'desc' },
+      ],
+      skip: (safePage - 1) * pageSize,
+      take: pageSize,
+      include: {
+        user: {
+          select: {
+            name: true,
+            profileImage: true,
+          },
+        },
+      },
+    });
+
+    res.json({
+      comments: comments.map(comment => serializeAdComment(comment, currentUser)),
+      page: safePage,
+      pageSize,
+      pageCount,
+      total,
+    });
+  } catch (error) {
+    console.error('Get ad comments error:', error);
+    res.status(500).json({ error: '댓글 목록 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+apiRouter.post('/ads/:id/comments', verifyToken, async (req, res) => {
+  const adId = parseInt(req.params.id, 10);
+  const content = String(req.body.content || '').trim();
+
+  if (!Number.isInteger(adId)) {
+    return res.status(400).json({ error: '광고 ID가 올바르지 않습니다.' });
+  }
+  if (!content) {
+    return res.status(400).json({ error: '댓글 내용을 입력해주세요.' });
+  }
+  if (content.length > 1000) {
+    return res.status(400).json({ error: '댓글은 1,000자 이내로 입력해주세요.' });
+  }
+
+  try {
+    const [currentUser, payment] = await Promise.all([
+      getCurrentUserAccess(req.user.id),
+      prisma.payment.findUnique({
+        where: { id: adId },
+        select: { id: true, userId: true },
+      }),
+    ]);
+
+    if (!currentUser) {
+      return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
+    }
+    if (!payment) {
+      return res.status(404).json({ error: '광고 정보를 찾을 수 없습니다.' });
+    }
+    if (!canViewAd(currentUser, payment.userId)) {
+      return res.status(403).json({ error: '해당 광고에 댓글을 작성할 권한이 없습니다.' });
+    }
+
+    const comment = await prisma.adComment.create({
+      data: {
+        paymentId: adId,
+        userId: currentUser.id,
+        content,
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+            profileImage: true,
+          },
+        },
+      },
+    });
+
+    res.status(201).json({
+      message: '댓글이 등록되었습니다.',
+      comment: serializeAdComment(comment, currentUser),
+    });
+  } catch (error) {
+    console.error('Create ad comment error:', error);
+    res.status(500).json({ error: '댓글 등록 중 오류가 발생했습니다.' });
+  }
+});
+
+apiRouter.patch('/ads/:adId/comments/:commentId', verifyToken, async (req, res) => {
+  const adId = parseInt(req.params.adId, 10);
+  const commentId = parseInt(req.params.commentId, 10);
+  const content = String(req.body.content || '').trim();
+
+  if (!Number.isInteger(adId) || !Number.isInteger(commentId)) {
+    return res.status(400).json({ error: '댓글 정보가 올바르지 않습니다.' });
+  }
+  if (!content) {
+    return res.status(400).json({ error: '댓글 내용을 입력해주세요.' });
+  }
+  if (content.length > 1000) {
+    return res.status(400).json({ error: '댓글은 1,000자 이내로 입력해주세요.' });
+  }
+
+  try {
+    const [currentUser, existingComment] = await Promise.all([
+      getCurrentUserAccess(req.user.id),
+      prisma.adComment.findFirst({
+        where: {
+          id: commentId,
+          paymentId: adId,
+        },
+        select: {
+          id: true,
+          userId: true,
+        },
+      }),
+    ]);
+
+    if (!currentUser) {
+      return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
+    }
+    if (!existingComment) {
+      return res.status(404).json({ error: '댓글을 찾을 수 없습니다.' });
+    }
+    if (existingComment.userId !== currentUser.id && !isAdminRole(currentUser.role)) {
+      return res.status(403).json({ error: '댓글을 수정할 권한이 없습니다.' });
+    }
+
+    const comment = await prisma.adComment.update({
+      where: { id: commentId },
+      data: { content },
+      include: {
+        user: {
+          select: {
+            name: true,
+            profileImage: true,
+          },
+        },
+      },
+    });
+
+    res.json({
+      message: '댓글 수정이 완료되었습니다.',
+      comment: serializeAdComment(comment, currentUser),
+    });
+  } catch (error) {
+    console.error('Update ad comment error:', error);
+    res.status(500).json({ error: '댓글 수정 중 오류가 발생했습니다.' });
+  }
+});
+
+apiRouter.delete('/ads/:adId/comments/:commentId', verifyToken, async (req, res) => {
+  const adId = parseInt(req.params.adId, 10);
+  const commentId = parseInt(req.params.commentId, 10);
+
+  if (!Number.isInteger(adId) || !Number.isInteger(commentId)) {
+    return res.status(400).json({ error: '댓글 정보가 올바르지 않습니다.' });
+  }
+
+  try {
+    const [currentUser, existingComment] = await Promise.all([
+      getCurrentUserAccess(req.user.id),
+      prisma.adComment.findFirst({
+        where: {
+          id: commentId,
+          paymentId: adId,
+        },
+        select: {
+          id: true,
+          userId: true,
+        },
+      }),
+    ]);
+
+    if (!currentUser) {
+      return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
+    }
+    if (!existingComment) {
+      return res.status(404).json({ error: '댓글을 찾을 수 없습니다.' });
+    }
+    if (existingComment.userId !== currentUser.id && !isAdminRole(currentUser.role)) {
+      return res.status(403).json({ error: '댓글을 삭제할 권한이 없습니다.' });
+    }
+
+    await prisma.adComment.delete({
+      where: { id: commentId },
+    });
+
+    res.json({ message: '댓글 삭제가 완료되었습니다.' });
+  } catch (error) {
+    console.error('Delete ad comment error:', error);
+    res.status(500).json({ error: '댓글 삭제 중 오류가 발생했습니다.' });
   }
 });
 
@@ -1835,12 +2110,65 @@ function getKoreanCurrentDateParts() {
   };
 }
 
+function getKoreanMonthRange(year, month) {
+  const koreanOffsetMilliseconds = 9 * 60 * 60 * 1000;
+
+  return {
+    start: new Date(Date.UTC(year, month - 1, 1) - koreanOffsetMilliseconds),
+    end: new Date(Date.UTC(year, month, 1) - koreanOffsetMilliseconds),
+  };
+}
+
 const DASHBOARD_EXCLUDED_PAYMENT_STATUS_MARKERS = ['\uCDE8\uC18C', '\uB300\uAE30'];
 
 function isDashboardCompletedSaleStatus(status) {
   const text = String(status || '').trim();
   return text.length > 0 && !DASHBOARD_EXCLUDED_PAYMENT_STATUS_MARKERS.some(marker => text.includes(marker));
 }
+
+apiRouter.get('/dashboard/my-monthly-sales', verifyToken, async (req, res) => {
+  const currentDate = getKoreanCurrentDateParts();
+  const monthRange = getKoreanMonthRange(currentDate.year, currentDate.month);
+
+  try {
+    const currentUser = await getCurrentUserAccess(req.user.id);
+    if (!currentUser) {
+      return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
+    }
+
+    const statusTotals = await prisma.payment.groupBy({
+      by: ['paymentStatus'],
+      where: {
+        userId: currentUser.id,
+        createdAt: {
+          gte: monthRange.start,
+          lt: monthRange.end,
+        },
+      },
+      _count: { _all: true },
+      _sum: { approvedAmount: true },
+    });
+    const completedTotals = statusTotals.filter(item => (
+      isDashboardCompletedSaleStatus(item.paymentStatus)
+    ));
+
+    res.json({
+      year: currentDate.year,
+      month: currentDate.month,
+      totalSales: completedTotals.reduce(
+        (sum, item) => sum + (Number(item._sum.approvedAmount) || 0),
+        0
+      ),
+      count: completedTotals.reduce(
+        (sum, item) => sum + (Number(item._count._all) || 0),
+        0
+      ),
+    });
+  } catch (error) {
+    console.error('Fetch dashboard personal monthly sales error:', error);
+    res.status(500).json({ error: '개인 월 매출 정보를 불러오지 못했습니다.' });
+  }
+});
 
 apiRouter.get('/dashboard/monthly-sales', verifyToken, async (_req, res) => {
   const currentYear = getKoreanCurrentYear();
@@ -1899,7 +2227,7 @@ apiRouter.get('/dashboard/top-sales', verifyToken, async (_req, res) => {
 
   try {
     const rows = await prisma.$queryRaw`
-      select coalesce(nullif(btrim(payment.manager), ''), nullif(btrim(app_user.name), ''), '미지정') as manager,
+      select coalesce(nullif(btrim(app_user.name), ''), nullif(btrim(payment.manager), ''), '미지정') as manager,
              payment."paymentStatus" as status,
              (payment."createdAt" at time zone 'Asia/Seoul')::date::text as date,
              count(*)::int as count,
@@ -1936,6 +2264,149 @@ apiRouter.get('/dashboard/top-sales', verifyToken, async (_req, res) => {
   } catch (error) {
     console.error('Fetch dashboard top sales error:', error);
     res.status(500).json({ error: '실적 Top 10 정보를 불러오지 못했습니다.' });
+  }
+});
+
+apiRouter.get('/dashboard/sales', verifyToken, async (req, res) => {
+  const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+  const pageSize = Math.min(Math.max(parseInt(req.query.pageSize, 10) || 10, 1), 100);
+  const search = String(req.query.search || '').trim();
+  const dateFrom = String(req.query.dateFrom || '').trim();
+  const dateTo = String(req.query.dateTo || '').trim();
+  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+
+  if (dateFrom && !datePattern.test(dateFrom)) {
+    return res.status(400).json({ error: '조회 시작일 형식이 올바르지 않습니다.' });
+  }
+  if (dateTo && !datePattern.test(dateTo)) {
+    return res.status(400).json({ error: '조회 종료일 형식이 올바르지 않습니다.' });
+  }
+
+  try {
+    const currentUser = await getCurrentUserAccess(req.user.id);
+    if (!currentUser) {
+      return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
+    }
+
+    const filters = [];
+
+    if (dateFrom || dateTo) {
+      const createdAt = {};
+      if (dateFrom) createdAt.gte = new Date(`${dateFrom}T00:00:00+09:00`);
+      if (dateTo) {
+        const endExclusive = new Date(`${dateTo}T00:00:00+09:00`);
+        endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+        createdAt.lt = endExclusive;
+      }
+      filters.push({ createdAt });
+    }
+
+    if (search) {
+      filters.push({
+        OR: [
+          { productName: { contains: search, mode: 'insensitive' } },
+          { manager: { contains: search, mode: 'insensitive' } },
+          { approvedCompany: { contains: search, mode: 'insensitive' } },
+          { paymentMethod: { contains: search, mode: 'insensitive' } },
+          { paymentStatus: { contains: search, mode: 'insensitive' } },
+          {
+            user: {
+              is: {
+                OR: [
+                  { name: { contains: search, mode: 'insensitive' } },
+                  { team: { contains: search, mode: 'insensitive' } },
+                ],
+              },
+            },
+          },
+          {
+            company: {
+              is: {
+                OR: [
+                  { companyName: { contains: search, mode: 'insensitive' } },
+                  { ceoName: { contains: search, mode: 'insensitive' } },
+                ],
+              },
+            },
+          },
+        ],
+      });
+    }
+
+    const where = filters.length ? { AND: filters } : {};
+    const skip = (page - 1) * pageSize;
+    const [total, payments, statusTotals] = await prisma.$transaction([
+      prisma.payment.count({ where }),
+      prisma.payment.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: pageSize,
+        select: {
+          id: true,
+          createdAt: true,
+          productName: true,
+          approvedCompany: true,
+          paymentMethod: true,
+          approvedAmount: true,
+          paymentStatus: true,
+          manager: true,
+          startDate: true,
+          endDate: true,
+          company: {
+            select: {
+              companyName: true,
+              ceoName: true,
+            },
+          },
+          user: {
+            select: {
+              name: true,
+              team: true,
+            },
+          },
+        },
+      }),
+      prisma.payment.groupBy({
+        by: ['paymentStatus'],
+        where,
+        _sum: { approvedAmount: true },
+      }),
+    ]);
+
+    const totalSales = statusTotals
+      .filter(item => isDashboardCompletedSaleStatus(item.paymentStatus))
+      .reduce((sum, item) => sum + (Number(item._sum.approvedAmount) || 0), 0);
+    const totalCancellations = statusTotals
+      .filter(item => String(item.paymentStatus || '').includes('취소'))
+      .reduce((sum, item) => sum + (Number(item._sum.approvedAmount) || 0), 0);
+
+    res.json({
+      rows: payments.map((payment, index) => ({
+        id: payment.id,
+        sequence: skip + index + 1,
+        registrationDate: toDateString(payment.createdAt),
+        product: payment.productName || '-',
+        companyName: payment.company?.companyName || '-',
+        ceoName: payment.company?.ceoName || '-',
+        approvedCompany: payment.approvedCompany || '-',
+        paymentMethod: payment.paymentMethod || '-',
+        approvedAmount: payment.approvedAmount || 0,
+        paymentStatus: payment.paymentStatus === '위약금' ? '부분취소' : payment.paymentStatus,
+        team: payment.user?.team || '-',
+        manager: payment.user?.name || payment.manager || '-',
+        period: `${toDateString(payment.startDate)} ~ ${toDateString(payment.endDate)}`,
+      })),
+      total,
+      page,
+      pageSize,
+      pageCount: Math.max(Math.ceil(total / pageSize), 1),
+      totalSales,
+      totalCancellations,
+    });
+  } catch (error) {
+    console.error('Fetch dashboard sales error:', error);
+    res.status(500).json({ error: '매출현황 데이터를 불러오지 못했습니다.' });
   }
 });
 

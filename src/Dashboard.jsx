@@ -78,11 +78,6 @@ function formatNumber(value) {
   return Number(value || 0).toLocaleString('ko-KR');
 }
 
-function formatDate(value) {
-  if (!value) return '-';
-  return String(value).slice(0, 10);
-}
-
 const sales_excluded_status_markers = ['\uCDE8\uC18C', '\uB300\uAE30'];
 
 function isCompletedSalesStatus(status) {
@@ -468,9 +463,8 @@ function TopBarChart({ title, values, color }) {
 function Dashboard({ user }) {
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [payrollData, setPayrollData] = useState(null);
-  const [payrollError, setPayrollError] = useState('');
-  const [isPayrollLoading, setIsPayrollLoading] = useState(true);
+  const [myMonthlySales, setMyMonthlySales] = useState({ totalSales: 0, count: 0 });
+  const [myMonthlySalesError, setMyMonthlySalesError] = useState('');
   const [salesSummary, setSalesSummary] = useState(null);
   const [salesSummaryError, setSalesSummaryError] = useState('');
   const [isSalesSummaryLoading, setIsSalesSummaryLoading] = useState(true);
@@ -479,11 +473,21 @@ function Dashboard({ user }) {
   const [topSalesError, setTopSalesError] = useState('');
   const [isTopSalesLoading, setIsTopSalesLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
+  const [salesSearch, setSalesSearch] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [selectedDateRange, setSelectedDateRange] = useState('week');
+  const [selectedDateRange, setSelectedDateRange] = useState('all');
   const [salesPageIndex, setSalesPageIndex] = useState(0);
   const [salesPageSize, setSalesPageSize] = useState(10);
+  const [salesRows, setSalesRows] = useState([]);
+  const [salesTotalCount, setSalesTotalCount] = useState(0);
+  const [salesTablePageCount, setSalesTablePageCount] = useState(1);
+  const [salesTotals, setSalesTotals] = useState({
+    totalSales: 0,
+    totalCancellations: 0,
+  });
+  const [salesTableError, setSalesTableError] = useState('');
+  const [isSalesTableLoading, setIsSalesTableLoading] = useState(true);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -493,13 +497,12 @@ function Dashboard({ user }) {
   }, []);
 
   useEffect(() => {
-    const fetchPayroll = async () => {
-      setIsPayrollLoading(true);
-      setPayrollError('');
+    const fetchMyMonthlySales = async () => {
+      setMyMonthlySalesError('');
 
       try {
         const token = localStorage.getItem('access_token');
-        const res = await fetch(`/api/payroll?userId=${user.id}`, {
+        const res = await fetch('/api/dashboard/my-monthly-sales', {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -507,22 +510,21 @@ function Dashboard({ user }) {
         const data = await parseResponse(res);
 
         if (!res.ok) {
-          throw new Error(data.error || '매출 데이터를 불러오지 못했습니다.');
+          throw new Error(data.error || '개인 월 매출 정보를 불러오지 못했습니다.');
         }
 
-        setPayrollData(data);
-        if (data?.periodStart) setDateFrom(formatDate(data.periodStart));
-        if (data?.periodEnd) setDateTo(formatDate(data.periodEnd));
+        setMyMonthlySales({
+          totalSales: Number(data.totalSales) || 0,
+          count: Number(data.count) || 0,
+        });
       } catch (err) {
-        console.error('Fetch dashboard payroll error:', err);
-        setPayrollError(err.message);
-      } finally {
-        setIsPayrollLoading(false);
+        console.error('Fetch dashboard personal monthly sales error:', err);
+        setMyMonthlySalesError(err.message);
       }
     };
 
     if (user?.id) {
-      fetchPayroll();
+      fetchMyMonthlySales();
     }
   }, [user.id]);
 
@@ -625,9 +627,62 @@ function Dashboard({ user }) {
     }
   }, [user.id]);
 
-  const salesDetails = useMemo(() => payrollData?.salesDetails || [], [payrollData?.salesDetails]);
-  const totalSales = payrollData?.totalSales || payrollData?.totalApprovedAmount || 0;
-  const totalCancellations = payrollData?.totalCancellations || payrollData?.totalCancellationAmount || 0;
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const fetchSalesTable = async () => {
+      setIsSalesTableLoading(true);
+      setSalesTableError('');
+
+      try {
+        const token = localStorage.getItem('access_token');
+        const params = new URLSearchParams({
+          page: String(salesPageIndex + 1),
+          pageSize: String(salesPageSize),
+        });
+
+        if (dateFrom) params.set('dateFrom', dateFrom);
+        if (dateTo) params.set('dateTo', dateTo);
+        if (salesSearch) params.set('search', salesSearch);
+
+        const res = await fetch(`/api/dashboard/sales?${params.toString()}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          signal: controller.signal,
+        });
+        const data = await parseResponse(res);
+
+        if (!res.ok) {
+          throw new Error(data.error || '매출현황 데이터를 불러오지 못했습니다.');
+        }
+
+        setSalesRows(Array.isArray(data.rows) ? data.rows : []);
+        setSalesTotalCount(Number(data.total) || 0);
+        setSalesTablePageCount(Math.max(Number(data.pageCount) || 1, 1));
+        setSalesTotals({
+          totalSales: Number(data.totalSales) || 0,
+          totalCancellations: Number(data.totalCancellations) || 0,
+        });
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+        console.error('Fetch dashboard sales table error:', error);
+        setSalesRows([]);
+        setSalesTableError(error.message);
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsSalesTableLoading(false);
+        }
+      }
+    };
+
+    if (user?.id) {
+      fetchSalesTable();
+    }
+
+    return () => controller.abort();
+  }, [dateFrom, dateTo, salesPageIndex, salesPageSize, salesSearch, user?.id]);
+
   const userTeam = user.team || '미지정';
   const isDevelopmentManagementTeam = userTeam === '개발관리부';
 
@@ -654,48 +709,32 @@ function Dashboard({ user }) {
     );
   };
 
-  const tableRows = useMemo(() => {
-    const normalizedSearch = searchText.trim().toLowerCase();
-    return salesDetails
-      .map((detail, index) => ({
-        id: index + 1,
-        registrationDate: formatDate(detail.registrationDate),
-        product: detail.product || '-',
-        companyName: '-',
-        ceoName: user.name || '-',
-        approvedCompany: '(주)아이앤뷰커뮤니케이션',
-        paymentMethod: '-',
-        approvedAmount: Number(detail.approvedAmount) || 0,
-        paymentStatus: '결제승인',
-        department: user.department || '-',
-        manager: user.name || '-',
-        period: payrollData ? `${formatDate(payrollData.periodStart)} ~ ${formatDate(payrollData.periodEnd)}` : '-',
-      }))
-      .filter(row => {
-        const rowText = Object.values(row).join(' ').toLowerCase();
-        const matchesSearch = !normalizedSearch || rowText.includes(normalizedSearch);
-        const matchesFrom = !dateFrom || row.registrationDate >= dateFrom;
-        const matchesTo = !dateTo || row.registrationDate <= dateTo;
-        return matchesSearch && matchesFrom && matchesTo;
-      });
-  }, [dateFrom, dateTo, payrollData, salesDetails, searchText, user.department, user.name]);
-  const salesPageCount = Math.max(Math.ceil(tableRows.length / salesPageSize), 1);
-  const visibleSalesRows = useMemo(() => {
-    const start = salesPageIndex * salesPageSize;
-    return tableRows.slice(start, start + salesPageSize);
-  }, [salesPageIndex, salesPageSize, tableRows]);
-  const salesRangeStart = tableRows.length ? salesPageIndex * salesPageSize + 1 : 0;
-  const salesRangeEnd = Math.min((salesPageIndex + 1) * salesPageSize, tableRows.length);
+  const salesRangeStart = salesTotalCount ? salesPageIndex * salesPageSize + 1 : 0;
+  const salesRangeEnd = Math.min((salesPageIndex + 1) * salesPageSize, salesTotalCount);
+
+  const openSalesDetail = (event, paymentId) => {
+    const detailPath = `/contracts/ad-management/${paymentId}`;
+    const shouldOpenNewTab = event.ctrlKey || event.metaKey || event.button === 1;
+
+    if (shouldOpenNewTab) {
+      event.preventDefault();
+      const detailWindow = window.open(detailPath, '_blank');
+      if (detailWindow) detailWindow.opener = null;
+      return;
+    }
+
+    navigate(detailPath);
+  };
 
   useEffect(() => {
     setSalesPageIndex(0);
-  }, [dateFrom, dateTo, salesPageSize, searchText]);
+  }, [dateFrom, dateTo, salesPageSize, salesSearch]);
 
   useEffect(() => {
-    if (salesPageIndex >= salesPageCount) {
-      setSalesPageIndex(salesPageCount - 1);
+    if (salesPageIndex >= salesTablePageCount) {
+      setSalesPageIndex(salesTablePageCount - 1);
     }
-  }, [salesPageCount, salesPageIndex]);
+  }, [salesPageIndex, salesTablePageCount]);
 
   const formattedDate = currentTime.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
   const formattedTime = currentTime.toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' });
@@ -741,11 +780,11 @@ function Dashboard({ user }) {
                 <>
                   <div>
                     <dt>이번 달매출</dt>
-                    <dd>{formatNumber(totalSales)}</dd>
+                    <dd>{formatNumber(myMonthlySales.totalSales)}</dd>
                   </div>
                   <div>
                     <dt>건수</dt>
-                    <dd>{salesDetails.length}</dd>
+                    <dd>{myMonthlySales.count}</dd>
                   </div>
                 </>
               )}
@@ -778,7 +817,9 @@ function Dashboard({ user }) {
         </div>
       </div>
 
-      {payrollError && <Alert variant="warning" className="dash_payroll_error">{payrollError}</Alert>}
+      {myMonthlySalesError && (
+        <Alert variant="warning" className="dash_payroll_error">{myMonthlySalesError}</Alert>
+      )}
 
       <div className="dashboard_middle_grid">
         <div className="dashboard_chart_stack">
@@ -927,9 +968,22 @@ function Dashboard({ user }) {
                   type="search"
                   value={searchText}
                   onChange={e => setSearchText(e.target.value)}
-                  placeholder="상품명, 담당자, 부서 검색"
+                  onKeyDown={event => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      setSalesPageIndex(0);
+                      setSalesSearch(searchText.trim());
+                    }
+                  }}
+                  placeholder="상품명, 담당자, 팀 검색"
                 />
-                <button type="button">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSalesPageIndex(0);
+                    setSalesSearch(searchText.trim());
+                  }}
+                >
                   <FontAwesomeIcon icon={faMagnifyingGlass} aria-hidden="true" />
                   검색
                 </button>
@@ -940,13 +994,19 @@ function Dashboard({ user }) {
           <div className="dash_total_row">
             <div className="dash_total_sales">
               <span><FontAwesomeIcon icon={faSquareCheck} aria-hidden="true" />총 매출</span>
-              <strong>{formatCurrency(totalSales)}</strong>
+              <strong>{formatCurrency(salesTotals.totalSales)}</strong>
             </div>
             <div className="dash_total_cancel">
               <span><FontAwesomeIcon icon={faSquareCheck} aria-hidden="true" />총 취소매출</span>
-              <strong>{formatCurrency(totalCancellations)}</strong>
+              <strong>{formatCurrency(salesTotals.totalCancellations)}</strong>
             </div>
           </div>
+
+          {salesTableError && (
+            <Alert variant="danger" className="dash_sales_table_alert">
+              {salesTableError}
+            </Alert>
+          )}
 
           <div className="dash_table_wrap">
             <table className="dash_sales_table">
@@ -954,7 +1014,7 @@ function Dashboard({ user }) {
                 <col style={{ width: 50 }} />
                 <col style={{ width: 140 }} />
                 <col style={{ width: 100 }} />
-                <col style={{ width: 200 }} />
+                <col style={{ width: 'auto' }} />
                 <col style={{ width: 100 }} />
                 <col style={{ width: 200 }} />
                 <col style={{ width: 100 }} />
@@ -975,24 +1035,46 @@ function Dashboard({ user }) {
                   <th>결제구분</th>
                   <th>결제금액</th>
                   <th>결제상태</th>
-                  <th>부서</th>
+                  <th>팀</th>
                   <th>담당자</th>
                   <th>계약기간</th>
                 </tr>
               </thead>
               <tbody>
-                {visibleSalesRows.length > 0 ? visibleSalesRows.map(row => (
+                {isSalesTableLoading ? (
+                  <tr>
+                    <td colSpan="12" className="dash_table_empty">
+                      <Spinner animation="border" size="sm" /> 매출현황을 불러오는 중입니다.
+                    </td>
+                  </tr>
+                ) : salesRows.length > 0 ? salesRows.map(row => (
                   <tr
                     key={row.id}
+                    tabIndex={0}
+                    onClick={event => openSalesDetail(event, row.id)}
+                    onAuxClick={event => {
+                      if (event.button === 1) {
+                        openSalesDetail(event, row.id);
+                      }
+                    }}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter') {
+                        openSalesDetail(event, row.id);
+                      }
+                    }}
                     className={
-                      row.paymentStatus.includes('취소')
-                        ? 'status_cancel'
-                        : row.paymentStatus.includes('대기')
-                          ? 'status_pending'
-                          : 'status_approved'
+                      `dash_sales_clickable ${
+                        row.paymentStatus === '위약금' || row.paymentStatus === '부분취소'
+                          ? 'status_partial'
+                          : row.paymentStatus.includes('취소')
+                            ? 'status_cancel'
+                            : row.paymentStatus === '결제승인'
+                              ? 'status_approved'
+                              : ''
+                      }`.trim()
                     }
                   >
-                    <td>{row.id}</td>
+                    <td>{row.sequence}</td>
                     <td>{row.registrationDate}</td>
                     <td>{row.product}</td>
                     <td>{row.companyName}</td>
@@ -1001,7 +1083,7 @@ function Dashboard({ user }) {
                     <td>{row.paymentMethod}</td>
                     <td>{formatNumber(row.approvedAmount)}</td>
                     <td>{row.paymentStatus}</td>
-                    <td>{row.department}</td>
+                    <td>{row.team}</td>
                     <td>{row.manager}</td>
                     <td>{row.period}</td>
                   </tr>
@@ -1026,13 +1108,13 @@ function Dashboard({ user }) {
             </select>
             <TablePagination
               pageIndex={salesPageIndex}
-              pageCount={salesPageCount}
+              pageCount={salesTablePageCount}
               onPageChange={setSalesPageIndex}
               className="dash_pagination"
             />
             <span className="dash_table_count">
               <em>{salesRangeStart}-{salesRangeEnd}</em>
-              <strong><FontAwesomeIcon icon={faCoins} aria-hidden="true" />{tableRows.length}건</strong>
+              <strong><FontAwesomeIcon icon={faCoins} aria-hidden="true" />{salesTotalCount}건</strong>
             </span>
           </div>
         </div>

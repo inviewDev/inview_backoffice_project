@@ -93,7 +93,7 @@ function ChipCell({ value }) {
 
 const adColumns = [
   columnHelper.accessor('manager', { header: '담당자', size: 96, cell: info => <TextCell value={info.getValue()} /> }),
-  columnHelper.accessor('department', { header: '부서', size: 80, cell: info => <TextCell value={info.getValue()} /> }),
+  columnHelper.accessor('team', { header: '팀', size: 80, cell: info => <TextCell value={info.getValue()} /> }),
   columnHelper.accessor('companyName', { header: '상호명', size: 180, cell: info => <TextCell value={info.getValue()} /> }),
   columnHelper.accessor('ceoName', { header: '대표자', size: 108, cell: info => <TextCell value={info.getValue()} /> }),
   columnHelper.accessor('businessRegNumber', { header: '사업자번호', size: 150, cell: info => <TextCell value={info.getValue()} /> }),

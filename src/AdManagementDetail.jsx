@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Alert, Modal, Spinner, Table } from 'react-bootstrap';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCoins } from '@fortawesome/free-solid-svg-icons';
 import { IMaskInput } from 'react-imask';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { ko } from 'date-fns/locale';
+import TablePagination from './components/TablePagination';
 import './styles/ad_management_detail.css';
 import './styles/date_select_picker.css';
 
@@ -121,6 +124,17 @@ function formatDateTime(value) {
   return date.toLocaleString('ko-KR', { hour12: false });
 }
 
+function formatCommentDateTime(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return [
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
+    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`,
+  ].join(' ');
+}
+
 function AdManagementDetail({ user }) {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -144,6 +158,19 @@ function AdManagementDetail({ user }) {
     message: '',
     variant: 'warning',
   });
+  const [commentText, setCommentText] = useState('');
+  const [commentError, setCommentError] = useState('');
+  const [isCreatingComment, setIsCreatingComment] = useState(false);
+  const [commentActionId, setCommentActionId] = useState(null);
+  const [editingCommentId, setEditingCommentId] = useState(null);
+  const [editingCommentText, setEditingCommentText] = useState('');
+  const [isLoadingComments, setIsLoadingComments] = useState(false);
+  const [commentPagination, setCommentPagination] = useState({
+    pageIndex: 0,
+    pageSize: 5,
+    pageCount: 1,
+    total: 0,
+  });
   const canEditPayment = user?.role === '전체관리자' || user?.role === '대표' || user?.level === '대표';
 
   const fetchAd = useCallback(async () => {
@@ -164,6 +191,12 @@ function AdManagementDetail({ user }) {
       }
 
       setAd(data.ad);
+      setCommentPagination({
+        pageIndex: Math.max((data.ad.commentPagination?.page || 1) - 1, 0),
+        pageSize: data.ad.commentPagination?.pageSize || 5,
+        pageCount: data.ad.commentPagination?.pageCount || 1,
+        total: data.ad.commentPagination?.total || 0,
+      });
       setPaymentEditForm({
         approvedAmount: String(data.ad.approvedAmount ?? ''),
         contractStartDate: parseDateValue(data.ad.contractStartDate),
@@ -183,6 +216,47 @@ function AdManagementDetail({ user }) {
   useEffect(() => {
     fetchAd();
   }, [fetchAd]);
+
+  const fetchComments = useCallback(async (pageIndex, pageSize) => {
+    setIsLoadingComments(true);
+    setCommentError('');
+
+    try {
+      const token = localStorage.getItem('access_token');
+      const params = new URLSearchParams({
+        page: String(pageIndex + 1),
+        pageSize: String(pageSize),
+      });
+      const res = await fetch(`/api/ads/${id}/comments?${params}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || '댓글 목록 조회에 실패했습니다.');
+      }
+
+      setAd(prev => ({
+        ...prev,
+        comments: data.comments,
+      }));
+      setCommentPagination({
+        pageIndex: Math.max(data.page - 1, 0),
+        pageSize: data.pageSize,
+        pageCount: data.pageCount,
+        total: data.total,
+      });
+      return true;
+    } catch (err) {
+      console.error('Fetch ad comments error:', err);
+      setCommentError(err.message);
+      return false;
+    } finally {
+      setIsLoadingComments(false);
+    }
+  }, [id]);
 
   const contractPeriod = useMemo(() => {
     if (!ad) return '';
@@ -348,6 +422,162 @@ function AdManagementDetail({ user }) {
     }
   };
 
+  const handleCreateComment = async event => {
+    event.preventDefault();
+    const content = commentText.trim();
+
+    if (!content) {
+      setCommentError('댓글 내용을 입력해주세요.');
+      return;
+    }
+
+    setIsCreatingComment(true);
+    setCommentError('');
+
+    try {
+      const token = localStorage.getItem('access_token');
+      const res = await fetch(`/api/ads/${id}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ content }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || '댓글 등록에 실패했습니다.');
+      }
+
+      setCommentText('');
+      await fetchComments(0, commentPagination.pageSize);
+    } catch (err) {
+      console.error('Create ad comment error:', err);
+      setCommentError(err.message);
+    } finally {
+      setIsCreatingComment(false);
+    }
+  };
+
+  const handleStartCommentEdit = comment => {
+    setEditingCommentId(comment.id);
+    setEditingCommentText(comment.content);
+    setCommentError('');
+  };
+
+  const handleCancelCommentEdit = () => {
+    setEditingCommentId(null);
+    setEditingCommentText('');
+  };
+
+  const handleUpdateComment = async commentId => {
+    const content = editingCommentText.trim();
+
+    if (!content) {
+      setCommentError('수정할 댓글 내용을 입력해주세요.');
+      return;
+    }
+
+    setCommentActionId(commentId);
+    setCommentError('');
+
+    try {
+      const token = localStorage.getItem('access_token');
+      const res = await fetch(`/api/ads/${id}/comments/${commentId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ content }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || '댓글 수정에 실패했습니다.');
+      }
+
+      setAd(prev => ({
+        ...prev,
+        comments: (prev.comments || []).map(comment => (
+          comment.id === commentId ? data.comment : comment
+        )),
+      }));
+      handleCancelCommentEdit();
+      setUpdateModal({
+        show: true,
+        mode: 'result',
+        title: '댓글 수정 완료',
+        message: data.message || '댓글 수정이 완료되었습니다.',
+        variant: 'success',
+      });
+    } catch (err) {
+      console.error('Update ad comment error:', err);
+      setUpdateModal({
+        show: true,
+        mode: 'result',
+        title: '댓글 수정 실패',
+        message: err.message,
+        variant: 'danger',
+      });
+    } finally {
+      setCommentActionId(null);
+    }
+  };
+
+  const handleDeleteComment = async commentId => {
+    if (!window.confirm('댓글을 삭제하시겠습니까?')) return;
+
+    setCommentActionId(commentId);
+    setCommentError('');
+
+    try {
+      const token = localStorage.getItem('access_token');
+      const res = await fetch(`/api/ads/${id}/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || '댓글 삭제에 실패했습니다.');
+      }
+
+      setAd(prev => ({
+        ...prev,
+        comments: (prev.comments || []).filter(comment => comment.id !== commentId),
+      }));
+      if (editingCommentId === commentId) {
+        handleCancelCommentEdit();
+      }
+      const nextTotal = Math.max(commentPagination.total - 1, 0);
+      const nextPageCount = Math.max(Math.ceil(nextTotal / commentPagination.pageSize), 1);
+      const nextPageIndex = Math.min(commentPagination.pageIndex, nextPageCount - 1);
+      await fetchComments(nextPageIndex, commentPagination.pageSize);
+      setUpdateModal({
+        show: true,
+        mode: 'result',
+        title: '댓글 삭제 완료',
+        message: data.message || '댓글 삭제가 완료되었습니다.',
+        variant: 'success',
+      });
+    } catch (err) {
+      console.error('Delete ad comment error:', err);
+      setUpdateModal({
+        show: true,
+        mode: 'result',
+        title: '댓글 삭제 실패',
+        message: err.message,
+        variant: 'danger',
+      });
+    } finally {
+      setCommentActionId(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <section className="ad_view_block">
@@ -372,14 +602,14 @@ function AdManagementDetail({ user }) {
 
   if (!ad) return null;
 
-  const comments = ad.comments?.length ? ad.comments : [
-    {
-      id: 'empty',
-      author: ad.manager || '담당자',
-      content: ad.memo || '등록된 공개 댓글이 없습니다.',
-      createdAt: ad.createdAt || '-',
-    },
-  ];
+  const comments = Array.isArray(ad.comments) ? ad.comments : [];
+  const commentRangeStart = commentPagination.total > 0
+    ? commentPagination.pageIndex * commentPagination.pageSize + 1
+    : 0;
+  const commentRangeEnd = Math.min(
+    (commentPagination.pageIndex + 1) * commentPagination.pageSize,
+    commentPagination.total
+  );
   const smsHistories = (ad.smsHistories || []).slice(0, 5);
   const agreementPreviewUrl = `${window.location.origin}/contracts/ad-management/${ad.id}/agreement-preview`;
   const productItems = Array.isArray(ad.productItems) ? ad.productItems : [];
@@ -591,19 +821,128 @@ function AdManagementDetail({ user }) {
       <section className="ad_view_panel comments">
         <h2>전체 공개 댓글</h2>
         <div className="ad_view_comment_list">
-          {comments.map(comment => (
-            <div className="ad_view_comment" key={comment.id}>
-              <span className="ad_view_comment_avatar">{comment.author?.slice(0, 1) || 'I'}</span>
-              <strong>{comment.author}</strong>
-              <p>{comment.content}</p>
-              <time>{comment.createdAt}</time>
+          {isLoadingComments ? (
+            <div className="ad_view_comment_empty">
+              <Spinner animation="border" size="sm" />
+              <span>댓글을 불러오는 중입니다.</span>
             </div>
-          ))}
+          ) : comments.length > 0 ? comments.map(comment => {
+            const isEditing = editingCommentId === comment.id;
+            const isProcessing = commentActionId === comment.id;
+
+            return (
+              <div className="ad_view_comment" key={comment.id}>
+                <div className="ad_view_comment_author">
+                  <span className="ad_view_comment_avatar">
+                    {comment.authorProfileImage ? (
+                      <img src={comment.authorProfileImage} alt="" />
+                    ) : (
+                      comment.author?.slice(0, 1) || 'I'
+                    )}
+                  </span>
+                  <strong title={comment.author}>{comment.author}</strong>
+                </div>
+                <div className={`ad_view_comment_bubble ${comment.canManage ? 'manageable' : ''}`}>
+                  {isEditing ? (
+                    <div className="ad_view_comment_edit">
+                      <input
+                        type="text"
+                        value={editingCommentText}
+                        onChange={event => setEditingCommentText(event.target.value)}
+                        onKeyDown={event => {
+                          if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                            handleUpdateComment(comment.id);
+                          }
+                          if (event.key === 'Escape') {
+                            handleCancelCommentEdit();
+                          }
+                        }}
+                        aria-label="댓글 수정"
+                        maxLength={1000}
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        className="save"
+                        onClick={() => handleUpdateComment(comment.id)}
+                        disabled={isProcessing}
+                      >
+                        {isProcessing ? '저장 중' : '저장'}
+                      </button>
+                      <button type="button" onClick={handleCancelCommentEdit} disabled={isProcessing}>
+                        취소
+                      </button>
+                    </div>
+                  ) : (
+                    <p title={comment.content}>{comment.content}</p>
+                  )}
+                  {!isEditing && (
+                    <div className="ad_view_comment_meta">
+                      {comment.canManage && (
+                        <div className="ad_view_comment_actions">
+                          <button type="button" onClick={() => handleStartCommentEdit(comment)}>
+                            수정
+                          </button>
+                          <button
+                            type="button"
+                            className="delete"
+                            onClick={() => handleDeleteComment(comment.id)}
+                            disabled={isProcessing}
+                          >
+                            삭제
+                          </button>
+                        </div>
+                      )}
+                      <time>{formatCommentDateTime(comment.createdAt)}</time>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          }) : (
+            <div className="ad_view_comment_empty">등록된 공개 댓글이 없습니다.</div>
+          )}
         </div>
-        <div className="ad_view_comment_form">
-          <input type="text" aria-label="댓글 입력" />
-          <button type="button">등록</button>
+        <div className="ad_view_comment_footer">
+          <select
+            value={commentPagination.pageSize}
+            onChange={event => fetchComments(0, Number(event.target.value))}
+            aria-label="댓글 페이지당 표시 개수"
+            disabled={isLoadingComments}
+          >
+            <option value={5}>5개</option>
+            <option value={10}>10개</option>
+            <option value={20}>20개</option>
+            <option value={50}>50개</option>
+          </select>
+          <TablePagination
+            pageIndex={commentPagination.pageIndex}
+            pageCount={commentPagination.pageCount}
+            onPageChange={pageIndex => fetchComments(pageIndex, commentPagination.pageSize)}
+            className="ad_view_comment_pages"
+          />
+          <div className="ad_view_comment_count">
+            <span>{commentRangeStart}-{commentRangeEnd}</span>
+            <strong>
+              <FontAwesomeIcon icon={faCoins} aria-hidden="true" />
+              {commentPagination.total}건
+            </strong>
+          </div>
         </div>
+        <form className="ad_view_comment_form" onSubmit={handleCreateComment}>
+          <input
+            type="text"
+            value={commentText}
+            onChange={event => setCommentText(event.target.value)}
+            aria-label="댓글 입력"
+            placeholder="댓글을 입력해주세요."
+            maxLength={1000}
+          />
+          <button type="submit" disabled={isCreatingComment}>
+            {isCreatingComment ? '등록 중' : '등록'}
+          </button>
+        </form>
+        {commentError && <p className="ad_view_comment_error">{commentError}</p>}
       </section>
 
       <div className="ad_view_bottom_actions">
