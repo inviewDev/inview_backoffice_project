@@ -1155,6 +1155,7 @@ apiRouter.post('/payment', verifyToken, async (req, res) => {
         cardCompany: toOptionalString(paymentDetail.cardCompany),
         installmentMonths: toOptionalString(paymentDetail.installmentMonths),
         manager: toOptionalString(productInfo.manager) || req.user.name || null,
+        managerTeam: toOptionalString(productInfo.managerTeam) || req.user.team || null,
         teamLead: toOptionalString(productInfo.teamLead),
         departmentHead: toOptionalString(productInfo.departmentHead),
         productItems,
@@ -1223,6 +1224,7 @@ apiRouter.get('/ads', verifyToken, async (req, res) => {
       ? {
           OR: [
             { manager: { contains: search, mode: 'insensitive' } },
+            { managerTeam: { contains: search, mode: 'insensitive' } },
             { productName: { contains: search, mode: 'insensitive' } },
             { approvalNumber: { contains: search, mode: 'insensitive' } },
             { paymentStatus: { contains: search, mode: 'insensitive' } },
@@ -1278,9 +1280,9 @@ apiRouter.get('/ads', verifyToken, async (req, res) => {
     let orderBy;
 
     if (sortBy === 'manager') {
-      orderBy = { user: { name: sortOrder } };
+      orderBy = { manager: sortOrder };
     } else if (sortBy === 'team' || sortBy === 'department') {
-      orderBy = { user: { team: sortOrder } };
+      orderBy = { managerTeam: sortOrder };
     } else if (['companyName', 'ceoName', 'businessRegNumber', 'tel', 'mobile'].includes(sortBy)) {
       orderBy = { company: { [sortBy]: sortOrder } };
     } else if (sortBy === 'contractDate') {
@@ -1297,6 +1299,7 @@ apiRouter.get('/ads', verifyToken, async (req, res) => {
       select: {
         id: true,
         manager: true,
+        managerTeam: true,
         smsContractStatus: true,
         agreementStatus: true,
         agreementAt: true,
@@ -1346,8 +1349,8 @@ apiRouter.get('/ads', verifyToken, async (req, res) => {
 
     const ads = payments.map(payment => ({
       id: payment.id,
-      manager: payment.user?.name || payment.manager || '',
-      team: payment.user?.team || '',
+      manager: payment.manager || payment.user?.name || '',
+      team: payment.managerTeam || payment.user?.team || '',
       companyName: payment.company?.companyName || '',
       ceoName: payment.company?.ceoName || '',
       businessRegNumber: payment.company?.businessRegNumber || '',
@@ -1462,7 +1465,7 @@ apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
         id: payment.id,
         userId: payment.userId,
         manager: payment.manager || payment.user?.name || '',
-        team: payment.user?.team || '',
+        team: payment.managerTeam || payment.user?.team || '',
         department: payment.user?.department || '',
         companyName: payment.company?.companyName || '',
         ceoName: payment.company?.ceoName || '',
@@ -2227,7 +2230,7 @@ apiRouter.get('/dashboard/top-sales', verifyToken, async (_req, res) => {
 
   try {
     const rows = await prisma.$queryRaw`
-      select coalesce(nullif(btrim(app_user.name), ''), nullif(btrim(payment.manager), ''), '미지정') as manager,
+      select coalesce(nullif(btrim(payment.manager), ''), nullif(btrim(app_user.name), ''), '미지정') as manager,
              payment."paymentStatus" as status,
              (payment."createdAt" at time zone 'Asia/Seoul')::date::text as date,
              count(*)::int as count,
@@ -2306,6 +2309,7 @@ apiRouter.get('/dashboard/sales', verifyToken, async (req, res) => {
         OR: [
           { productName: { contains: search, mode: 'insensitive' } },
           { manager: { contains: search, mode: 'insensitive' } },
+          { managerTeam: { contains: search, mode: 'insensitive' } },
           { approvedCompany: { contains: search, mode: 'insensitive' } },
           { paymentMethod: { contains: search, mode: 'insensitive' } },
           { paymentStatus: { contains: search, mode: 'insensitive' } },
@@ -2351,6 +2355,7 @@ apiRouter.get('/dashboard/sales', verifyToken, async (req, res) => {
           approvedAmount: true,
           paymentStatus: true,
           manager: true,
+          managerTeam: true,
           startDate: true,
           endDate: true,
           company: {
@@ -2393,8 +2398,8 @@ apiRouter.get('/dashboard/sales', verifyToken, async (req, res) => {
         paymentMethod: payment.paymentMethod || '-',
         approvedAmount: payment.approvedAmount || 0,
         paymentStatus: payment.paymentStatus === '위약금' ? '부분취소' : payment.paymentStatus,
-        team: payment.user?.team || '-',
-        manager: payment.user?.name || payment.manager || '-',
+        team: payment.managerTeam || payment.user?.team || '-',
+        manager: payment.manager || payment.user?.name || '-',
         period: `${toDateString(payment.startDate)} ~ ${toDateString(payment.endDate)}`,
       })),
       total,
@@ -2794,6 +2799,59 @@ apiRouter.post('/users/:id/level', verifyToken, verifyMasterRole, async (req, re
 });
 
 async function deleteUsersWithRelations(tx, targetUserIds) {
+  const archiveUser = await tx.user.findUnique({
+    where: { email: 'cchee' },
+    select: { id: true },
+  });
+  if (!archiveUser) {
+    throw new Error('광고 데이터 보관 계정(cchee)을 찾을 수 없습니다.');
+  }
+  if (targetUserIds.includes(archiveUser.id)) {
+    const protectedError = new Error('광고 데이터 보관 계정(cchee)은 삭제할 수 없습니다.');
+    protectedError.statusCode = 400;
+    throw protectedError;
+  }
+
+  const targetUsers = await tx.user.findMany({
+    where: { id: { in: targetUserIds } },
+    select: {
+      id: true,
+      name: true,
+      team: true,
+    },
+  });
+
+  for (const targetUser of targetUsers) {
+    await tx.payment.updateMany({
+      where: {
+        userId: targetUser.id,
+        OR: [
+          { manager: null },
+          { manager: '' },
+        ],
+      },
+      data: { manager: targetUser.name },
+    });
+    await tx.payment.updateMany({
+      where: {
+        userId: targetUser.id,
+        OR: [
+          { managerTeam: null },
+          { managerTeam: '' },
+        ],
+      },
+      data: { managerTeam: targetUser.team },
+    });
+    await tx.payment.updateMany({
+      where: { userId: targetUser.id },
+      data: { userId: archiveUser.id },
+    });
+    await tx.company.updateMany({
+      where: { userId: targetUser.id },
+      data: { userId: archiveUser.id },
+    });
+  }
+
   const payrolls = await tx.payroll.findMany({
     where: { userId: { in: targetUserIds } },
     select: { id: true },
@@ -2805,21 +2863,6 @@ async function deleteUsersWithRelations(tx, targetUserIds) {
     await tx.cancellationDetail.deleteMany({ where: { payrollId: { in: payrollIds } } });
   }
 
-  const companies = await tx.company.findMany({
-    where: { userId: { in: targetUserIds } },
-    select: { id: true },
-  });
-  const companyIds = companies.map(company => company.id);
-
-  await tx.payment.deleteMany({
-    where: {
-      OR: [
-        { userId: { in: targetUserIds } },
-        ...(companyIds.length > 0 ? [{ companyId: { in: companyIds } }] : []),
-      ],
-    },
-  });
-  await tx.company.deleteMany({ where: { userId: { in: targetUserIds } } });
   await tx.payroll.deleteMany({ where: { userId: { in: targetUserIds } } });
   await tx.passwordResetToken.deleteMany({ where: { userId: { in: targetUserIds } } });
   await tx.personalMemo.deleteMany({ where: { userId: { in: targetUserIds } } });
@@ -2863,7 +2906,9 @@ apiRouter.post('/users/bulk-delete', verifyToken, verifyMasterRole, async (req, 
     });
   } catch (error) {
     console.error('Bulk delete users error:', error);
-    res.status(500).json({ error: '사용자 일괄 삭제 중 오류가 발생했습니다.' });
+    res.status(error.statusCode || 500).json({
+      error: error.statusCode ? error.message : '사용자 일괄 삭제 중 오류가 발생했습니다.',
+    });
   }
 });
 

@@ -102,6 +102,7 @@ model Payment {
   cardCompany         String?
   installmentMonths   String?
   manager             String?
+  managerTeam         String?
   teamLead            String?
   departmentHead      String?
   productItems        Json?
