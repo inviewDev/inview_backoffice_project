@@ -155,16 +155,16 @@ a { word-break:keep-all; letter-spacing:-0.05em; color:var(--default-text--01--)
 .header .header_cont .right_align .ad_cont { display: flex; flex-direction: row; gap: 0 10px; align-items: center; } 
 
 /* dashboard_block */
-.dashboard_block { padding:40px 20px; } 
+.dashboard_block { padding:20px;} 
 .dashboard_block .container { max-width:1440px; padding: 0; } 
 .dash_contBox { display:flex; gap:0 20px; } 
 
 /* userlist_block */
-.userlist_block { padding:40px 20px; } 
+.userlist_block { padding:20px;} 
 .userlist_block .container { max-width:1440px; padding:0; } 
 
 /* mypage_block */
-.mypage_block { padding:40px 20px; } 
+.mypage_block { padding:20px;} 
 .userlist_block .container { max-width:1440px; padding:0; } 
 .user_infoBox { display:flex; gap:0 20px; } 
 

@@ -27,7 +27,6 @@ const teamDepartmentMapping = {
   '5팀': '2부서',
   '6팀': '2부서',
   '개발관리부': '운영부서',
-  '개발관리팀': '운영부서',
 };
 const columnHelper = createColumnHelper();
 

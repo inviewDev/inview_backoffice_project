@@ -1,4 +1,4 @@
-.ad_view_block { display: flex; width: 100%; max-width: 1680px; min-height: calc(100vh - 138px); flex-direction: column; gap: 0; margin: 0 auto; padding: 40px 40px 80px; }
+.ad_view_block { display: flex; width: 100%;  min-height: calc(100vh - 140px); flex-direction: column; gap: 0; margin: 0 auto; padding: 40px 40px 80px; }
 .ad_view_section_title { margin: 0 0 14px; color: #333; font-size: 18px; font-weight: 700; letter-spacing: 0; line-height: 28px; }
 .ad_view_panel + .ad_view_section_title { margin-top: 28px; }
 .ad_view_panel { width: 100%; padding: 20px; border: 0; border-radius: 8px; background: #fff; box-shadow: 4px 4px 20px rgba(137, 145, 169, 0.2); }

@@ -425,7 +425,6 @@ const teamDepartmentMapping = {
   '5팀': '2부서',
   '6팀': '2부서',
   '개발관리부': '운영부서',
-  '개발관리팀': '운영부서',
 };
 
 apiRouter.get('/me', verifyToken, async (req, res) => {
@@ -1402,6 +1401,7 @@ apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
         },
         smsSendHistories: {
           orderBy: { createdAt: 'desc' },
+          take: 5,
           include: {
             sender: {
               select: { name: true },

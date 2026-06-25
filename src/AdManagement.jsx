@@ -6,11 +6,53 @@ import {
   flexRender,
   createColumnHelper,
 } from '@tanstack/react-table';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import {
+  faCoins,
+  faMagnifyingGlass,
+  faSquarePlus,
+} from '@fortawesome/free-solid-svg-icons';
 import { Alert, Spinner, Table } from 'react-bootstrap';
 import TablePagination from './components/TablePagination';
 import './styles/ad_management.css';
 
 const columnHelper = createColumnHelper();
+const AD_MANAGEMENT_STATE_KEY = 'ad_management_list_state';
+const DEFAULT_PAGINATION = {
+  pageIndex: 0,
+  pageSize: 10,
+};
+
+function getAdManagementStateKey(userId) {
+  return `${AD_MANAGEMENT_STATE_KEY}:${userId || 'anonymous'}`;
+}
+
+function readAdManagementState(userId) {
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(getAdManagementStateKey(userId)) || '{}');
+    const pageIndex = Math.max(Number(cached.pagination?.pageIndex) || 0, 0);
+    const pageSize = [5, 10, 20, 50, 100].includes(Number(cached.pagination?.pageSize))
+      ? Number(cached.pagination.pageSize)
+      : DEFAULT_PAGINATION.pageSize;
+
+    return {
+      query: typeof cached.query === 'string' ? cached.query : '',
+      globalFilter: typeof cached.globalFilter === 'string' ? cached.globalFilter : '',
+      sorting: Array.isArray(cached.sorting) ? cached.sorting.slice(0, 1) : [],
+      pagination: {
+        pageIndex,
+        pageSize,
+      },
+    };
+  } catch {
+    return {
+      query: '',
+      globalFilter: '',
+      sorting: [],
+      pagination: DEFAULT_PAGINATION,
+    };
+  }
+}
 
 function formatMoney(value) {
   const number = Number(value || 0);
@@ -51,7 +93,7 @@ function ChipCell({ value }) {
 
 const adColumns = [
   columnHelper.accessor('manager', { header: '담당자', size: 96, cell: info => <TextCell value={info.getValue()} /> }),
-  columnHelper.accessor('department', { header: '부서', size: 120, cell: info => <TextCell value={info.getValue()} /> }),
+  columnHelper.accessor('department', { header: '부서', size: 80, cell: info => <TextCell value={info.getValue()} /> }),
   columnHelper.accessor('companyName', { header: '상호명', size: 180, cell: info => <TextCell value={info.getValue()} /> }),
   columnHelper.accessor('ceoName', { header: '대표자', size: 108, cell: info => <TextCell value={info.getValue()} /> }),
   columnHelper.accessor('businessRegNumber', { header: '사업자번호', size: 150, cell: info => <TextCell value={info.getValue()} /> }),
@@ -80,20 +122,34 @@ const adColumns = [
   columnHelper.accessor('createdAt', { header: '작성일', size: 130, cell: info => <TextCell value={info.getValue()} /> }),
 ];
 
-function AdManagement() {
+function AdManagement({ user }) {
   const navigate = useNavigate();
+  const [initialListState] = useState(() => readAdManagementState(user?.id));
   const [ads, setAds] = useState([]);
-  const [query, setQuery] = useState('');
-  const [globalFilter, setGlobalFilter] = useState('');
-  const [sorting, setSorting] = useState([]);
-  const [pagination, setPagination] = useState({
-    pageIndex: 0,
-    pageSize: 10,
-  });
+  const [query, setQuery] = useState(initialListState.query);
+  const [globalFilter, setGlobalFilter] = useState(initialListState.globalFilter);
+  const [sorting, setSorting] = useState(initialListState.sorting);
+  const [pagination, setPagination] = useState(initialListState.pagination);
   const [totalCount, setTotalCount] = useState(0);
   const [pageCount, setPageCount] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        getAdManagementStateKey(user?.id),
+        JSON.stringify({
+          query,
+          globalFilter,
+          sorting,
+          pagination,
+        })
+      );
+    } catch (cacheError) {
+      console.warn('Save ad management list state error:', cacheError);
+    }
+  }, [globalFilter, pagination, query, sorting, user?.id]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -171,31 +227,54 @@ function AdManagement() {
     setGlobalFilter(query.trim());
   };
 
+  const rangeStart = totalCount > 0
+    ? pagination.pageIndex * pagination.pageSize + 1
+    : 0;
+  const rangeEnd = Math.min((pagination.pageIndex + 1) * pagination.pageSize, totalCount);
+
+  const openAdDetail = (event, adId) => {
+    const detailPath = `/contracts/ad-management/${adId}`;
+    const shouldOpenNewTab = event.ctrlKey || event.metaKey || event.button === 1;
+
+    if (shouldOpenNewTab) {
+      event.preventDefault();
+      const detailWindow = window.open(detailPath, '_blank');
+      if (detailWindow) detailWindow.opener = null;
+      return;
+    }
+
+    navigate(detailPath);
+  };
+
   return (
     <section className="ad_manage_block">
-      <form className="ad_manage_toolbar" onSubmit={handleSearchSubmit}>
-        <label>
-          <span>통합검색</span>
-          <input
-            type="search"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="상호명, 담당자, 상품, 승인번호 검색"
-          />
-        </label>
-        <button type="submit" className="ad_manage_search_button">검색</button>
-        <button
-          type="button"
-          className="ad_manage_add_button"
-          onClick={() => navigate('/contracts/ad-detail')}
-        >
-          추가
-        </button>
-      </form>
-
-      {error && <Alert variant="danger" className="ad_manage_alert">{error}</Alert>}
-
       <div className="ad_manage_panel">
+        <form className="ad_manage_toolbar" onSubmit={handleSearchSubmit}>
+          <label>
+            <span>통합검색</span>
+            <input
+              type="search"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="상호명, 담당자, 상품, 승인번호 검색"
+            />
+          </label>
+          <button type="submit" className="ad_manage_search_button">
+            <FontAwesomeIcon icon={faMagnifyingGlass} aria-hidden="true" />
+            <span>검색</span>
+          </button>
+          <button
+            type="button"
+            className="ad_manage_add_button"
+            onClick={() => navigate('/contracts/ad-detail')}
+          >
+            <FontAwesomeIcon icon={faSquarePlus} aria-hidden="true" />
+            <span>추가</span>
+          </button>
+        </form>
+
+        {error && <Alert variant="danger" className="ad_manage_alert">{error}</Alert>}
+
         {isLoading ? (
           <div className="ad_manage_state">
             <Spinner animation="border" size="sm" />
@@ -236,10 +315,15 @@ function AdManagement() {
                         key={row.id}
                         className={`ad_manage_clickable_row ${getPaymentRowClass(row.original.paymentStatus)}`.trim()}
                         tabIndex={0}
-                        onClick={() => navigate(`/contracts/ad-management/${row.original.id}`)}
+                        onClick={event => openAdDetail(event, row.original.id)}
+                        onAuxClick={event => {
+                          if (event.button === 1) {
+                            openAdDetail(event, row.original.id);
+                          }
+                        }}
                         onKeyDown={e => {
                           if (e.key === 'Enter') {
-                            navigate(`/contracts/ad-management/${row.original.id}`);
+                            openAdDetail(e, row.original.id);
                           }
                         }}
                       >
@@ -275,7 +359,13 @@ function AdManagement() {
                 onPageChange={page => table.setPageIndex(page)}
                 className="ad_manage_pages"
               />
-              <span>{totalCount.toLocaleString('ko-KR')}건</span>
+              <div className="ad_manage_count">
+                <span>{rangeStart}-{rangeEnd}</span>
+                <span>
+                  <FontAwesomeIcon icon={faCoins} aria-hidden="true" />
+                  {totalCount.toLocaleString('ko-KR')}건
+                </span>
+              </div>
             </div>
           </>
         )}

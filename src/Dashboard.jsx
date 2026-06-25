@@ -629,7 +629,7 @@ function Dashboard({ user }) {
   const totalSales = payrollData?.totalSales || payrollData?.totalApprovedAmount || 0;
   const totalCancellations = payrollData?.totalCancellations || payrollData?.totalCancellationAmount || 0;
   const userTeam = user.team || '미지정';
-  const isDevelopmentManagementTeam = userTeam === '개발관리부' || userTeam === '개발관리팀';
+  const isDevelopmentManagementTeam = userTeam === '개발관리부';
 
   const salesYearOptions = useMemo(() => salesSummary?.years || [], [salesSummary?.years]);
   const selectedSalesSeries = useMemo(() => {

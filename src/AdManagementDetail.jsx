@@ -380,7 +380,7 @@ function AdManagementDetail({ user }) {
       createdAt: ad.createdAt || '-',
     },
   ];
-  const smsHistories = ad.smsHistories || [];
+  const smsHistories = (ad.smsHistories || []).slice(0, 5);
   const agreementPreviewUrl = `${window.location.origin}/contracts/ad-management/${ad.id}/agreement-preview`;
   const productItems = Array.isArray(ad.productItems) ? ad.productItems : [];
   const hasSmsSendHistory = ad.smsContractStatus === '발송' || Boolean(ad.latestSmsToken) || smsHistories.length > 0;
