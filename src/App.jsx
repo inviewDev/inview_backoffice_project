@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { Spinner } from 'react-bootstrap';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { Button, Modal, Spinner } from 'react-bootstrap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
 import UserList from './UserList.jsx';
@@ -19,6 +19,10 @@ import {
   AgreementPreviewTermsPage,
   AgreementTermsPage,
 } from './AgreementFlow.jsx';
+import {
+  dispatchAuthExpired,
+  resetAuthExpirationGuard,
+} from './utils/authFetch';
 
 const nav_items = [
   { label: 'Home', to: '/', icon: '/img/svg/icon_home.svg', exact: true },
@@ -70,7 +74,27 @@ function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() =>
     localStorage.getItem('admin_sidebar_collapsed') === 'true'
   );
+  const [showSessionExpiredModal, setShowSessionExpiredModal] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const clearSession = useCallback(() => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('user');
+    setUser(null);
+    setTab('login');
+  }, []);
+
+  const handleSessionExpired = useCallback(() => {
+    clearSession();
+    setShowSessionExpiredModal(true);
+    navigate('/', { replace: true });
+  }, [clearSession, navigate]);
+
+  useEffect(() => {
+    window.addEventListener('auth:expired', handleSessionExpired);
+    return () => window.removeEventListener('auth:expired', handleSessionExpired);
+  }, [handleSessionExpired]);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -84,16 +108,14 @@ function App() {
 
       const decoded = parseJwt(token);
       if (!decoded || !decoded.id || !decoded.email || !decoded.role || !decoded.name) {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('user');
+        handleSessionExpired();
         setIsLoading(false);
         return;
       }
 
       const currentTime = Date.now() / 1000;
       if (decoded.exp && decoded.exp < currentTime) {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('user');
+        handleSessionExpired();
         setIsLoading(false);
         return;
       }
@@ -125,16 +147,33 @@ function App() {
         });
       } catch (error) {
         console.error('Fetch user error:', error);
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('user');
-        setUser(null);
+        if (localStorage.getItem('access_token')) {
+          clearSession();
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchUserData();
-  }, []);
+  }, [clearSession, handleSessionExpired]);
+
+  useEffect(() => {
+    if (!user) return undefined;
+
+    const token = localStorage.getItem('access_token');
+    const decoded = parseJwt(token);
+    if (!decoded?.exp) return undefined;
+
+    const remainingMs = decoded.exp * 1000 - Date.now();
+    if (remainingMs <= 0) {
+      dispatchAuthExpired();
+      return undefined;
+    }
+
+    const timer = window.setTimeout(dispatchAuthExpired, remainingMs);
+    return () => window.clearTimeout(timer);
+  }, [user]);
 
   const isAdmin = user && (
     user.role === '전체관리자' ||
@@ -144,10 +183,15 @@ function App() {
   );
 
   const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('user');
-    setUser(null);
-    setTab('login');
+    clearSession();
+    setShowSessionExpiredModal(false);
+    resetAuthExpirationGuard();
+  };
+
+  const handleLoginSuccess = loggedInUser => {
+    resetAuthExpirationGuard();
+    setShowSessionExpiredModal(false);
+    setUser(loggedInUser);
   };
 
   const handleSidebarToggle = () => {
@@ -187,39 +231,62 @@ function App() {
 
   if (!user) {
     return (
-      <div className="basic_wrap">
-        <div className="img_box">
-          <img src="/img/logo/logo_w.svg" alt="I&VIEW COMMUNICATION 로고" />
-        </div>
-        {location.pathname === '/reset-password' ? (
-          <div className="sign_in_wrap">
-            <ResetPassword />
+      <>
+        <div className="basic_wrap">
+          <div className="img_box">
+            <img src="/img/logo/logo_w.svg" alt="I&VIEW COMMUNICATION 로고" />
           </div>
-        ) : (
-          <div className="sign_in_wrap">
-            <div className="in_box">
-              <div className="tabs">
-                <button
-                  className={`tab_button ${tab === 'login' ? 'active' : ''}`}
-                  onClick={() => setTab('login')}
-                >
-                  로그인
-                </button>
-                <button
-                  className={`tab_button ${tab === 'signup' ? 'active' : ''}`}
-                  onClick={() => setTab('signup')}
-                >
-                  회원가입
-                </button>
+          {location.pathname === '/reset-password' ? (
+            <div className="sign_in_wrap">
+              <ResetPassword />
+            </div>
+          ) : (
+            <div className="sign_in_wrap">
+              <div className="in_box">
+                <div className="tabs">
+                  <button
+                    className={`tab_button ${tab === 'login' ? 'active' : ''}`}
+                    onClick={() => setTab('login')}
+                  >
+                    로그인
+                  </button>
+                  <button
+                    className={`tab_button ${tab === 'signup' ? 'active' : ''}`}
+                    onClick={() => setTab('signup')}
+                  >
+                    회원가입
+                  </button>
+                </div>
+              </div>
+              <div className="tab_content">
+                {tab === 'login' && <Login onLoginSuccess={handleLoginSuccess} />}
+                {tab === 'signup' && <Signup />}
               </div>
             </div>
-            <div className="tab_content">
-              {tab === 'login' && <Login onLoginSuccess={setUser} />}
-              {tab === 'signup' && <Signup />}
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+
+        <Modal
+          show={showSessionExpiredModal}
+          onHide={() => setShowSessionExpiredModal(false)}
+          centered
+          className="admin_session_modal"
+          backdrop="static"
+          keyboard={false}
+        >
+          <Modal.Header>
+            <Modal.Title>로그아웃 되었습니다</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            로그인 시간이 만료되었습니다. 다시 로그인해주세요.
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="primary" onClick={() => setShowSessionExpiredModal(false)}>
+              확인
+            </Button>
+          </Modal.Footer>
+        </Modal>
+      </>
     );
   }
 

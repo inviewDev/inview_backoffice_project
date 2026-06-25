@@ -10,6 +10,7 @@ import {
   createColumnHelper,
 } from '@tanstack/react-table';
 import { Alert, Spinner, Table } from 'react-bootstrap';
+import TablePagination from './components/TablePagination';
 import './styles/ad_management.css';
 
 const columnHelper = createColumnHelper();
@@ -235,25 +236,12 @@ function AdManagement() {
                 <option value={100}>100</option>
                 <option value={Math.max(tableData.length, 1)}>Auto</option>
               </select>
-              <div className="ad_manage_pages">
-                <button
-                  type="button"
-                  onClick={() => table.previousPage()}
-                  disabled={!table.getCanPreviousPage()}
-                >
-                  {'<'}
-                </button>
-                <span className="active">
-                  {table.getState().pagination.pageIndex + 1} / {Math.max(table.getPageCount(), 1)}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => table.nextPage()}
-                  disabled={!table.getCanNextPage()}
-                >
-                  {'>'}
-                </button>
-              </div>
+              <TablePagination
+                pageIndex={table.getState().pagination.pageIndex}
+                pageCount={table.getPageCount()}
+                onPageChange={page => table.setPageIndex(page)}
+                className="ad_manage_pages"
+              />
               <span>{table.getFilteredRowModel().rows.length.toLocaleString('ko-KR')}건</span>
             </div>
           </>

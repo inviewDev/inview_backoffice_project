@@ -10,6 +10,7 @@ import {
   createColumnHelper,
 } from '@tanstack/react-table';
 import { Container, Row, Col, Table, Tabs, Tab, Form, Button, Alert, Modal } from 'react-bootstrap';
+import TablePagination from './components/TablePagination';
 import './styles/user_list.css';
 
 const teamOptions = ['전체', '1팀', '2팀', '3팀', '4팀', '5팀', '6팀', '개발관리부'];
@@ -844,23 +845,11 @@ function UserList({ user: currentUser }) {
             </div>
           </div>
           <div className="userlist_pager">
-            <Button
-              variant="outline-primary"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-            >
-              이전
-            </Button>
-            <span>
-              페이지 {table.getState().pagination.pageIndex + 1} / {table.getPageCount()}
-            </span>
-            <Button
-              variant="outline-primary"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-            >
-              다음
-            </Button>
+            <TablePagination
+              pageIndex={table.getState().pagination.pageIndex}
+              pageCount={table.getPageCount()}
+              onPageChange={page => table.setPageIndex(page)}
+            />
           </div>
         </Container>
       </section>

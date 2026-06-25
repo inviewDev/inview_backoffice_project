@@ -4,10 +4,6 @@ import { Calendar, momentLocalizer } from 'react-big-calendar';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faAnglesLeft,
-  faAnglesRight,
-  faChevronLeft,
-  faChevronRight,
   faCoins,
   faMagnifyingGlass,
   faSquareCheck,
@@ -18,6 +14,7 @@ import { ko } from 'date-fns/locale';
 import moment from 'moment';
 import 'moment/locale/ko';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+import TablePagination from './components/TablePagination';
 import './styles/dashboard.css';
 import './styles/date_select_picker.css';
 
@@ -485,6 +482,8 @@ function Dashboard({ user }) {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [selectedDateRange, setSelectedDateRange] = useState('week');
+  const [salesPageIndex, setSalesPageIndex] = useState(0);
+  const [salesPageSize, setSalesPageSize] = useState(10);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -680,6 +679,23 @@ function Dashboard({ user }) {
         return matchesSearch && matchesFrom && matchesTo;
       });
   }, [dateFrom, dateTo, payrollData, salesDetails, searchText, user.department, user.name]);
+  const salesPageCount = Math.max(Math.ceil(tableRows.length / salesPageSize), 1);
+  const visibleSalesRows = useMemo(() => {
+    const start = salesPageIndex * salesPageSize;
+    return tableRows.slice(start, start + salesPageSize);
+  }, [salesPageIndex, salesPageSize, tableRows]);
+  const salesRangeStart = tableRows.length ? salesPageIndex * salesPageSize + 1 : 0;
+  const salesRangeEnd = Math.min((salesPageIndex + 1) * salesPageSize, tableRows.length);
+
+  useEffect(() => {
+    setSalesPageIndex(0);
+  }, [dateFrom, dateTo, salesPageSize, searchText]);
+
+  useEffect(() => {
+    if (salesPageIndex >= salesPageCount) {
+      setSalesPageIndex(salesPageCount - 1);
+    }
+  }, [salesPageCount, salesPageIndex]);
 
   const formattedDate = currentTime.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
   const formattedTime = currentTime.toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' });
@@ -965,7 +981,7 @@ function Dashboard({ user }) {
                 </tr>
               </thead>
               <tbody>
-                {tableRows.length > 0 ? tableRows.map(row => (
+                {visibleSalesRows.length > 0 ? visibleSalesRows.map(row => (
                   <tr
                     key={row.id}
                     className={
@@ -999,18 +1015,23 @@ function Dashboard({ user }) {
           </div>
 
           <div className="dash_table_footer">
-            <select value="50" onChange={() => {}} aria-label="페이지당 표시 개수">
+            <select
+              value={salesPageSize}
+              onChange={event => setSalesPageSize(Number(event.target.value))}
+              aria-label="페이지당 표시 개수"
+            >
+              <option value="10">10</option>
+              <option value="20">20</option>
               <option value="50">50</option>
             </select>
-            <div className="dash_pagination">
-              <button type="button" aria-label="첫 페이지"><FontAwesomeIcon icon={faAnglesLeft} /></button>
-              <button type="button" aria-label="이전 페이지"><FontAwesomeIcon icon={faChevronLeft} /></button>
-              <span className="active">1</span>
-              <button type="button" aria-label="다음 페이지"><FontAwesomeIcon icon={faChevronRight} /></button>
-              <button type="button" aria-label="마지막 페이지"><FontAwesomeIcon icon={faAnglesRight} /></button>
-            </div>
+            <TablePagination
+              pageIndex={salesPageIndex}
+              pageCount={salesPageCount}
+              onPageChange={setSalesPageIndex}
+              className="dash_pagination"
+            />
             <span className="dash_table_count">
-              <em>1-{Math.max(tableRows.length, 1)}</em>
+              <em>{salesRangeStart}-{salesRangeEnd}</em>
               <strong><FontAwesomeIcon icon={faCoins} aria-hidden="true" />{tableRows.length}건</strong>
             </span>
           </div>

@@ -47,3 +47,10 @@
 .admin_placeholder { margin: 40px; padding: 40px; border-radius: 10px; background: #fff; box-shadow: 4px 4px 20px rgba(137, 145, 169, 0.16); } 
 .admin_placeholder h1 { margin: 0 0 8px; color: #333; font-size: 24px; font-weight: 700; letter-spacing: 0; } 
 .admin_placeholder p { color: #73809d; font-size: 14px; letter-spacing: 0; } 
+.admin_session_modal .modal-dialog { width: calc(100% - 32px); max-width: 420px; }
+.admin_session_modal .modal-content { overflow: hidden; border: 0; border-radius: 10px; box-shadow: 0 20px 54px rgba(32, 38, 54, 0.24); }
+.admin_session_modal .modal-header { border-bottom: 1px solid #e6eaf2; padding: 20px 22px 16px; }
+.admin_session_modal .modal-title { color: #202636; font-size: 18px; font-weight: 800; letter-spacing: 0; }
+.admin_session_modal .modal-body { padding: 22px; color: #4d5872; font-size: 14px; font-weight: 700; letter-spacing: 0; line-height: 1.6; }
+.admin_session_modal .modal-footer { border-top: 1px solid #e6eaf2; padding: 14px 22px; }
+.admin_session_modal .btn { min-width: 88px; height: 38px; border-radius: 6px; background: #1962fc; font-size: 14px; font-weight: 800; letter-spacing: 0; }

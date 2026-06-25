@@ -185,10 +185,7 @@
 .dash_table_footer { display: flex; width: calc(100% + 40px); align-items: center; gap: 20px; min-height: 50px; margin: 20px -20px 0; padding: 0 20px; border-radius: 10px; background: #e9e9e9; }
 .dash_table_footer select { width: 88px; height: 28px; padding: 0 10px; border: 1px solid #d8dce6; border-radius: 0; background: #fff; color: #333; font-size: 15px; font-weight: 500; letter-spacing: 0; }
 .dash_pagination { display: flex; min-width: 0; flex: 1 1 auto; align-items: center; justify-content: center; gap: 20px; }
-.dash_pagination button,
-.dash_pagination span { display: flex; width: 16px; height: 18px; align-items: center; justify-content: center; background: transparent; color: #333; font-size: 15px; font-weight: 500; letter-spacing: 0; }
-.dash_pagination button { width: 16px; height: 16px; cursor: pointer; }
-.dash_pagination span.active { color: #1962fc; }
+.dash_pagination.table_pagination button { width: 24px; height: 28px; flex-basis: 24px; }
 .dash_table_count { display: flex; width: 180px; flex: 0 0 180px; align-items: center; justify-content: flex-end; gap: 20px; color: #333; font-size: 15px; font-weight: 500; letter-spacing: 0; }
 .dash_table_count em { font-style: normal; }
 .dash_table_count strong { display: flex; align-items: center; gap: 4px; font-weight: 500; }

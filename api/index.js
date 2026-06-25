@@ -37,6 +37,7 @@ const USER_DELETE_TRANSACTION_OPTIONS = {
   maxWait: 10000,
   timeout: 120000,
 };
+const ACCESS_TOKEN_EXPIRES_IN = '5h';
 
 function isAdminRole(role) {
   return role === '전체관리자' || role === '관리자';
@@ -474,7 +475,7 @@ apiRouter.post('/signup', async (req, res) => {
         profileImage: newUser.profileImage || '',
       },
       SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: ACCESS_TOKEN_EXPIRES_IN }
     );
 
     res.status(201).json({
@@ -532,7 +533,7 @@ apiRouter.post('/login', async (req, res) => {
         officePhoneNumber: user.officePhoneNumber,
       },
       SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: ACCESS_TOKEN_EXPIRES_IN }
     );
 
     res.json({
