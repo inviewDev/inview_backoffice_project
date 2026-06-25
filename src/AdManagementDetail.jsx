@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Alert, Spinner, Table } from 'react-bootstrap';
+import { Alert, Modal, Spinner, Table } from 'react-bootstrap';
+import { IMaskInput } from 'react-imask';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import { ko } from 'date-fns/locale';
 import './styles/ad_management_detail.css';
+import './styles/date_select_picker.css';
 
 const PRODUCTS = [
   'G패키지',
@@ -20,10 +25,62 @@ const PRODUCTS = [
 ];
 
 const orderedProductIndexes = [0, 5, 1, 6, 2, 7, 3, 8, 4, 9];
+const PAYMENT_STATUSES = ['결제대기', '결제승인', '매출취소', '위약금'];
+const currentYear = new Date().getFullYear();
+const contractYearOptions = Array.from({ length: 21 }, (_, index) => currentYear - 10 + index);
 
 function formatMoney(value) {
-  const number = Number(value || 0);
-  return number ? number.toLocaleString('ko-KR') : '-';
+  if (value === undefined || value === null || value === '') return '-';
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toLocaleString('ko-KR') : '-';
+}
+
+function getMoneyNumber(value) {
+  const number = Number(String(value ?? '').replace(/[^\d.-]/g, ''));
+  return Number.isFinite(number) ? number : 0;
+}
+
+function pad(value) {
+  return String(value).padStart(2, '0');
+}
+
+function parseDateValue(value) {
+  if (!value) return null;
+  const [year, month, day] = String(value).split('-').map(Number);
+  if (!year || !month || !day) return null;
+
+  const date = new Date(year, month - 1, day);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatDateValue(value) {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) return '';
+  return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+}
+
+function renderContractDateHeader({ date, changeYear, changeMonth }) {
+  return (
+    <div className="date_select_header ad_payment_edit_date_header">
+      <select
+        value={date.getFullYear()}
+        onChange={event => changeYear(Number(event.target.value))}
+        aria-label="계약기간 연도"
+      >
+        {contractYearOptions.map(year => (
+          <option value={year} key={year}>{year}년</option>
+        ))}
+      </select>
+      <select
+        value={date.getMonth()}
+        onChange={event => changeMonth(Number(event.target.value))}
+        aria-label="계약기간 월"
+      >
+        {Array.from({ length: 12 }, (_, index) => (
+          <option value={index} key={index}>{pad(index + 1)}월</option>
+        ))}
+      </select>
+    </div>
+  );
 }
 
 function getFullAddress(ad) {
@@ -44,6 +101,15 @@ function Field({ label, value, wide = false, action }) {
   );
 }
 
+function EditableField({ label, children }) {
+  return (
+    <div className="ad_view_field">
+      <span className="ad_view_label">{label}</span>
+      <div className="ad_view_value editable">{children}</div>
+    </div>
+  );
+}
+
 function Chip({ active, children }) {
   return <span className={`ad_view_product_chip ${active ? 'active' : ''}`}>{children}</span>;
 }
@@ -55,7 +121,7 @@ function formatDateTime(value) {
   return date.toLocaleString('ko-KR', { hour12: false });
 }
 
-function AdManagementDetail() {
+function AdManagementDetail({ user }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const [ad, setAd] = useState(null);
@@ -64,6 +130,21 @@ function AdManagementDetail() {
   const [error, setError] = useState('');
   const [smsMessage, setSmsMessage] = useState('');
   const [smsError, setSmsError] = useState('');
+  const [isSavingPayment, setIsSavingPayment] = useState(false);
+  const [paymentEditForm, setPaymentEditForm] = useState({
+    approvedAmount: '',
+    contractStartDate: null,
+    contractEndDate: null,
+    paymentStatus: '결제대기',
+  });
+  const [updateModal, setUpdateModal] = useState({
+    show: false,
+    mode: 'confirm',
+    title: '',
+    message: '',
+    variant: 'warning',
+  });
+  const canEditPayment = user?.role === '전체관리자' || user?.role === '대표' || user?.level === '대표';
 
   const fetchAd = useCallback(async () => {
     setIsLoading(true);
@@ -83,6 +164,14 @@ function AdManagementDetail() {
       }
 
       setAd(data.ad);
+      setPaymentEditForm({
+        approvedAmount: String(data.ad.approvedAmount ?? ''),
+        contractStartDate: parseDateValue(data.ad.contractStartDate),
+        contractEndDate: parseDateValue(data.ad.contractEndDate),
+        paymentStatus: PAYMENT_STATUSES.includes(data.ad.paymentStatus)
+          ? data.ad.paymentStatus
+          : '결제대기',
+      });
     } catch (err) {
       console.error('Fetch ad detail error:', err);
       setError(err.message);
@@ -104,6 +193,20 @@ function AdManagementDetail() {
     if (!ad) return '';
     return ad.agreementAt ? `${ad.agreementStatus} (${ad.agreementAt})` : ad.agreementStatus;
   }, [ad]);
+
+  const paymentPreview = useMemo(() => {
+    const approvedAmount = getMoneyNumber(paymentEditForm.approvedAmount);
+    const vat = Math.round(approvedAmount / 11);
+    const salesAmount = Math.max(approvedAmount - vat, 0);
+    const netProfit = Math.max(salesAmount - getMoneyNumber(ad?.spendingCost), 0);
+
+    return {
+      approvedAmount,
+      vat,
+      salesAmount,
+      netProfit,
+    };
+  }, [ad?.spendingCost, paymentEditForm.approvedAmount]);
 
   const handleSendSms = async () => {
     if (!ad) return;
@@ -148,6 +251,100 @@ function AdManagementDetail() {
       setSmsError(err.message);
     } finally {
       setIsSendingSms(false);
+    }
+  };
+
+  const getPaymentEditValidation = () => {
+    if (!paymentEditForm.approvedAmount) {
+      return '승인금액을 입력해주세요.';
+    }
+    if (!paymentEditForm.contractStartDate || !paymentEditForm.contractEndDate) {
+      return '계약기간을 선택해주세요.';
+    }
+    if (paymentEditForm.contractEndDate < paymentEditForm.contractStartDate) {
+      return '계약 종료일은 시작일보다 빠를 수 없습니다.';
+    }
+
+    return '';
+  };
+
+  const handleUpdateClick = () => {
+    if (!canEditPayment) return;
+
+    const validationError = getPaymentEditValidation();
+    if (validationError) {
+      setUpdateModal({
+        show: true,
+        mode: 'result',
+        title: '입력 확인',
+        message: validationError,
+        variant: 'warning',
+      });
+      return;
+    }
+
+    setUpdateModal({
+      show: true,
+      mode: 'confirm',
+      title: '광고 수정',
+      message: '수정한 결제정보를 저장하시겠습니까?',
+      variant: 'warning',
+    });
+  };
+
+  const handlePaymentEditSubmit = async () => {
+    setIsSavingPayment(true);
+
+    try {
+      const token = localStorage.getItem('access_token');
+      const res = await fetch(`/api/ads/${id}/payment-info`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          approvedAmount: paymentEditForm.approvedAmount,
+          contractStartDate: formatDateValue(paymentEditForm.contractStartDate),
+          contractEndDate: formatDateValue(paymentEditForm.contractEndDate),
+          paymentStatus: paymentEditForm.paymentStatus,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || '결제정보 수정에 실패했습니다.');
+      }
+
+      setAd(prev => ({
+        ...prev,
+        ...data.payment,
+      }));
+      setPaymentEditForm(prev => ({
+        ...prev,
+        approvedAmount: String(data.payment.approvedAmount ?? ''),
+        contractStartDate: parseDateValue(data.payment.contractStartDate),
+        contractEndDate: parseDateValue(data.payment.contractEndDate),
+        paymentStatus: data.payment.paymentStatus,
+      }));
+      setUpdateModal({
+        show: true,
+        mode: 'result',
+        title: '수정 완료',
+        message: data.message || '결제정보가 수정되었습니다.',
+        variant: 'success',
+      });
+    } catch (err) {
+      console.error('Update ad payment info error:', err);
+      setUpdateModal({
+        show: true,
+        mode: 'result',
+        title: '수정 실패',
+        message: err.message,
+        variant: 'danger',
+      });
+    } finally {
+      setIsSavingPayment(false);
     }
   };
 
@@ -215,17 +412,86 @@ function AdManagementDetail() {
           </div>
 
           <div className="ad_view_grid two compact">
-            <Field label="승인금액" value={formatMoney(ad.approvedAmount)} />
-            <Field label="계약기간" value={contractPeriod} />
-            <Field label="VAT" value={formatMoney(ad.vat)} />
+            {canEditPayment ? (
+              <EditableField label="승인금액">
+                <IMaskInput
+                  mask={Number}
+                  thousandsSeparator=","
+                  value={paymentEditForm.approvedAmount}
+                  onAccept={value => setPaymentEditForm(prev => ({ ...prev, approvedAmount: value }))}
+                  placeholder="0"
+                  inputMode="numeric"
+                  disabled={isSavingPayment}
+                />
+              </EditableField>
+            ) : (
+              <Field label="승인금액" value={formatMoney(ad.approvedAmount)} />
+            )}
+            {canEditPayment ? (
+              <EditableField label="계약기간">
+                <div className="ad_view_inline_dates">
+                  <DatePicker
+                    selected={paymentEditForm.contractStartDate}
+                    onChange={date => {
+                      setPaymentEditForm(prev => ({ ...prev, contractStartDate: date }));
+                    }}
+                    maxDate={paymentEditForm.contractEndDate || undefined}
+                    dateFormat="yyyy-MM-dd"
+                    locale={ko}
+                    placeholderText="시작일"
+                    disabled={isSavingPayment}
+                    popperClassName="date_select_calendar ad_payment_edit_calendar"
+                    showPopperArrow={false}
+                    renderCustomHeader={renderContractDateHeader}
+                  />
+                  <span aria-hidden="true">-</span>
+                  <DatePicker
+                    selected={paymentEditForm.contractEndDate}
+                    onChange={date => {
+                      setPaymentEditForm(prev => ({ ...prev, contractEndDate: date }));
+                    }}
+                    minDate={paymentEditForm.contractStartDate || undefined}
+                    dateFormat="yyyy-MM-dd"
+                    locale={ko}
+                    placeholderText="종료일"
+                    disabled={isSavingPayment}
+                    popperClassName="date_select_calendar ad_payment_edit_calendar"
+                    showPopperArrow={false}
+                    renderCustomHeader={renderContractDateHeader}
+                  />
+                </div>
+              </EditableField>
+            ) : (
+              <Field label="계약기간" value={contractPeriod} />
+            )}
+            <Field label="VAT" value={formatMoney(canEditPayment ? paymentPreview.vat : ad.vat)} />
             <Field label="승인회사" value={ad.approvedCompany} />
-            <Field label="순이익" value={formatMoney(ad.netProfit)} />
+            <Field label="순이익" value={formatMoney(canEditPayment ? paymentPreview.netProfit : ad.netProfit)} />
             <Field label="세금계산서" value={ad.taxInvoice} />
             <Field label="소진비" value={formatMoney(ad.spendingCost)} />
             <Field label="승인번호" value={ad.approvalNumber} />
             <Field label="결제구분" value={ad.paymentMethod} />
             <Field label="카드사" value={ad.cardCompany} />
-            <Field label="결제상태" value={ad.paymentStatus} />
+            {canEditPayment ? (
+              <EditableField label="결제상태">
+                <select
+                  value={paymentEditForm.paymentStatus}
+                  onChange={event => {
+                    setPaymentEditForm(prev => ({
+                      ...prev,
+                      paymentStatus: event.target.value,
+                    }));
+                  }}
+                  disabled={isSavingPayment}
+                >
+                  {PAYMENT_STATUSES.map(status => (
+                    <option value={status} key={status}>{status}</option>
+                  ))}
+                </select>
+              </EditableField>
+            ) : (
+              <Field label="결제상태" value={ad.paymentStatus} />
+            )}
             <Field label="할부개월" value={ad.installmentMonths} />
           </div>
         </div>
@@ -341,13 +607,66 @@ function AdManagementDetail() {
       </section>
 
       <div className="ad_view_bottom_actions">
-        <button type="button" className="ad_view_register_button" disabled>
-          광고 등록
+        <button
+          type="button"
+          className="ad_view_update_button"
+          onClick={handleUpdateClick}
+          disabled={!canEditPayment || isSavingPayment}
+          title={canEditPayment ? '수정한 광고 결제정보 저장' : '전체관리자 또는 대표만 수정할 수 있습니다.'}
+        >
+          {isSavingPayment ? '수정 중...' : '광고수정'}
         </button>
         <button type="button" className="ad_view_list_button" onClick={() => navigate('/contracts/ad-management')}>
           광고 목록
         </button>
       </div>
+
+      <Modal
+        show={updateModal.show}
+        onHide={() => {
+          if (!isSavingPayment) {
+            setUpdateModal(prev => ({ ...prev, show: false }));
+          }
+        }}
+        centered
+        dialogClassName="ad_view_update_dialog"
+        contentClassName={`ad_view_update_modal ${updateModal.variant}`}
+      >
+        <Modal.Body>
+          <strong>{updateModal.title}</strong>
+          <p>{updateModal.message}</p>
+          <div className="ad_view_update_modal_actions">
+            {updateModal.mode === 'confirm' ? (
+              <>
+                <button
+                  type="button"
+                  className="ad_view_modal_cancel"
+                  onClick={() => setUpdateModal(prev => ({ ...prev, show: false }))}
+                  disabled={isSavingPayment}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  className="ad_view_modal_confirm"
+                  onClick={handlePaymentEditSubmit}
+                  disabled={isSavingPayment}
+                >
+                  {isSavingPayment ? '수정 중...' : '수정'}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="ad_view_modal_confirm"
+                onClick={() => setUpdateModal(prev => ({ ...prev, show: false }))}
+              >
+                확인
+              </button>
+            )}
+          </div>
+        </Modal.Body>
+      </Modal>
     </section>
   );
 }

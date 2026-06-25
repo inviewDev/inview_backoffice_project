@@ -60,13 +60,13 @@ async function parseApiResponse(res) {
 }
 
 function MyPage({ user, setUser }) {
-  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [isEditingLoginId, setIsEditingLoginId] = useState(false);
   const [isEditingPhoneNumber, setIsEditingPhoneNumber] = useState(false);
   const [isEditingBirthDate, setIsEditingBirthDate] = useState(false);
   const [isEditingOfficePhoneNumber, setIsEditingOfficePhoneNumber] = useState(false);
   const [isEditingPassword, setIsEditingPassword] = useState(false);
   const [formData, setFormData] = useState({
-    email: user.email || '',
+    loginId: user.email || '',
     phoneNumber: user.phoneNumber || '',
     birthDate: user.birthDate && user.birthDate !== '미지정' ? new Date(user.birthDate) : null,
     officePhoneNumber: user.officePhoneNumber || '',
@@ -136,6 +136,11 @@ function MyPage({ user, setUser }) {
     const phoneRegex = /^\d{3}-\d{4}-\d{4}$/;
     const officePhoneRegex = /^\d{2,3}-\d{3,4}-\d{4}$/;
 
+    if (field === 'loginId' && !/^[A-Za-z]+$/.test(value)) {
+      setError('아이디는 영문만 사용할 수 있습니다.');
+      setIsLoading(false);
+      return;
+    }
     if (field === 'phoneNumber' && value && !phoneRegex.test(value)) {
       setError('휴대전화번호 형식이 올바르지 않습니다. (예: 010-1234-5678)');
       setIsLoading(false);
@@ -165,7 +170,7 @@ function MyPage({ user, setUser }) {
     try {
       const token = localStorage.getItem('access_token');
       const dataToSend = {};
-      if (field === 'email') dataToSend.email = value;
+      if (field === 'loginId') dataToSend.loginId = value.trim();
       if (field === 'phoneNumber') dataToSend.phoneNumber = value;
       if (field === 'birthDate') dataToSend.birthDate = value ? value.toISOString().split('T')[0] : null;
       if (field === 'officePhoneNumber') dataToSend.officePhoneNumber = value || null;
@@ -191,7 +196,7 @@ function MyPage({ user, setUser }) {
       }));
       setFormData(prev => ({
         ...prev,
-        email: data.user.email,
+        loginId: data.user.email,
         phoneNumber: data.user.phoneNumber,
         birthDate: data.user.birthDate && data.user.birthDate !== '미지정' ? new Date(data.user.birthDate) : null,
         officePhoneNumber: data.user.officePhoneNumber || '',
@@ -199,7 +204,7 @@ function MyPage({ user, setUser }) {
         passwordConfirm: '',
       }));
       setSuccess('사용자 정보가 수정되었습니다.');
-      setIsEditingEmail(false);
+      setIsEditingLoginId(false);
       setIsEditingPhoneNumber(false);
       setIsEditingBirthDate(false);
       setIsEditingOfficePhoneNumber(false);
@@ -590,20 +595,28 @@ function MyPage({ user, setUser }) {
               <span>{user.role}</span>
             </div>
             <div className="mypage_info_row editable">
-              <strong>이메일</strong>
-              {isEditingEmail ? (
+              <strong>아이디</strong>
+              {isEditingLoginId ? (
                 <form
                   className="mypage_inline_form"
                   onSubmit={e => {
                     e.preventDefault();
-                    handleUpdateField('email', formData.email);
+                    handleUpdateField('loginId', formData.loginId);
                   }}
                 >
                   <input
-                    type="email"
-                    value={formData.email}
-                    onChange={e => setFormData({ ...formData, email: e.target.value })}
+                    type="text"
+                    value={formData.loginId}
+                    onChange={e => setFormData({
+                      ...formData,
+                      loginId: e.target.value.replace(/[^A-Za-z]/g, ''),
+                    })}
                     className="mypage_input"
+                    placeholder="아이디(영문)"
+                    aria-label="아이디"
+                    pattern="[A-Za-z]+"
+                    title="아이디는 영문만 사용할 수 있습니다."
+                    autoComplete="username"
                     required
                     disabled={isLoading}
                   />
@@ -613,8 +626,8 @@ function MyPage({ user, setUser }) {
                       type="button"
                       className="mypage_secondary_button"
                       onClick={() => {
-                        setFormData({ ...formData, email: user.email });
-                        setIsEditingEmail(false);
+                        setFormData({ ...formData, loginId: user.email });
+                        setIsEditingLoginId(false);
                       }}
                       disabled={isLoading}
                     >
@@ -625,7 +638,7 @@ function MyPage({ user, setUser }) {
               ) : (
                 <span>
                   {user.email}
-                  <button type="button" className="mypage_edit_button" onClick={() => setIsEditingEmail(true)}>편집</button>
+                  <button type="button" className="mypage_edit_button" onClick={() => setIsEditingLoginId(true)}>편집</button>
                 </span>
               )}
             </div>

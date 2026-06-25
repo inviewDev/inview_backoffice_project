@@ -357,18 +357,64 @@ function verifyToken(req, res, next) {
   });
 }
 
-function verifyAdminRole(req, res, next) {
-  if (!isAdminRole(req.user.role)) {
-    return res.status(403).json({ error: '전체관리자 또는 관리자 계정만 접근 가능합니다.' });
-  }
-  next();
+async function getCurrentUserRole(userId) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+
+  return user?.role || null;
 }
 
-function verifyMasterRole(req, res, next) {
-  if (req.user.role !== '전체관리자') {
-    return res.status(403).json({ error: '마스터 계정만 접근 가능합니다.' });
+async function getCurrentUserAccess(userId) {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      role: true,
+      level: true,
+    },
+  });
+}
+
+function canEditAdPayment(user) {
+  return user?.role === '전체관리자' || user?.level === '대표';
+}
+
+async function verifyAdminRole(req, res, next) {
+  try {
+    const currentRole = await getCurrentUserRole(req.user.id);
+    if (!currentRole) {
+      return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
+    }
+    if (!isAdminRole(currentRole)) {
+      return res.status(403).json({ error: '전체관리자 또는 관리자 계정만 접근 가능합니다.' });
+    }
+
+    req.user.role = currentRole;
+    next();
+  } catch (error) {
+    console.error('Verify admin role error:', error);
+    res.status(500).json({ error: '권한 확인 중 오류가 발생했습니다.' });
   }
-  next();
+}
+
+async function verifyMasterRole(req, res, next) {
+  try {
+    const currentRole = await getCurrentUserRole(req.user.id);
+    if (!currentRole) {
+      return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
+    }
+    if (currentRole !== '전체관리자') {
+      return res.status(403).json({ error: '전체관리자 계정만 접근 가능합니다.' });
+    }
+
+    req.user.role = currentRole;
+    next();
+  } catch (error) {
+    console.error('Verify master role error:', error);
+    res.status(500).json({ error: '권한 확인 중 오류가 발생했습니다.' });
+  }
 }
 
 const teamDepartmentMapping = {
@@ -677,7 +723,8 @@ apiRouter.post('/password-reset/confirm', async (req, res) => {
 
 apiRouter.patch('/users/:id', verifyToken, async (req, res) => {
   const { id } = req.params;
-  const { email, password, phoneNumber, birthDate, officePhoneNumber, profileImage } = req.body;
+  const { password, phoneNumber, birthDate, officePhoneNumber, profileImage } = req.body;
+  const requestedLoginId = req.body.loginId ?? req.body.email;
 
   if (parseInt(id) !== req.user.id) {
     return res.status(403).json({ error: '자신의 정보만 수정할 수 있습니다.' });
@@ -685,7 +732,25 @@ apiRouter.patch('/users/:id', verifyToken, async (req, res) => {
 
   try {
     const dataToUpdate = {};
-    if (email) dataToUpdate.email = email;
+    if (requestedLoginId !== undefined) {
+      const loginId = String(requestedLoginId).trim();
+      if (!loginId) {
+        return res.status(400).json({ error: '아이디를 입력해주세요.' });
+      }
+      if (!/^[A-Za-z]+$/.test(loginId)) {
+        return res.status(400).json({ error: '아이디는 영문만 사용할 수 있습니다.' });
+      }
+
+      const duplicateUser = await prisma.user.findUnique({
+        where: { email: loginId },
+        select: { id: true },
+      });
+      if (duplicateUser && duplicateUser.id !== req.user.id) {
+        return res.status(400).json({ error: '이미 사용 중인 아이디입니다.' });
+      }
+
+      dataToUpdate.email = loginId;
+    }
     if (phoneNumber) dataToUpdate.phoneNumber = phoneNumber;
     if (birthDate) dataToUpdate.birthDate = new Date(birthDate);
     if (officePhoneNumber !== undefined) dataToUpdate.officePhoneNumber = officePhoneNumber;
@@ -733,6 +798,9 @@ apiRouter.patch('/users/:id', verifyToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Update user error:', error);
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: '이미 사용 중인 아이디입니다.' });
+    }
     res.status(500).json({ error: '사용자 정보 수정 중 오류가 발생했습니다.' });
   }
 });
@@ -1114,44 +1182,154 @@ apiRouter.get('/system/outbound-ip', verifyToken, verifyAdminRole, async (_req, 
 
 apiRouter.get('/ads', verifyToken, async (req, res) => {
   const targetUserId = req.query.userId ? parseInt(req.query.userId, 10) : null;
-
-  if (targetUserId && !canAccessUser(req, targetUserId)) {
-    return res.status(403).json({ error: '해당 광고 목록을 조회할 권한이 없습니다.' });
-  }
+  const isPaginatedRequest = req.query.page !== undefined || req.query.pageSize !== undefined;
+  const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+  const pageSize = Math.min(Math.max(parseInt(req.query.pageSize, 10) || 10, 1), 100);
+  const search = String(req.query.search || '').trim();
+  const sortBy = String(req.query.sortBy || 'createdAt');
+  const sortOrder = req.query.sortOrder === 'asc' ? 'asc' : 'desc';
 
   try {
-    const payments = await prisma.payment.findMany({
-      where: isAdminRole(req.user.role) && !targetUserId ? {} : { userId: targetUserId || req.user.id },
-      orderBy: { createdAt: 'desc' },
-      include: {
+    const currentUser = await getCurrentUserAccess(req.user.id);
+    if (!currentUser) {
+      return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
+    }
+
+    const canViewAllAds = isAdminRole(currentUser.role) || currentUser.level === '대표';
+    if (targetUserId && targetUserId !== currentUser.id && !canViewAllAds) {
+      return res.status(403).json({ error: '해당 광고 목록을 조회할 권한이 없습니다.' });
+    }
+
+    const accessFilter = canViewAllAds && !targetUserId
+      ? {}
+      : { userId: targetUserId || currentUser.id };
+    const searchFilter = search
+      ? {
+          OR: [
+            { manager: { contains: search, mode: 'insensitive' } },
+            { productName: { contains: search, mode: 'insensitive' } },
+            { approvalNumber: { contains: search, mode: 'insensitive' } },
+            { paymentStatus: { contains: search, mode: 'insensitive' } },
+            { paymentMethod: { contains: search, mode: 'insensitive' } },
+            { cardCompany: { contains: search, mode: 'insensitive' } },
+            { advertiserAccount: { contains: search, mode: 'insensitive' } },
+            {
+              user: {
+                is: {
+                  OR: [
+                    { name: { contains: search, mode: 'insensitive' } },
+                    { department: { contains: search, mode: 'insensitive' } },
+                  ],
+                },
+              },
+            },
+            {
+              company: {
+                is: {
+                  OR: [
+                    { companyName: { contains: search, mode: 'insensitive' } },
+                    { ceoName: { contains: search, mode: 'insensitive' } },
+                    { businessRegNumber: { contains: search, mode: 'insensitive' } },
+                    { tel: { contains: search, mode: 'insensitive' } },
+                    { mobile: { contains: search, mode: 'insensitive' } },
+                  ],
+                },
+              },
+            },
+          ],
+        }
+      : {};
+    const where = { ...accessFilter, ...searchFilter };
+    const directSortFields = new Set([
+      'manager',
+      'smsContractStatus',
+      'agreementStatus',
+      'agreementAt',
+      'productName',
+      'approvedAmount',
+      'vat',
+      'spendingCost',
+      'netProfit',
+      'paymentMethod',
+      'cardCompany',
+      'paymentStatus',
+      'production1',
+      'production2',
+      'adProgress',
+      'advertiserAccount',
+      'approvalNumber',
+      'createdAt',
+    ]);
+    let orderBy;
+
+    if (sortBy === 'department') {
+      orderBy = { user: { department: sortOrder } };
+    } else if (['companyName', 'ceoName', 'businessRegNumber', 'tel', 'mobile'].includes(sortBy)) {
+      orderBy = { company: { [sortBy]: sortOrder } };
+    } else if (sortBy === 'contractDate') {
+      orderBy = { startDate: sortOrder };
+    } else if (directSortFields.has(sortBy)) {
+      orderBy = { [sortBy]: sortOrder };
+    } else {
+      orderBy = { createdAt: 'desc' };
+    }
+
+    const paymentQuery = {
+      where,
+      orderBy,
+      select: {
+        id: true,
+        manager: true,
+        smsContractStatus: true,
+        agreementStatus: true,
+        agreementAt: true,
+        startDate: true,
+        endDate: true,
+        productName: true,
+        approvedAmount: true,
+        vat: true,
+        spendingCost: true,
+        netProfit: true,
+        paymentMethod: true,
+        cardCompany: true,
+        paymentStatus: true,
+        production1: true,
+        production2: true,
+        adProgress: true,
+        advertiserAccount: true,
+        approvalNumber: true,
+        createdAt: true,
         user: {
           select: {
-            id: true,
             name: true,
-            team: true,
             department: true,
           },
         },
-        company: true,
-        smsConsentTokens: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
-        smsSendHistories: {
-          orderBy: { createdAt: 'desc' },
-          include: {
-            sender: {
-              select: { name: true },
-            },
+        company: {
+          select: {
+            companyName: true,
+            ceoName: true,
+            businessRegNumber: true,
+            tel: true,
+            mobile: true,
           },
         },
       },
-    });
+    };
+
+    if (isPaginatedRequest) {
+      paymentQuery.skip = (page - 1) * pageSize;
+      paymentQuery.take = pageSize;
+    }
+
+    const [total, payments] = await prisma.$transaction([
+      prisma.payment.count({ where }),
+      prisma.payment.findMany(paymentQuery),
+    ]);
 
     const ads = payments.map(payment => ({
       id: payment.id,
       manager: payment.manager || payment.user?.name || '',
-      team: payment.user?.team || '',
       department: payment.user?.department || '',
       companyName: payment.company?.companyName || '',
       ceoName: payment.company?.ceoName || '',
@@ -1173,19 +1351,19 @@ apiRouter.get('/ads', verifyToken, async (req, res) => {
       paymentStatus: payment.paymentStatus,
       production1: payment.production1 || '',
       production2: payment.production2 || '',
-      productItems: getPaymentProductItemSlots(payment),
       adProgress: payment.adProgress,
       advertiserAccount: payment.advertiserAccount || '',
       approvalNumber: payment.approvalNumber || '',
       createdAt: toDateString(payment.createdAt),
-      registrationUrl: payment.registrationUrl || '',
-      titleText: payment.titleText || '',
-      descriptionText: payment.descriptionText || '',
-      memo: payment.memo || '',
-      fileName: payment.fileName || '',
     }));
 
-    res.json({ ads });
+    res.json({
+      ads,
+      total,
+      page: isPaginatedRequest ? page : 1,
+      pageSize: isPaginatedRequest ? pageSize : total,
+      pageCount: isPaginatedRequest ? Math.max(Math.ceil(total / pageSize), 1) : 1,
+    });
   } catch (error) {
     console.error('Get ads error:', error);
     res.status(500).json({ error: '광고 목록 조회 중 오류가 발생했습니다.' });
@@ -1200,6 +1378,11 @@ apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
   }
 
   try {
+    const currentUser = await getCurrentUserAccess(req.user.id);
+    if (!currentUser) {
+      return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
+    }
+
     const payment = await prisma.payment.findUnique({
       where: { id: adId },
       include: {
@@ -1232,7 +1415,8 @@ apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
       return res.status(404).json({ error: '광고 정보를 찾을 수 없습니다.' });
     }
 
-    if (!canAccessUser(req, payment.userId)) {
+    const canViewAllAds = isAdminRole(currentUser.role) || currentUser.level === '대표';
+    if (payment.userId !== currentUser.id && !canViewAllAds) {
       return res.status(403).json({ error: '해당 광고 정보를 조회할 권한이 없습니다.' });
     }
 
@@ -1299,6 +1483,97 @@ apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Get ad detail error:', error);
     res.status(500).json({ error: '광고 상세 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
+  const adId = parseInt(req.params.id, 10);
+  const approvedAmount = Number(String(req.body.approvedAmount ?? '').replace(/[,\s]/g, ''));
+  const startDate = new Date(req.body.contractStartDate);
+  const endDate = new Date(req.body.contractEndDate);
+  const paymentStatus = String(req.body.paymentStatus || '').trim();
+  const paymentStatusOptions = ['결제대기', '결제승인', '매출취소', '위약금'];
+
+  if (!Number.isInteger(adId)) {
+    return res.status(400).json({ error: '광고 ID가 올바르지 않습니다.' });
+  }
+  if (
+    req.body.approvedAmount === undefined ||
+    req.body.approvedAmount === null ||
+    req.body.approvedAmount === '' ||
+    !Number.isFinite(approvedAmount) ||
+    approvedAmount < 0
+  ) {
+    return res.status(400).json({ error: '승인금액을 올바르게 입력해주세요.' });
+  }
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return res.status(400).json({ error: '계약기간 날짜 형식이 올바르지 않습니다.' });
+  }
+  if (endDate < startDate) {
+    return res.status(400).json({ error: '계약 종료일은 시작일보다 빠를 수 없습니다.' });
+  }
+  if (!paymentStatusOptions.includes(paymentStatus)) {
+    return res.status(400).json({ error: '유효하지 않은 결제상태입니다.' });
+  }
+
+  try {
+    const currentUser = await getCurrentUserAccess(req.user.id);
+    if (!currentUser) {
+      return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
+    }
+    if (!canEditAdPayment(currentUser)) {
+      return res.status(403).json({ error: '전체관리자 또는 대표만 결제정보를 수정할 수 있습니다.' });
+    }
+
+    const payment = await prisma.payment.findUnique({
+      where: { id: adId },
+      select: {
+        id: true,
+        spendingCost: true,
+      },
+    });
+    if (!payment) {
+      return res.status(404).json({ error: '광고 정보를 찾을 수 없습니다.' });
+    }
+
+    const vat = Math.round(approvedAmount / 11);
+    const netProfit = Math.max(approvedAmount - vat - payment.spendingCost, 0);
+    const updatedPayment = await prisma.payment.update({
+      where: { id: adId },
+      data: {
+        approvedAmount,
+        startDate,
+        endDate,
+        paymentStatus,
+        vat,
+        netProfit,
+      },
+      select: {
+        id: true,
+        approvedAmount: true,
+        startDate: true,
+        endDate: true,
+        paymentStatus: true,
+        vat: true,
+        netProfit: true,
+      },
+    });
+
+    res.json({
+      message: '결제정보가 수정되었습니다.',
+      payment: {
+        id: updatedPayment.id,
+        approvedAmount: updatedPayment.approvedAmount,
+        contractStartDate: toDateString(updatedPayment.startDate),
+        contractEndDate: toDateString(updatedPayment.endDate),
+        paymentStatus: updatedPayment.paymentStatus,
+        vat: updatedPayment.vat,
+        netProfit: updatedPayment.netProfit,
+      },
+    });
+  } catch (error) {
+    console.error('Update ad payment info error:', error);
+    res.status(500).json({ error: '결제정보 수정 중 오류가 발생했습니다.' });
   }
 });
 

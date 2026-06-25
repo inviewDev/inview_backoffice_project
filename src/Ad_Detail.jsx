@@ -697,7 +697,7 @@ function AdDetail({ user }) {
                 >
                   <option value="결제대기">결제대기</option>
                   <option value="결제승인">결제승인</option>
-                  <option value="결제취소">결제취소</option>
+                  <option value="매출취소">매출취소</option>
                 </select>
               </AdField>
               <AdField label="결제구분">

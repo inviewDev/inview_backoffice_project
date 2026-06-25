@@ -1,11 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   useReactTable,
   getCoreRowModel,
-  getFilteredRowModel,
-  getSortedRowModel,
-  getPaginationRowModel,
   flexRender,
   createColumnHelper,
 } from '@tanstack/react-table';
@@ -23,7 +20,15 @@ function formatMoney(value) {
 function getStatusClass(value) {
   if (value === 'ON' || value === '결제승인' || value === '동의') return 'active';
   if (value === 'OFF' || value === '결제대기' || value === '미동의') return 'waiting';
+  if (value === '부분취소' || value === '위약금') return 'partial';
   if (String(value || '').includes('취소')) return 'danger';
+  return '';
+}
+
+function getPaymentRowClass(paymentStatus) {
+  if (paymentStatus === '결제승인') return 'payment_approved';
+  if (paymentStatus === '매출취소') return 'payment_cancelled';
+  if (paymentStatus === '위약금' || paymentStatus === '부분취소') return 'payment_partial';
   return '';
 }
 
@@ -36,7 +41,7 @@ function MoneyCell({ value }) {
 }
 
 function ChipCell({ value }) {
-  const displayValue = value || '-';
+  const displayValue = value === '위약금' ? '부분취소' : value || '-';
   return (
     <span className={`ad_manage_chip ${getStatusClass(displayValue)}`}>
       {displayValue}
@@ -81,20 +86,41 @@ function AdManagement() {
   const [query, setQuery] = useState('');
   const [globalFilter, setGlobalFilter] = useState('');
   const [sorting, setSorting] = useState([]);
+  const [pagination, setPagination] = useState({
+    pageIndex: 0,
+    pageSize: 10,
+  });
+  const [totalCount, setTotalCount] = useState(0);
+  const [pageCount, setPageCount] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchAds = async () => {
       setIsLoading(true);
       setError('');
 
       try {
         const token = localStorage.getItem('access_token');
-        const res = await fetch('/api/ads', {
+        const activeSort = sorting[0];
+        const params = new URLSearchParams({
+          page: String(pagination.pageIndex + 1),
+          pageSize: String(pagination.pageSize),
+        });
+
+        if (globalFilter) params.set('search', globalFilter);
+        if (activeSort) {
+          params.set('sortBy', activeSort.id);
+          params.set('sortOrder', activeSort.desc ? 'desc' : 'asc');
+        }
+
+        const res = await fetch(`/api/ads?${params.toString()}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          signal: controller.signal,
         });
         const data = await res.json();
 
@@ -103,41 +129,46 @@ function AdManagement() {
         }
 
         setAds(Array.isArray(data.ads) ? data.ads : []);
+        setTotalCount(Number(data.total) || 0);
+        setPageCount(Math.max(Number(data.pageCount) || 1, 1));
       } catch (err) {
+        if (err.name === 'AbortError') return;
         console.error('Fetch ads error:', err);
         setError(err.message);
       } finally {
-        setIsLoading(false);
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
       }
     };
 
     fetchAds();
-  }, []);
+    return () => controller.abort();
+  }, [globalFilter, pagination.pageIndex, pagination.pageSize, sorting]);
 
-  const tableData = useMemo(() => ads, [ads]);
   const table = useReactTable({
-    data: tableData,
+    data: ads,
     columns: adColumns,
     state: {
       sorting,
-      globalFilter,
+      pagination,
     },
-    onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
+    onSortingChange: updater => {
+      setSorting(updater);
+      setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    },
+    onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: {
-      pagination: {
-        pageSize: 10,
-      },
-    },
+    manualFiltering: true,
+    manualSorting: true,
+    manualPagination: true,
+    pageCount,
   });
 
   const handleSearchSubmit = e => {
     e.preventDefault();
-    setGlobalFilter(query);
+    setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    setGlobalFilter(query.trim());
   };
 
   return (
@@ -203,7 +234,7 @@ function AdManagement() {
                     table.getRowModel().rows.map(row => (
                       <tr
                         key={row.id}
-                        className="ad_manage_clickable_row"
+                        className={`ad_manage_clickable_row ${getPaymentRowClass(row.original.paymentStatus)}`.trim()}
                         tabIndex={0}
                         onClick={() => navigate(`/contracts/ad-management/${row.original.id}`)}
                         onKeyDown={e => {
@@ -226,7 +257,10 @@ function AdManagement() {
             <div className="ad_manage_footer">
               <select
                 value={table.getState().pagination.pageSize}
-                onChange={e => table.setPageSize(Number(e.target.value))}
+                onChange={e => setPagination({
+                  pageIndex: 0,
+                  pageSize: Number(e.target.value),
+                })}
                 aria-label="페이지 크기"
               >
                 <option value={5}>5</option>
@@ -234,7 +268,6 @@ function AdManagement() {
                 <option value={20}>20</option>
                 <option value={50}>50</option>
                 <option value={100}>100</option>
-                <option value={Math.max(tableData.length, 1)}>Auto</option>
               </select>
               <TablePagination
                 pageIndex={table.getState().pagination.pageIndex}
@@ -242,7 +275,7 @@ function AdManagement() {
                 onPageChange={page => table.setPageIndex(page)}
                 className="ad_manage_pages"
               />
-              <span>{table.getFilteredRowModel().rows.length.toLocaleString('ko-KR')}건</span>
+              <span>{totalCount.toLocaleString('ko-KR')}건</span>
             </div>
           </>
         )}

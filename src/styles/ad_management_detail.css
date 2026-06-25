@@ -12,11 +12,24 @@
 .ad_view_field { display: flex; min-width: 0; min-height: 40px; flex: 0 0 auto; }
 .ad_view_label { display: flex; width: 120px; min-width: 0; min-height: 40px; flex: 0 0 120px; align-items: center; justify-content: center; border: 1px solid #d8dce6; border-right: 0; border-radius: 6px 0 0 6px; background: #dce2ef; color: #333; font-size: 15px; font-weight: 600; letter-spacing: 0; line-height: 18px; text-align: center; }
 .ad_view_value { display: flex; min-width: 0; min-height: 40px; flex: 1 1 auto; align-items: center; justify-content: flex-start; padding: 0 14px; border: 1px solid #d8dce6; border-radius: 0 6px 6px 0; background: #f3f5fa; color: #333; font-size: 15px; font-weight: 500; letter-spacing: 0; }
-.ad_view_value > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ad_view_value > span { width:100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ad_view_value.has_action { justify-content: space-between; padding-right: 0; }
 .ad_view_value button { width: 70px; align-self: stretch; border-radius: 0 6px 6px 0; background: #1962fc; color: #fff; cursor: pointer; font-size: 13px; font-weight: 800; letter-spacing: 0; }
 .ad_view_value button:disabled { background: #a6b0c2; cursor: not-allowed; }
 .ad_view_value a { padding: 0 14px 0 0; color: #1962fc; font-size: 14px; font-weight: 800; letter-spacing: 0; text-decoration: underline; white-space: nowrap; }
+.ad_view_value.editable { padding: 0; background: #fff; }
+.ad_view_value.editable > input,
+.ad_view_value.editable > select { width: 100%; min-width: 0; height: 38px; padding: 0 14px; border: 0; border-radius: 0 6px 6px 0; background: transparent; color: #333; font-size: 15px; font-weight: 500; letter-spacing: 0; outline: 0; }
+.ad_view_value.editable > select { cursor: pointer; }
+.ad_view_value.editable:focus-within { border-color: #1962fc; box-shadow: 0 0 0 3px rgba(25, 98, 252, 0.1); }
+.ad_view_inline_dates { display: flex; width: 100%; min-width: 0; align-items: center; }
+.ad_view_inline_dates > span { width: 18px; flex: 0 0 18px; color: #8b94a8; font-size: 13px; font-weight: 700; text-align: center; }
+.ad_view_inline_dates .react-datepicker-wrapper,
+.ad_view_inline_dates .react-datepicker__input-container { width: 100%; min-width: 0; }
+.ad_view_inline_dates .react-datepicker-wrapper { flex: 1 1 0; }
+.ad_view_inline_dates input { width: 100%; min-width: 0; height: 38px; padding: 0 8px; border: 0; background: transparent; color: #333; font-size: 14px; font-weight: 500; letter-spacing: 0; outline: 0; text-align: center; }
+.ad_payment_edit_calendar.react-datepicker-popper { z-index: 130; }
+.ad_payment_edit_calendar .react-datepicker { min-width: 266px; }
 .ad_view_payment { display: flex; width: 100%; align-items: flex-start; gap: 12px; }
 .ad_view_payment > :first-child { width: 100%; max-width: 512px; flex: 0 1 512px; }
 .ad_view_payment > :last-child { min-width: 0; max-width:1035px; margin-bottom:0;}
@@ -46,12 +59,28 @@
 .ad_view_comment_form button { width: 120px; height: 40px; flex: 0 0 120px; border-radius: 6px; background: #1962fc; color: #fff; cursor: pointer; font-size: 14px; font-weight: 800; letter-spacing: 0; }
 .ad_view_bottom_actions { display: flex; justify-content: center; gap: 10px; margin-top: 22px; }
 .ad_view_register_button,
+.ad_view_update_button,
 .ad_view_list_button { display: inline-flex; width: 160px; height: 40px; align-items: center; justify-content: center; border-radius: 6px; color: #fff; cursor: pointer; font-size: 14px; font-weight: 800; letter-spacing: 0; }
 .ad_view_register_button { background: rgba(25, 98, 252, 0.42); cursor: not-allowed; }
+.ad_view_update_button { background: #1962fc; }
+.ad_view_update_button:disabled { background: #a6b0c2; cursor: not-allowed; }
 .ad_view_list_button { background: #ff2174; }
 .ad_view_state { display: flex; min-height: 420px; align-items: center; justify-content: center; gap: 10px; color: #73809d; font-size: 14px; font-weight: 700; letter-spacing: 0; }
 .ad_view_alert { width: 100%; max-width: 760px; margin: 0; border-radius: 8px; font-size: 14px; letter-spacing: 0; }
 .ad_view_alert + .ad_view_list_button { margin-top: 12px; }
+.ad_view_update_dialog { max-width: 420px; }
+.ad_view_update_modal { overflow: hidden; border: 0; border-radius: 8px; box-shadow: 0 18px 44px rgba(28, 35, 58, 0.22); }
+.ad_view_update_modal.warning { border-top: 4px solid #f39c12; }
+.ad_view_update_modal.danger { border-top: 4px solid #e44f5f; }
+.ad_view_update_modal.success { border-top: 4px solid #18bc9c; }
+.ad_view_update_modal .modal-body { display: flex; align-items: center; flex-direction: column; gap: 12px; padding: 26px 28px 24px; text-align: center; }
+.ad_view_update_modal strong { color: #202636; font-size: 18px; font-weight: 800; letter-spacing: 0; line-height: 1.3; }
+.ad_view_update_modal p { margin: 0; color: #4d5872; font-size: 14px; font-weight: 600; letter-spacing: 0; line-height: 1.5; }
+.ad_view_update_modal_actions { display: flex; width: 100%; justify-content: center; gap: 8px; margin-top: 8px; }
+.ad_view_update_modal_actions button { display: inline-flex; min-width: 96px; height: 40px; align-items: center; justify-content: center; padding: 0 18px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 800; letter-spacing: 0; }
+.ad_view_update_modal_actions button:disabled { cursor: not-allowed; opacity: 0.58; }
+.ad_view_modal_cancel { background: #dce2ef; color: #35405a; }
+.ad_view_modal_confirm { background: #1962fc; color: #fff; }
 
 @media (max-width: 1440px) {
   .ad_view_payment { flex-direction: column; }
@@ -81,7 +110,9 @@
   .ad_view_bottom_actions { flex-direction: column; }
   .ad_view_comment_form button,
   .ad_view_register_button,
+  .ad_view_update_button,
   .ad_view_list_button { width: 100%; flex-basis: auto; }
+  .ad_view_inline_dates { min-height: 40px; }
 }
 
 @media (max-width: 560px) {
@@ -90,4 +121,7 @@
   .ad_view_comment strong { width: auto; flex: 1 1 auto; }
   .ad_view_comment p { order: 3; flex-basis: 100%; }
   .ad_view_comment time { order: 4; margin-left: 48px; }
+  .ad_view_inline_dates { align-items: stretch; flex-direction: column; }
+  .ad_view_inline_dates > span { width: 100%; height: 18px; flex-basis: 18px; line-height: 18px; }
+  .ad_view_inline_dates input { height: 38px; }
 }

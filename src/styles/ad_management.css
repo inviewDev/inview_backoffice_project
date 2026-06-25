@@ -23,12 +23,22 @@
 .ad_manage_table tbody tr.ad_manage_clickable_row { cursor: pointer; transition: background 0.16s ease, box-shadow 0.16s ease; }
 .ad_manage_table tbody tr.ad_manage_clickable_row:hover,
 .ad_manage_table tbody tr.ad_manage_clickable_row:focus-visible { background: #eaf1ff; box-shadow: inset 0 0 0 2px rgba(25, 98, 252, 0.18); outline: 0; }
+.ad_manage_table tbody tr.payment_approved > td { background: #a9f200; }
+.ad_manage_table tbody tr.payment_cancelled > td { background: #FFCACA; }
+.ad_manage_table tbody tr.payment_partial > td { background: #E5B8FF; }
+.ad_manage_table tbody tr.payment_approved:hover > td,
+.ad_manage_table tbody tr.payment_approved:focus-visible > td { background: #9fe500; }
+.ad_manage_table tbody tr.payment_cancelled:hover > td,
+.ad_manage_table tbody tr.payment_cancelled:focus-visible > td { background: #ffbcbc; }
+.ad_manage_table tbody tr.payment_partial:hover > td,
+.ad_manage_table tbody tr.payment_partial:focus-visible > td { background: #dca5ff; }
 .ad_manage_table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ad_manage_empty { height: 180px !important; background: #f8faff !important; color: #73809d !important; font-size: 14px !important; }
 .ad_manage_chip { display: inline-flex; min-width: 68px; height: 26px; align-items: center; justify-content: center; padding: 0 10px; border-radius: 999px; background: #edf1f8; color: #5d6880; font-size: 12px; font-weight: 800; letter-spacing: 0; }
 .ad_manage_chip.active { background: #e8f8ed; color: #15803d; }
 .ad_manage_chip.waiting { background: #fff7e6; color: #b45309; }
 .ad_manage_chip.danger { background: #ffecec; color: #d11a2a; }
+.ad_manage_chip.partial { background: #ead7ff; color: #7027a8; }
 .ad_manage_footer { display: flex; width: 100%; min-height: 50px; align-items: center; gap: 20px; margin-top: 20px; padding: 0 20px; border-radius: 6px; background: #ededed; }
 .ad_manage_footer select { width: 88px; height: 28px; flex: 0 0 88px; border: 1px solid #d8dce6; border-radius: 4px; color: #333; font-size: 13px; letter-spacing: 0; }
 .ad_manage_pages { display: flex; min-width: 0; flex: 1 1 auto; justify-content: center; gap: 14px; }
