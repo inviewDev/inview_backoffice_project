@@ -639,6 +639,7 @@ function Dashboard({ user }) {
         const params = new URLSearchParams({
           page: String(salesPageIndex + 1),
           pageSize: String(salesPageSize),
+          range: selectedDateRange || 'custom',
         });
 
         if (dateFrom) params.set('dateFrom', dateFrom);
@@ -681,7 +682,15 @@ function Dashboard({ user }) {
     }
 
     return () => controller.abort();
-  }, [dateFrom, dateTo, salesPageIndex, salesPageSize, salesSearch, user?.id]);
+  }, [
+    dateFrom,
+    dateTo,
+    salesPageIndex,
+    salesPageSize,
+    salesSearch,
+    selectedDateRange,
+    user?.id,
+  ]);
 
   const userTeam = user.team || '미지정';
   const isDevelopmentManagementTeam = userTeam === '개발관리부';
@@ -728,7 +737,7 @@ function Dashboard({ user }) {
 
   useEffect(() => {
     setSalesPageIndex(0);
-  }, [dateFrom, dateTo, salesPageSize, salesSearch]);
+  }, [dateFrom, dateTo, salesPageSize, salesSearch, selectedDateRange]);
 
   useEffect(() => {
     if (salesPageIndex >= salesTablePageCount) {
@@ -898,7 +907,7 @@ function Dashboard({ user }) {
                     selected={parseDateInput(dateFrom)}
                     onChange={date => {
                       setDateFrom(date ? getKoreanDateParts(date).date : '');
-                      setSelectedDateRange('');
+                      setSelectedDateRange('custom');
                     }}
                     dateFormat="yyyy-MM-dd"
                     locale={ko}
@@ -916,7 +925,7 @@ function Dashboard({ user }) {
                     selected={parseDateInput(dateTo)}
                     onChange={date => {
                       setDateTo(date ? getKoreanDateParts(date).date : '');
-                      setSelectedDateRange('');
+                      setSelectedDateRange('custom');
                     }}
                     dateFormat="yyyy-MM-dd"
                     locale={ko}
@@ -941,7 +950,7 @@ function Dashboard({ user }) {
                 <button type="button" className={selectedDateRange === 'week' ? 'active' : ''} onClick={() => {
                   const now = new Date();
                   const weekAgo = new Date(now);
-                  weekAgo.setDate(now.getDate() - 7);
+                  weekAgo.setDate(now.getDate() - 6);
                   setDateFrom(getKoreanDateParts(weekAgo).date);
                   setDateTo(getKoreanDateParts(now).date);
                   setSelectedDateRange('week');

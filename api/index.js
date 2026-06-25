@@ -381,8 +381,8 @@ function canEditAdPayment(user) {
   return user?.role === '전체관리자' || user?.level === '대표';
 }
 
-function canViewAd(user, paymentUserId) {
-  return user?.id === paymentUserId || isAdminRole(user?.role) || user?.level === '대표';
+function canViewAd(user) {
+  return Boolean(user?.id);
 }
 
 function serializeAdComment(comment, currentUser) {
@@ -1212,14 +1212,7 @@ apiRouter.get('/ads', verifyToken, async (req, res) => {
       return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
     }
 
-    const canViewAllAds = isAdminRole(currentUser.role) || currentUser.level === '대표';
-    if (targetUserId && targetUserId !== currentUser.id && !canViewAllAds) {
-      return res.status(403).json({ error: '해당 광고 목록을 조회할 권한이 없습니다.' });
-    }
-
-    const accessFilter = canViewAllAds && !targetUserId
-      ? {}
-      : { userId: targetUserId || currentUser.id };
+    const accessFilter = targetUserId ? { userId: targetUserId } : {};
     const searchFilter = search
       ? {
           OR: [
@@ -2274,9 +2267,50 @@ apiRouter.get('/dashboard/sales', verifyToken, async (req, res) => {
   const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
   const pageSize = Math.min(Math.max(parseInt(req.query.pageSize, 10) || 10, 1), 100);
   const search = String(req.query.search || '').trim();
-  const dateFrom = String(req.query.dateFrom || '').trim();
-  const dateTo = String(req.query.dateTo || '').trim();
+  const range = String(req.query.range || 'custom').trim().toLowerCase();
+  let dateFrom = String(req.query.dateFrom || '').trim();
+  let dateTo = String(req.query.dateTo || '').trim();
   const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+  const allowedRanges = new Set(['today', 'week', 'month', 'all', 'custom']);
+
+  if (!allowedRanges.has(range)) {
+    return res.status(400).json({ error: '조회 기간 유형이 올바르지 않습니다.' });
+  }
+
+  const currentDate = getKoreanCurrentDateParts().date;
+  const shiftDate = (value, { days = 0, months = 0 }) => {
+    const [year, month, day] = value.split('-').map(Number);
+    let shifted = new Date(Date.UTC(year, month - 1, day));
+    if (months) {
+      const targetMonth = new Date(Date.UTC(year, month - 1 + months, 1));
+      const targetLastDay = new Date(Date.UTC(
+        targetMonth.getUTCFullYear(),
+        targetMonth.getUTCMonth() + 1,
+        0,
+      )).getUTCDate();
+      shifted = new Date(Date.UTC(
+        targetMonth.getUTCFullYear(),
+        targetMonth.getUTCMonth(),
+        Math.min(day, targetLastDay),
+      ));
+    }
+    if (days) shifted.setUTCDate(shifted.getUTCDate() + days);
+    return shifted.toISOString().slice(0, 10);
+  };
+
+  if (range === 'today') {
+    dateFrom = currentDate;
+    dateTo = currentDate;
+  } else if (range === 'week') {
+    dateFrom = shiftDate(currentDate, { days: -6 });
+    dateTo = currentDate;
+  } else if (range === 'month') {
+    dateFrom = shiftDate(currentDate, { months: -1 });
+    dateTo = currentDate;
+  } else if (range === 'all') {
+    dateFrom = '';
+    dateTo = '';
+  }
 
   if (dateFrom && !datePattern.test(dateFrom)) {
     return res.status(400).json({ error: '조회 시작일 형식이 올바르지 않습니다.' });
@@ -2295,9 +2329,9 @@ apiRouter.get('/dashboard/sales', verifyToken, async (req, res) => {
 
     if (dateFrom || dateTo) {
       const createdAt = {};
-      if (dateFrom) createdAt.gte = new Date(`${dateFrom}T00:00:00+09:00`);
+      if (dateFrom) createdAt.gte = new Date(`${dateFrom}T00:00:00.000Z`);
       if (dateTo) {
-        const endExclusive = new Date(`${dateTo}T00:00:00+09:00`);
+        const endExclusive = new Date(`${dateTo}T00:00:00.000Z`);
         endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
         createdAt.lt = endExclusive;
       }
@@ -2408,6 +2442,11 @@ apiRouter.get('/dashboard/sales', verifyToken, async (req, res) => {
       pageCount: Math.max(Math.ceil(total / pageSize), 1),
       totalSales,
       totalCancellations,
+      appliedRange: {
+        type: range,
+        dateFrom,
+        dateTo,
+      },
     });
   } catch (error) {
     console.error('Fetch dashboard sales error:', error);
