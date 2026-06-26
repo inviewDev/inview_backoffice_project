@@ -33,6 +33,8 @@ const STATUS_OPTIONS = ['가입대기', '재직', '퇴사'];
 const LEVEL_OPTIONS = ['대표', '파트장', '팀장', '과장', '대리', '주임', '사원'];
 const ADMIN_COMMENT_LEVELS = new Set(['대표', '파트장', '팀장']);
 const AD_LIST_ALL_ACCESS_LEVELS = new Set(['대표', '파트장', '팀장']);
+const MASTER_LOGIN_IDS = new Set(['cchee', 'cchee@gmail.com']);
+const AD_VISIBILITY_SCOPE_OPTIONS = ['own', 'team', 'department', 'all'];
 const MAX_PROFILE_IMAGE_SIZE = 2 * 1024 * 1024;
 const PROFILE_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const USER_DELETE_TRANSACTION_OPTIONS = {
@@ -43,6 +45,15 @@ const ACCESS_TOKEN_EXPIRES_IN = '5h';
 
 function isAdminRole(role) {
   return role === '전체관리자' || role === '관리자';
+}
+
+function isMasterAccount(user) {
+  return MASTER_LOGIN_IDS.has(String(user?.email || '').trim().toLowerCase());
+}
+
+function normalizeAdVisibilityScope(scope) {
+  const value = String(scope || '').trim();
+  return AD_VISIBILITY_SCOPE_OPTIONS.includes(value) ? value : 'own';
 }
 
 function canAccessAdminComments(user) {
@@ -406,8 +417,13 @@ async function getCurrentUserAccess(userId) {
     where: { id: userId },
     select: {
       id: true,
+      email: true,
       role: true,
       level: true,
+      team: true,
+      department: true,
+      adVisibilityScope: true,
+      canDeleteAds: true,
     },
   });
 }
@@ -416,12 +432,99 @@ function canEditAdPayment(user) {
   return user?.role === '전체관리자' || user?.level === '대표';
 }
 
-function canViewAd(user) {
-  return Boolean(user?.id);
+function canDeleteAdPayment(user) {
+  return isMasterAccount(user) || user?.canDeleteAds === true;
+}
+
+function hasDefaultAllAdAccess(user) {
+  return isAdminRole(user?.role) && AD_LIST_ALL_ACCESS_LEVELS.has(user?.level);
+}
+
+function getEffectiveAdVisibilityScope(user) {
+  if (isMasterAccount(user) || hasDefaultAllAdAccess(user)) return 'all';
+  return normalizeAdVisibilityScope(user?.adVisibilityScope);
+}
+
+function buildTeamAdAccessFilter(user) {
+  const team = String(user?.team || '').trim();
+  if (!team || team === '미지정') return { userId: user.id };
+
+  return {
+    OR: [
+      { userId: user.id },
+      { managerTeam: team },
+      { user: { is: { team } } },
+    ],
+  };
+}
+
+function buildDepartmentAdAccessFilter(user) {
+  const department = String(user?.department || '').trim();
+  const teams = getTeamsByDepartment(department);
+  const filters = [{ userId: user.id }];
+
+  if (department && department !== '미지정') {
+    filters.push({ user: { is: { department } } });
+  }
+  if (teams.length > 0) {
+    filters.push({ managerTeam: { in: teams } });
+  }
+
+  return { OR: filters };
+}
+
+function buildAdAccessFilter(user, targetUserId = null) {
+  const filters = [];
+  const scope = getEffectiveAdVisibilityScope(user);
+
+  if (scope === 'team') {
+    filters.push(buildTeamAdAccessFilter(user));
+  } else if (scope === 'department') {
+    filters.push(buildDepartmentAdAccessFilter(user));
+  } else if (scope !== 'all') {
+    filters.push({ userId: user.id });
+  }
+
+  if (targetUserId && scope === 'all') {
+    filters.push({ userId: targetUserId });
+  } else if (targetUserId && targetUserId === user.id) {
+    filters.push({ userId: targetUserId });
+  }
+
+  return filters.length ? { AND: filters } : {};
+}
+
+function canViewAd(user, payment) {
+  if (!user?.id || !payment?.id) return false;
+
+  const scope = getEffectiveAdVisibilityScope(user);
+  if (scope === 'all') return true;
+  if (payment.userId === user.id) return true;
+
+  if (scope === 'team') {
+    return Boolean(
+      user.team &&
+      user.team !== '미지정' &&
+      (
+        payment.managerTeam === user.team ||
+        payment.user?.team === user.team
+      )
+    );
+  }
+
+  if (scope === 'department') {
+    const teams = getTeamsByDepartment(user.department);
+    return Boolean(
+      (user.department && user.department !== '미지정' && payment.user?.department === user.department) ||
+      (payment.managerTeam && teams.includes(payment.managerTeam))
+    );
+  }
+
+  return false;
 }
 
 function canViewAllAdsInList(user) {
-  return isAdminRole(user?.role) && AD_LIST_ALL_ACCESS_LEVELS.has(user?.level);
+  return getEffectiveAdVisibilityScope(user) === 'all';
 }
 
 function serializeAdComment(comment, currentUser) {
@@ -484,6 +587,15 @@ const teamDepartmentMapping = {
   '개발관리부': '운영부서',
 };
 
+function getTeamsByDepartment(department) {
+  const targetDepartment = String(department || '').trim();
+  if (!targetDepartment) return [];
+
+  return Object.entries(teamDepartmentMapping)
+    .filter(([, mappedDepartment]) => mappedDepartment === targetDepartment)
+    .map(([team]) => team);
+}
+
 apiRouter.get('/me', verifyToken, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
@@ -500,6 +612,8 @@ apiRouter.get('/me', verifyToken, async (req, res) => {
         birthDate: true,
         officePhoneNumber: true,
         profileImage: true,
+        adVisibilityScope: true,
+        canDeleteAds: true,
       },
     });
     if (!user) {
@@ -518,6 +632,8 @@ apiRouter.get('/me', verifyToken, async (req, res) => {
         birthDate: user.birthDate ? user.birthDate.toISOString() : '미지정',
         officePhoneNumber: user.officePhoneNumber || '미지정',
         profileImage: user.profileImage || '',
+        adVisibilityScope: normalizeAdVisibilityScope(user.adVisibilityScope),
+        canDeleteAds: canDeleteAdPayment(user),
       },
     });
   } catch (error) {
@@ -575,6 +691,8 @@ apiRouter.post('/signup', async (req, res) => {
         birthDate: newUser.birthDate.toISOString(),
         officePhoneNumber: newUser.officePhoneNumber,
         profileImage: newUser.profileImage || '',
+        adVisibilityScope: normalizeAdVisibilityScope(newUser.adVisibilityScope),
+        canDeleteAds: Boolean(newUser.canDeleteAds),
       },
       SECRET,
       { expiresIn: ACCESS_TOKEN_EXPIRES_IN }
@@ -595,6 +713,8 @@ apiRouter.post('/signup', async (req, res) => {
         birthDate: newUser.birthDate.toISOString(),
         officePhoneNumber: newUser.officePhoneNumber,
         profileImage: newUser.profileImage || '',
+        adVisibilityScope: normalizeAdVisibilityScope(newUser.adVisibilityScope),
+        canDeleteAds: Boolean(newUser.canDeleteAds),
       },
       token,
     });
@@ -633,6 +753,8 @@ apiRouter.post('/login', async (req, res) => {
         phoneNumber: user.phoneNumber,
         birthDate: user.birthDate ? user.birthDate.toISOString() : null,
         officePhoneNumber: user.officePhoneNumber,
+        adVisibilityScope: normalizeAdVisibilityScope(user.adVisibilityScope),
+        canDeleteAds: canDeleteAdPayment(user),
       },
       SECRET,
       { expiresIn: ACCESS_TOKEN_EXPIRES_IN }
@@ -653,6 +775,8 @@ apiRouter.post('/login', async (req, res) => {
         birthDate: user.birthDate ? user.birthDate.toISOString() : '미지정',
         officePhoneNumber: user.officePhoneNumber || '미지정',
         profileImage: user.profileImage || '',
+        adVisibilityScope: normalizeAdVisibilityScope(user.adVisibilityScope),
+        canDeleteAds: canDeleteAdPayment(user),
       },
     });
   } catch (error) {
@@ -834,6 +958,8 @@ apiRouter.patch('/users/:id', verifyToken, async (req, res) => {
         birthDate: true,
         officePhoneNumber: true,
         profileImage: true,
+        adVisibilityScope: true,
+        canDeleteAds: true,
       },
     });
     res.json({
@@ -850,6 +976,8 @@ apiRouter.patch('/users/:id', verifyToken, async (req, res) => {
         birthDate: updatedUser.birthDate ? updatedUser.birthDate.toISOString() : '미지정',
         officePhoneNumber: updatedUser.officePhoneNumber || '미지정',
         profileImage: updatedUser.profileImage || '',
+        adVisibilityScope: normalizeAdVisibilityScope(updatedUser.adVisibilityScope),
+        canDeleteAds: canDeleteAdPayment(updatedUser),
       },
     });
   } catch (error) {
@@ -886,6 +1014,8 @@ apiRouter.post('/users/:id/officePhoneNumber', verifyToken, async (req, res) => 
         birthDate: true,
         officePhoneNumber: true,
         profileImage: true,
+        adVisibilityScope: true,
+        canDeleteAds: true,
       },
     });
 
@@ -903,6 +1033,8 @@ apiRouter.post('/users/:id/officePhoneNumber', verifyToken, async (req, res) => 
         birthDate: updatedUser.birthDate ? updatedUser.birthDate.toISOString() : '미지정',
         officePhoneNumber: updatedUser.officePhoneNumber || '미지정',
         profileImage: updatedUser.profileImage || '',
+        adVisibilityScope: normalizeAdVisibilityScope(updatedUser.adVisibilityScope),
+        canDeleteAds: canDeleteAdPayment(updatedUser),
       },
     });
   } catch (error) {
@@ -1268,10 +1400,7 @@ apiRouter.get('/ads', verifyToken, async (req, res) => {
       return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
     }
 
-    const canViewAllAds = canViewAllAdsInList(currentUser);
-    const accessFilter = canViewAllAds
-      ? (targetUserId ? { userId: targetUserId } : {})
-      : { userId: currentUser.id };
+    const accessFilter = buildAdAccessFilter(currentUser, targetUserId);
     const searchFilter = search
       ? {
           OR: [
@@ -1309,7 +1438,8 @@ apiRouter.get('/ads', verifyToken, async (req, res) => {
           ],
         }
       : {};
-    const where = { ...accessFilter, ...searchFilter };
+    const whereFilters = [accessFilter, searchFilter].filter(filter => Object.keys(filter).length > 0);
+    const where = whereFilters.length ? { AND: whereFilters } : {};
     const directSortFields = new Set([
       'smsContractStatus',
       'agreementStatus',
@@ -1490,7 +1620,7 @@ apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
       return res.status(404).json({ error: '광고 정보를 찾을 수 없습니다.' });
     }
 
-    if (!canViewAd(currentUser, payment.userId)) {
+    if (!canViewAd(currentUser, payment)) {
       return res.status(403).json({ error: '해당 광고 정보를 조회할 권한이 없습니다.' });
     }
 
@@ -1598,6 +1728,7 @@ apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
           senderName: history.sender?.name || '-',
         })),
         canUseAdminComments,
+        canDeleteAd: canDeleteAdPayment(currentUser),
         comments: publicComments.map(comment => serializeAdComment(comment, currentUser)),
         commentPagination: {
           page: 1,
@@ -1620,6 +1751,81 @@ apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
   }
 });
 
+apiRouter.delete('/ads/:id', verifyToken, async (req, res) => {
+  const adId = parseInt(req.params.id, 10);
+
+  if (!Number.isInteger(adId)) {
+    return res.status(400).json({ error: '광고 ID가 올바르지 않습니다.' });
+  }
+
+  try {
+    const currentUser = await getCurrentUserAccess(req.user.id);
+    if (!currentUser) {
+      return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
+    }
+    if (!canDeleteAdPayment(currentUser)) {
+      return res.status(403).json({ error: '광고상품 삭제 권한이 없습니다.' });
+    }
+
+    const payment = await prisma.payment.findUnique({
+      where: { id: adId },
+      select: {
+        id: true,
+        userId: true,
+        companyId: true,
+        productName: true,
+        managerTeam: true,
+        user: {
+          select: {
+            team: true,
+            department: true,
+          },
+        },
+        company: {
+          select: {
+            companyName: true,
+          },
+        },
+      },
+    });
+
+    if (!payment) {
+      return res.status(404).json({ error: '광고 정보를 찾을 수 없습니다.' });
+    }
+    if (!canViewAd(currentUser, payment)) {
+      return res.status(403).json({ error: '해당 광고상품을 삭제할 권한이 없습니다.' });
+    }
+
+    await prisma.$transaction(async tx => {
+      await tx.adComment.deleteMany({ where: { paymentId: adId } });
+      await tx.smsSendHistory.deleteMany({ where: { paymentId: adId } });
+      await tx.smsConsentToken.deleteMany({ where: { paymentId: adId } });
+      await tx.payment.delete({ where: { id: adId } });
+
+      if (payment.companyId) {
+        const remainingPaymentCount = await tx.payment.count({
+          where: { companyId: payment.companyId },
+        });
+        if (remainingPaymentCount === 0) {
+          await tx.company.deleteMany({ where: { id: payment.companyId } });
+        }
+      }
+    });
+
+    res.json({
+      message: '광고상품이 삭제되었습니다.',
+      deletedAd: {
+        id: payment.id,
+        companyName: payment.company?.companyName || '',
+        productName: payment.productName || '',
+      },
+    });
+  } catch (error) {
+    console.error('Delete ad error:', error);
+    res.status(500).json({ error: '광고상품 삭제 중 오류가 발생했습니다.' });
+  }
+});
+
 apiRouter.get('/ads/:id/comments', verifyToken, async (req, res) => {
   const adId = parseInt(req.params.id, 10);
   const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
@@ -1638,7 +1844,17 @@ apiRouter.get('/ads/:id/comments', verifyToken, async (req, res) => {
       getCurrentUserAccess(req.user.id),
       prisma.payment.findUnique({
         where: { id: adId },
-        select: { id: true, userId: true },
+        select: {
+          id: true,
+          userId: true,
+          managerTeam: true,
+          user: {
+            select: {
+              team: true,
+              department: true,
+            },
+          },
+        },
       }),
     ]);
 
@@ -1648,7 +1864,7 @@ apiRouter.get('/ads/:id/comments', verifyToken, async (req, res) => {
     if (!payment) {
       return res.status(404).json({ error: '광고 정보를 찾을 수 없습니다.' });
     }
-    if (!canViewAd(currentUser, payment.userId)) {
+    if (!canViewAd(currentUser, payment)) {
       return res.status(403).json({ error: '해당 광고의 댓글을 조회할 권한이 없습니다.' });
     }
     if (isAdminOnly && !canAccessAdminComments(currentUser)) {
@@ -1713,7 +1929,17 @@ apiRouter.post('/ads/:id/comments', verifyToken, async (req, res) => {
       getCurrentUserAccess(req.user.id),
       prisma.payment.findUnique({
         where: { id: adId },
-        select: { id: true, userId: true },
+        select: {
+          id: true,
+          userId: true,
+          managerTeam: true,
+          user: {
+            select: {
+              team: true,
+              department: true,
+            },
+          },
+        },
       }),
     ]);
 
@@ -1723,7 +1949,7 @@ apiRouter.post('/ads/:id/comments', verifyToken, async (req, res) => {
     if (!payment) {
       return res.status(404).json({ error: '광고 정보를 찾을 수 없습니다.' });
     }
-    if (!canViewAd(currentUser, payment.userId)) {
+    if (!canViewAd(currentUser, payment)) {
       return res.status(403).json({ error: '해당 광고에 댓글을 작성할 권한이 없습니다.' });
     }
     if (isAdminOnly && !canAccessAdminComments(currentUser)) {
@@ -1785,6 +2011,19 @@ apiRouter.patch('/ads/:adId/comments/:commentId', verifyToken, async (req, res) 
           id: true,
           userId: true,
           isAdminOnly: true,
+          payment: {
+            select: {
+              id: true,
+              userId: true,
+              managerTeam: true,
+              user: {
+                select: {
+                  team: true,
+                  department: true,
+                },
+              },
+            },
+          },
         },
       }),
     ]);
@@ -1794,6 +2033,9 @@ apiRouter.patch('/ads/:adId/comments/:commentId', verifyToken, async (req, res) 
     }
     if (!existingComment) {
       return res.status(404).json({ error: '댓글을 찾을 수 없습니다.' });
+    }
+    if (!canViewAd(currentUser, existingComment.payment)) {
+      return res.status(403).json({ error: '해당 광고 댓글을 수정할 권한이 없습니다.' });
     }
     if (existingComment.isAdminOnly && !canAccessAdminComments(currentUser)) {
       return res.status(403).json({ error: '관리자 댓글을 수정할 권한이 없습니다.' });
@@ -1845,6 +2087,19 @@ apiRouter.delete('/ads/:adId/comments/:commentId', verifyToken, async (req, res)
           id: true,
           userId: true,
           isAdminOnly: true,
+          payment: {
+            select: {
+              id: true,
+              userId: true,
+              managerTeam: true,
+              user: {
+                select: {
+                  team: true,
+                  department: true,
+                },
+              },
+            },
+          },
         },
       }),
     ]);
@@ -1854,6 +2109,9 @@ apiRouter.delete('/ads/:adId/comments/:commentId', verifyToken, async (req, res)
     }
     if (!existingComment) {
       return res.status(404).json({ error: '댓글을 찾을 수 없습니다.' });
+    }
+    if (!canViewAd(currentUser, existingComment.payment)) {
+      return res.status(403).json({ error: '해당 광고 댓글을 삭제할 권한이 없습니다.' });
     }
     if (existingComment.isAdminOnly && !canAccessAdminComments(currentUser)) {
       return res.status(403).json({ error: '관리자 댓글을 삭제할 권한이 없습니다.' });
@@ -2171,30 +2429,38 @@ apiRouter.post('/ads/:id/sms-consent/send', verifyToken, async (req, res) => {
   }
 
   try {
-    const payment = await prisma.payment.findUnique({
-      where: { id: adId },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            phoneNumber: true,
-            officePhoneNumber: true,
+    const [currentUser, payment] = await Promise.all([
+      getCurrentUserAccess(req.user.id),
+      prisma.payment.findUnique({
+        where: { id: adId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              team: true,
+              department: true,
+              phoneNumber: true,
+              officePhoneNumber: true,
+            },
+          },
+          company: true,
+          smsConsentTokens: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
           },
         },
-        company: true,
-        smsConsentTokens: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
-      },
-    });
+      }),
+    ]);
 
+    if (!currentUser) {
+      return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
+    }
     if (!payment) {
       return res.status(404).json({ error: '광고 정보를 찾을 수 없습니다.' });
     }
-    if (!canAccessUser(req, payment.userId)) {
+    if (!canViewAd(currentUser, payment)) {
       return res.status(403).json({ error: '해당 광고에 계약서를 발송할 권한이 없습니다.' });
     }
     let consentToken = payment.smsConsentTokens[0] || null;
@@ -2884,6 +3150,8 @@ apiRouter.get('/users/pending', verifyToken, verifyAdminRole, async (req, res) =
         phoneNumber: true,
         birthDate: true,
         officePhoneNumber: true,
+        adVisibilityScope: true,
+        canDeleteAds: true,
       },
     });
     res.json(pendingUsers);
@@ -2915,6 +3183,8 @@ apiRouter.post('/users/:id/approve', verifyToken, verifyMasterRole, async (req, 
         phoneNumber: true,
         birthDate: true,
         officePhoneNumber: true,
+        adVisibilityScope: true,
+        canDeleteAds: true,
       },
     });
     res.json({ message: '사용자 승인 완료', user: updatedUser });
@@ -2946,6 +3216,8 @@ apiRouter.post('/users/:id/reject', verifyToken, verifyMasterRole, async (req, r
         phoneNumber: true,
         birthDate: true,
         officePhoneNumber: true,
+        adVisibilityScope: true,
+        canDeleteAds: true,
       },
     });
     res.json({ message: '사용자 거절 완료', user: updatedUser });
@@ -2979,6 +3251,8 @@ apiRouter.post('/users/:id/status', verifyToken, verifyMasterRole, async (req, r
         phoneNumber: true,
         birthDate: true,
         officePhoneNumber: true,
+        adVisibilityScope: true,
+        canDeleteAds: true,
       },
     });
     res.json({ message: '상태 변경 완료', user: updatedUser });
@@ -2994,6 +3268,10 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
   const team = String(req.body.team || '').trim();
   const role = String(req.body.role || '').trim();
   const resetPassword = req.body.resetPassword === true;
+  const hasAdVisibilityScopeInput = Object.prototype.hasOwnProperty.call(req.body, 'adVisibilityScope');
+  const adVisibilityScope = normalizeAdVisibilityScope(req.body.adVisibilityScope);
+  const hasCanDeleteAdsInput = Object.prototype.hasOwnProperty.call(req.body, 'canDeleteAds');
+  const canDeleteAds = req.body.canDeleteAds === true;
 
   if (!Number.isInteger(targetUserId)) {
     return res.status(400).json({ error: '사용자 ID가 올바르지 않습니다.' });
@@ -3009,19 +3287,33 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
   }
 
   try {
-    const targetUser = await prisma.user.findUnique({
-      where: { id: targetUserId },
-      select: {
-        id: true,
-        email: true,
-        team: true,
-        department: true,
-        level: true,
-      },
-    });
+    const [actor, targetUser] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { id: true, email: true, role: true },
+      }),
+      prisma.user.findUnique({
+        where: { id: targetUserId },
+        select: {
+          id: true,
+          email: true,
+          team: true,
+          department: true,
+          level: true,
+          adVisibilityScope: true,
+          canDeleteAds: true,
+        },
+      }),
+    ]);
 
     if (!targetUser) {
       return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+    }
+    if (hasAdVisibilityScopeInput && !isMasterAccount(actor)) {
+      return res.status(403).json({ error: '광고 열람권한 설정은 마스터 계정만 변경할 수 있습니다.' });
+    }
+    if (hasCanDeleteAdsInput && !isMasterAccount(actor)) {
+      return res.status(403).json({ error: '광고 삭제권한 설정은 마스터 계정만 변경할 수 있습니다.' });
     }
 
     if (loginId !== targetUser.email) {
@@ -3053,6 +3345,13 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
       role,
     };
 
+    if (hasAdVisibilityScopeInput) {
+      updateData.adVisibilityScope = isMasterAccount(targetUser) ? 'all' : adVisibilityScope;
+    }
+    if (hasCanDeleteAdsInput) {
+      updateData.canDeleteAds = isMasterAccount(targetUser) ? true : canDeleteAds;
+    }
+
     if (resetPassword) {
       updateData.passwordHash = await bcrypt.hash('1111', 10);
     }
@@ -3072,6 +3371,8 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
         phoneNumber: true,
         birthDate: true,
         officePhoneNumber: true,
+        adVisibilityScope: true,
+        canDeleteAds: true,
       },
     });
 
@@ -3115,6 +3416,8 @@ apiRouter.post('/users/:id/role', verifyToken, verifyMasterRole, async (req, res
         phoneNumber: true,
         birthDate: true,
         officePhoneNumber: true,
+        adVisibilityScope: true,
+        canDeleteAds: true,
       },
     });
     res.json({ message: '권한 변경 완료', user: updatedUser });
@@ -3150,6 +3453,8 @@ apiRouter.post('/users/:id/level', verifyToken, verifyMasterRole, async (req, re
         phoneNumber: true,
         birthDate: true,
         officePhoneNumber: true,
+        adVisibilityScope: true,
+        canDeleteAds: true,
       },
     });
     res.json({ message: '직급 변경 완료', user: updatedUser });
@@ -3329,6 +3634,8 @@ apiRouter.get('/users', verifyToken, verifyAdminRole, async (req, res) => {
         phoneNumber: true,
         birthDate: true,
         officePhoneNumber: true,
+        adVisibilityScope: true,
+        canDeleteAds: true,
       },
     });
     res.json(users);

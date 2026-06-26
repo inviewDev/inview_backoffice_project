@@ -464,6 +464,7 @@ function AdManagementDetail({ user }) {
   const [smsMessage, setSmsMessage] = useState('');
   const [smsError, setSmsError] = useState('');
   const [isSavingPayment, setIsSavingPayment] = useState(false);
+  const [isDeletingAd, setIsDeletingAd] = useState(false);
   const [staffOptions, setStaffOptions] = useState([]);
   const [paymentEditForm, setPaymentEditForm] = useState({
     approvedAmount: '',
@@ -923,6 +924,58 @@ function AdManagementDetail({ user }) {
     }
   };
 
+  const handleDeleteClick = () => {
+    if (!ad?.canDeleteAd || isDeletingAd) return;
+
+    setUpdateModal({
+      show: true,
+      mode: 'delete-confirm',
+      title: '광고상품 삭제',
+      message: '삭제한 광고상품은 복구할 수 없습니다. 정말 삭제하시겠습니까?',
+      variant: 'danger',
+    });
+  };
+
+  const handleDeleteAd = async () => {
+    if (!ad?.canDeleteAd || isDeletingAd) return;
+
+    setIsDeletingAd(true);
+
+    try {
+      const token = localStorage.getItem('access_token');
+      const res = await fetch(`/api/ads/${id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || '광고상품 삭제에 실패했습니다.');
+      }
+
+      setUpdateModal({
+        show: true,
+        mode: 'delete-result',
+        title: '삭제 완료',
+        message: data.message || '광고상품이 삭제되었습니다.',
+        variant: 'success',
+      });
+    } catch (err) {
+      console.error('Delete ad error:', err);
+      setUpdateModal({
+        show: true,
+        mode: 'result',
+        title: '삭제 실패',
+        message: err.message,
+        variant: 'danger',
+      });
+    } finally {
+      setIsDeletingAd(false);
+    }
+  };
+
   const handleCreateComment = async (event, scope = 'public') => {
     event.preventDefault();
     const isAdminScope = scope === 'admin';
@@ -1132,6 +1185,7 @@ function AdManagementDetail({ user }) {
 
   if (!ad) return null;
 
+  const canDeleteAd = Boolean(ad.canDeleteAd);
   const comments = Array.isArray(ad.comments) ? ad.comments : [];
   const adminComments = Array.isArray(ad.adminComments) ? ad.adminComments : [];
   const canUseAdminComments = Boolean(ad.canUseAdminComments);
@@ -1825,6 +1879,16 @@ function AdManagementDetail({ user }) {
         >
           {isSavingPayment ? '수정 중...' : '광고수정'}
         </button>
+        {canDeleteAd && (
+          <button
+            type="button"
+            className="ad_view_delete_button"
+            onClick={handleDeleteClick}
+            disabled={isDeletingAd}
+          >
+            {isDeletingAd ? '삭제 중...' : '광고삭제'}
+          </button>
+        )}
         <button type="button" className="ad_view_list_button" onClick={() => navigate('/contracts/ad-management')}>
           광고 목록
         </button>
@@ -1833,7 +1897,7 @@ function AdManagementDetail({ user }) {
       <Modal
         show={updateModal.show}
         onHide={() => {
-          if (!isSavingPayment) {
+          if (!isSavingPayment && !isDeletingAd) {
             setUpdateModal(prev => ({ ...prev, show: false }));
           }
         }}
@@ -1864,11 +1928,35 @@ function AdManagementDetail({ user }) {
                   {isSavingPayment ? '수정 중...' : '수정'}
                 </button>
               </>
+            ) : updateModal.mode === 'delete-confirm' ? (
+              <>
+                <button
+                  type="button"
+                  className="ad_view_modal_cancel"
+                  onClick={() => setUpdateModal(prev => ({ ...prev, show: false }))}
+                  disabled={isDeletingAd}
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  className="ad_view_modal_danger"
+                  onClick={handleDeleteAd}
+                  disabled={isDeletingAd}
+                >
+                  {isDeletingAd ? '삭제 중...' : '삭제'}
+                </button>
+              </>
             ) : (
               <button
                 type="button"
                 className="ad_view_modal_confirm"
-                onClick={() => setUpdateModal(prev => ({ ...prev, show: false }))}
+                onClick={() => {
+                  setUpdateModal(prev => ({ ...prev, show: false }));
+                  if (updateModal.mode === 'delete-result') {
+                    navigate('/contracts/ad-management');
+                  }
+                }}
               >
                 확인
               </button>

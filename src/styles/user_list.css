@@ -94,6 +94,12 @@
 .userlist_password_reset > span { display: flex; flex-direction: column; gap: 2px; }
 .userlist_password_reset strong { color: #c51635; font-size: 14px; font-weight: 800; letter-spacing: 0; }
 .userlist_password_reset small { color: #8c5260; font-size: 12px; font-weight: 700; letter-spacing: 0; line-height: 16px; }
+.userlist_permission_toggle { display: flex; align-items: center; gap: 12px; margin: 4px 0 0; padding: 14px 16px; border: 1px solid #cfe0ff; border-radius: 8px; background: #edf4ff; cursor: pointer; }
+.userlist_permission_toggle .form-check { min-height: 0; margin: 0; }
+.userlist_permission_toggle .form-check-input { width: 18px; height: 18px; margin: 0; cursor: pointer; }
+.userlist_permission_toggle > span { display: flex; flex-direction: column; gap: 2px; }
+.userlist_permission_toggle strong { color: #1962fc; font-size: 14px; font-weight: 800; letter-spacing: 0; }
+.userlist_permission_toggle small { color: #46648f; font-size: 12px; font-weight: 700; letter-spacing: 0; line-height: 16px; }
 
 @media (max-width: 900px) {
   .userlist_block { padding: 20px 18px 64px; }

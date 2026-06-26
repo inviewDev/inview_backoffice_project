@@ -19,6 +19,21 @@ const statusOptions = ['전체', '재직', '퇴사', '가입대기'];
 const levelOptions = ['대표', '파트장', '팀장', '과장', '대리', '주임', '사원'];
 const roleOptions = ['전체관리자', '관리자', '팀장', '사용자'];
 const accountTeamOptions = teamOptions.slice(1);
+const masterLoginIds = new Set(['cchee', 'cchee@gmail.com']);
+const adVisibilityScopeOptions = [
+  { value: 'own', label: '본인 광고만' },
+  { value: 'team', label: '소속팀 광고' },
+  { value: 'department', label: '소속부서 광고' },
+  { value: 'all', label: '전체 광고' },
+];
+const adVisibilityScopeLabels = adVisibilityScopeOptions.reduce((acc, option) => {
+  acc[option.value] = option.label;
+  return acc;
+}, {});
+const adDeletePermissionLabels = {
+  true: '허용',
+  false: '미허용',
+};
 const teamDepartmentMapping = {
   '1팀': '1부서',
   '3팀': '1부서',
@@ -29,6 +44,10 @@ const teamDepartmentMapping = {
   '개발관리부': '운영부서',
 };
 const columnHelper = createColumnHelper();
+
+function isMasterLoginId(loginId) {
+  return masterLoginIds.has(String(loginId || '').trim().toLowerCase());
+}
 
 function UserList({ user: currentUser }) {
   const [data, setData] = useState([]);
@@ -54,9 +73,12 @@ function UserList({ user: currentUser }) {
     loginId: '',
     team: '',
     role: '',
+    adVisibilityScope: 'own',
+    canDeleteAds: false,
     resetPassword: false,
   });
   const isMaster = currentUser?.role === '전체관리자';
+  const isRootMaster = isMasterLoginId(currentUser?.email);
 
   // Modal 상태 관리
   const [showModal, setShowModal] = useState(false);
@@ -320,6 +342,8 @@ function UserList({ user: currentUser }) {
       loginId: targetUser.email || '',
       team: targetUser.level === '대표' ? '대표' : targetUser.team || '',
       role: targetUser.role || '사용자',
+      adVisibilityScope: isMasterLoginId(targetUser.email) ? 'all' : targetUser.adVisibilityScope || 'own',
+      canDeleteAds: isMasterLoginId(targetUser.email) ? true : Boolean(targetUser.canDeleteAds),
       resetPassword: false,
     });
   };
@@ -331,6 +355,8 @@ function UserList({ user: currentUser }) {
       loginId: '',
       team: '',
       role: '',
+      adVisibilityScope: 'own',
+      canDeleteAds: false,
       resetPassword: false,
     });
   };
@@ -350,13 +376,19 @@ function UserList({ user: currentUser }) {
     setAccountSaving(true);
 
     try {
+      const requestPayload = { ...accountForm };
+      if (!isRootMaster) {
+        delete requestPayload.adVisibilityScope;
+        delete requestPayload.canDeleteAds;
+      }
+
       const res = await fetch(`/api/users/${accountTarget.id}/account-settings`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(accountForm),
+        body: JSON.stringify(requestPayload),
       });
       const responseText = await res.text();
       let payload = {};
@@ -416,6 +448,18 @@ function UserList({ user: currentUser }) {
     columnHelper.accessor('team', { header: '팀', size: 120, enableFiltering: true, filterFn: 'includesString' }),
     columnHelper.accessor('department', { header: '부서', size: 120, enableFiltering: true, filterFn: 'includesString' }),
     columnHelper.accessor('role', { header: '권한', size: 150 }),
+    ...(isRootMaster ? [
+      columnHelper.accessor('adVisibilityScope', {
+        header: '광고열람',
+        size: 130,
+        cell: info => adVisibilityScopeLabels[info.getValue()] || '본인 광고만',
+      }),
+      columnHelper.accessor('canDeleteAds', {
+        header: '광고삭제',
+        size: 110,
+        cell: info => adDeletePermissionLabels[String(Boolean(info.getValue()))],
+      }),
+    ] : []),
     ...(isMaster ? [{
       id: 'accountSettings',
       header: '계정설정',
@@ -963,6 +1007,49 @@ function UserList({ user: currentUser }) {
                   ))}
                 </Form.Select>
               </label>
+
+              {isRootMaster && (
+                <>
+                  <label className="userlist_account_row">
+                    <span>광고열람</span>
+                    <div>
+                      <Form.Select
+                        value={accountForm.adVisibilityScope}
+                        onChange={event =>
+                          setAccountForm(prev => ({ ...prev, adVisibilityScope: event.target.value }))
+                        }
+                        disabled={accountSaving || isMasterLoginId(accountTarget?.email)}
+                      >
+                        {adVisibilityScopeOptions.map(option => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </Form.Select>
+                      <small>
+                        팀/부서 기준은 대상 사용자의 현재 소속 기준으로 적용됩니다.
+                        {isMasterLoginId(accountTarget?.email) ? ' 마스터 계정은 전체 광고 열람으로 고정됩니다.' : ''}
+                      </small>
+                    </div>
+                  </label>
+
+                  <label className="userlist_permission_toggle">
+                    <Form.Check
+                      type="checkbox"
+                      checked={accountForm.canDeleteAds}
+                      onChange={event =>
+                        setAccountForm(prev => ({ ...prev, canDeleteAds: event.target.checked }))
+                      }
+                      disabled={accountSaving || isMasterLoginId(accountTarget?.email)}
+                    />
+                    <span>
+                      <strong>광고상품 삭제권한</strong>
+                      <small>
+                        광고관리 상세에서 광고상품을 삭제할 수 있습니다.
+                        {isMasterLoginId(accountTarget?.email) ? ' 마스터 계정은 항상 허용됩니다.' : ''}
+                      </small>
+                    </span>
+                  </label>
+                </>
+              )}
 
               <label className="userlist_password_reset">
                 <Form.Check
