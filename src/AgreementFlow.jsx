@@ -246,6 +246,7 @@ function ContractContent({ contract }) {
       <div className="agreement_notice">
         <p>본 계약서는 고객의 휴대폰으로 발송된 고유 링크를 통해 동의 처리됩니다.</p>
         <p>동의 일시와 접속 IP는 계약 확인 목적으로 저장될 수 있습니다.</p>
+        <p>약관 및 계약서에 명시되지 않은 사항은 진행되지 않으며, 이와 관련하여 당사에서는 일체의 책임을 지지 않습니다.</p>
       </div>
     </section>
   );
