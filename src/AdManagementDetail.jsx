@@ -1483,9 +1483,7 @@ function AdManagementDetail({ user }) {
               >
                 <option value="">선택</option>
                 {managerOptions.map(staff => (
-                  <option value={staff.id} key={staff.id}>
-                    {staff.name} ({staff.team || '미지정'})
-                  </option>
+                  <option value={staff.id} key={staff.id}>{staff.name}</option>
                 ))}
               </select>
             </EditableField>
