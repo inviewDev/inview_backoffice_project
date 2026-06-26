@@ -13,6 +13,7 @@
 .agreement_terms_box section + section { margin-top: 20px; }
 .agreement_terms_box h2 { margin: 0 0 10px; color: #172033; font-size: 18px; font-weight: 900; }
 .agreement_terms_box p { margin: 0 0 8px; color: #3e4858; font-size: 15px; font-weight: 600; line-height: 1.7; word-break: keep-all; }
+.agreement_term_company { color: #1962fc; font-weight: 900; }
 .agreement_contract_card { border: 1px solid #dbe2ef; border-radius: 8px; background: #f8faff; padding: 18px; }
 .agreement_contract_grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .agreement_contract_field { display: grid; grid-template-columns: 150px minmax(0, 1fr); min-height: 44px; }
