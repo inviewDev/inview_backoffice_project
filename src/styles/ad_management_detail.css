@@ -41,6 +41,8 @@
 .ad_view_payment > :last-child { min-width: 0; max-width:1035px; margin-bottom:0; } 
 .ad_view_products { display: flex; width: 100%; flex-wrap: wrap; gap: 4px; } 
 .ad_view_product_chip { display: flex; width:100%; max-width: calc(33.333% - 3px); min-height: 40px; flex: 1 1 calc(33.333% - 3px); align-items: center; justify-content: center; padding: 8px; border: 1px solid transparent; border-radius: 6px; background: #f3f5fa; color: #abb0be; font-size: 15px; font-weight: 600; letter-spacing: 0; line-height: 18px; text-align: center; } 
+button.ad_view_product_chip { cursor: pointer; }
+button.ad_view_product_chip:disabled { cursor: not-allowed; opacity: 0.58; }
 .ad_view_product_chip.active { border-color: #1962fc; background: #1962fc; color: #fff; } 
 .ad_view_products_grid { display: flex; width: 100%; flex-wrap: wrap; gap: 12px; } 
 .ad_view_products_grid > * { width: calc(50% - 6px); flex: 1 1 calc(50% - 6px); } 

@@ -43,6 +43,7 @@ const card_company_options = [
 const installment_month_options = Array.from({ length: 12 }, (_, index) => `${index + 1}개월`);
 const team_lead_levels = new Set(['파트장', '팀장']);
 const department_head_levels = new Set(['대표', '파트장']);
+const max_selected_product_count = 2;
 const card_number_keys = ['cardNumber1', 'cardNumber2', 'cardNumber3', 'cardNumber4'];
 const current_year = new Date().getFullYear();
 const contract_year_options = Array.from({ length: 21 }, (_, index) => current_year - 10 + index);
@@ -167,7 +168,18 @@ function splitSegmentedValue(value, segments) {
 }
 
 function joinSegmentedValue(parts) {
-  return parts.every(part => !part) ? '' : parts.join('-');
+  const normalizedParts = [...parts];
+  while (normalizedParts.length > 0 && !normalizedParts[normalizedParts.length - 1]) {
+    normalizedParts.pop();
+  }
+  return normalizedParts.length ? normalizedParts.join('-') : '';
+}
+
+function getSelectedProducts(productName) {
+  return String(productName || '')
+    .split(',')
+    .map(product => product.trim())
+    .filter(Boolean);
 }
 
 function createInitialProductInfo(user) {
@@ -384,10 +396,10 @@ function AdDetail({ user }) {
       expiryMonth: '',
       expiryYear: '',
       cardNumber1: '',
-      cardNumber2: '',
-      cardNumber3: '',
-      cardNumber4: '',
-    };
+        cardNumber2: '',
+        cardNumber3: '',
+        cardNumber4: '',
+      };
   };
 
   const handlePaymentSubmit = async e => {
@@ -461,6 +473,29 @@ function AdDetail({ user }) {
     setShowPostcodeModal(false);
   };
 
+  const handleProductToggle = product => {
+    const selectedProducts = getSelectedProducts(paymentData.productName);
+    const isSelected = selectedProducts.includes(product);
+    const nextProducts = isSelected
+      ? selectedProducts.filter(selectedProduct => selectedProduct !== product)
+      : [...selectedProducts, product];
+
+    if (!isSelected && selectedProducts.length >= max_selected_product_count) {
+      showAlert({ message: '상품군은 최대 2개까지 선택할 수 있습니다.' });
+      return;
+    }
+
+    setPaymentData(prev => ({
+      ...prev,
+      productName: nextProducts.join(', '),
+    }));
+    setProductInfo(prev => ({
+      ...prev,
+      production1: nextProducts[0] || '',
+      production2: nextProducts[1] || '',
+    }));
+  };
+
   const updateProduct = (index, value) => {
     setProductInfo(prev => ({
       ...prev,
@@ -508,6 +543,7 @@ function AdDetail({ user }) {
   const teamLeadOptions = staffOptions.filter(staff => team_lead_levels.has(staff.level));
   const departmentHeadOptions = staffOptions.filter(staff => department_head_levels.has(staff.level));
   const orderedProductIndexes = [0, 5, 1, 6, 2, 7, 3, 8, 4, 9];
+  const selectedProducts = getSelectedProducts(paymentData.productName);
 
   return (
     <section className="ad_detail_block">
@@ -609,8 +645,8 @@ function AdDetail({ user }) {
                 <button
                   type="button"
                   key={product}
-                  className={paymentData.productName === product ? 'active' : ''}
-                  onClick={() => setPaymentData(prev => ({ ...prev, productName: product }))}
+                  className={selectedProducts.includes(product) ? 'active' : ''}
+                  onClick={() => handleProductToggle(product)}
                   disabled={isLoading.payment}
                 >
                   {product}
@@ -806,27 +842,19 @@ function AdDetail({ user }) {
                 ))}
               </select>
             </AdField>
-            <AdField label="제작사항-1">
-              <select
+            <AdField label="제작사항01">
+              <input
                 value={productInfo.production1}
-                onChange={e => setProductInfo(prev => ({ ...prev, production1: e.target.value }))}
-              >
-                <option value="">선택</option>
-                <option value="없음">없음</option>
-                <option value="진행">진행</option>
-                <option value="완료">완료</option>
-              </select>
+                readOnly
+                placeholder="상품군 선택 시 자동 입력"
+              />
             </AdField>
-            <AdField label="제작사항-2">
-              <select
+            <AdField label="제작사항02">
+              <input
                 value={productInfo.production2}
-                onChange={e => setProductInfo(prev => ({ ...prev, production2: e.target.value }))}
-              >
-                <option value="">선택</option>
-                <option value="없음">없음</option>
-                <option value="진행">진행</option>
-                <option value="완료">완료</option>
-              </select>
+                readOnly
+                placeholder="상품군 선택 시 자동 입력"
+              />
             </AdField>
             <AdField label="광고진행">
               <select

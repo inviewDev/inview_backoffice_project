@@ -1023,7 +1023,7 @@ function Dashboard({ user }) {
                 <col style={{ width: 50 }} />
                 <col style={{ width: 140 }} />
                 <col style={{ width: 100 }} />
-                <col style={{ width: 'auto' }} />
+                <col style={{ width: 200 }} />
                 <col style={{ width: 100 }} />
                 <col style={{ width: 200 }} />
                 <col style={{ width: 100 }} />

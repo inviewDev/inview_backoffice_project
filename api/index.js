@@ -32,6 +32,7 @@ const ROLE_OPTIONS = ['전체관리자', '관리자', '팀장', '사용자'];
 const STATUS_OPTIONS = ['가입대기', '재직', '퇴사'];
 const LEVEL_OPTIONS = ['대표', '파트장', '팀장', '과장', '대리', '주임', '사원'];
 const ADMIN_COMMENT_LEVELS = new Set(['대표', '파트장', '팀장']);
+const AD_LIST_ALL_ACCESS_LEVELS = new Set(['대표', '파트장', '팀장']);
 const MAX_PROFILE_IMAGE_SIZE = 2 * 1024 * 1024;
 const PROFILE_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const USER_DELETE_TRANSACTION_OPTIONS = {
@@ -100,12 +101,10 @@ function normalizeCardNumber(value) {
   if (!text) return { value: null };
 
   const digits = text.replace(/\D/g, '');
-  if (digits.length !== 16) {
-    return { error: '카드번호는 16자리로 입력해주세요.' };
-  }
+  if (!digits) return { value: text };
 
   return {
-    value: [0, 4, 8, 12].map(index => digits.slice(index, index + 4)).join('-'),
+    value: digits.match(/.{1,4}/g).join('-'),
   };
 }
 
@@ -419,6 +418,10 @@ function canEditAdPayment(user) {
 
 function canViewAd(user) {
   return Boolean(user?.id);
+}
+
+function canViewAllAdsInList(user) {
+  return isAdminRole(user?.role) && AD_LIST_ALL_ACCESS_LEVELS.has(user?.level);
 }
 
 function serializeAdComment(comment, currentUser) {
@@ -1265,7 +1268,10 @@ apiRouter.get('/ads', verifyToken, async (req, res) => {
       return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
     }
 
-    const accessFilter = targetUserId ? { userId: targetUserId } : {};
+    const canViewAllAds = canViewAllAdsInList(currentUser);
+    const accessFilter = canViewAllAds
+      ? (targetUserId ? { userId: targetUserId } : {})
+      : { userId: currentUser.id };
     const searchFilter = search
       ? {
           OR: [
@@ -1882,12 +1888,44 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
   const cardNumberResult = normalizeCardNumber(req.body.cardNumber);
   const paymentStatus = String(req.body.paymentStatus || '').trim();
   const installmentMonths = toOptionalString(req.body.installmentMonths);
+  const productName = toOptionalString(req.body.productName);
+  const selectedProductNames = String(productName || '')
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+  const productItems = normalizeProductItemSlots(req.body.productItems);
+  const managerUserId = req.body.managerUserId === undefined || req.body.managerUserId === ''
+    ? null
+    : parseInt(req.body.managerUserId, 10);
+  const teamLeadUserId = req.body.teamLeadUserId === undefined || req.body.teamLeadUserId === ''
+    ? null
+    : parseInt(req.body.teamLeadUserId, 10);
+  const departmentHeadUserId = req.body.departmentHeadUserId === undefined || req.body.departmentHeadUserId === ''
+    ? null
+    : parseInt(req.body.departmentHeadUserId, 10);
+  const fallbackTeamLead = toOptionalString(req.body.teamLead);
+  const fallbackDepartmentHead = toOptionalString(req.body.departmentHead);
+  const production1 = toOptionalString(req.body.production1);
+  const production2 = toOptionalString(req.body.production2);
+  const adProgress = toOptionalString(req.body.adProgress) || 'OFF';
+  const registrationUrl = toOptionalString(req.body.registrationUrl);
+  const titleText = toOptionalString(req.body.titleText);
+  const descriptionText = toOptionalString(req.body.descriptionText);
+  const advertiserAccount = toOptionalString(req.body.advertiserAccount);
+  const memo = toOptionalString(req.body.memo);
+  const fileName = toOptionalString(req.body.fileName);
   const taxInvoiceOptions = ['발행', '미발행'];
   const paymentMethodOptions = ['카드', '현금'];
   const paymentStatusOptions = ['결제대기', '결제승인', '매출취소', '위약금'];
 
   if (!Number.isInteger(adId)) {
     return res.status(400).json({ error: '광고 ID가 올바르지 않습니다.' });
+  }
+  if (!productName) {
+    return res.status(400).json({ error: '상품군을 선택해주세요.' });
+  }
+  if (selectedProductNames.length > 2) {
+    return res.status(400).json({ error: '상품군은 최대 2개까지 선택할 수 있습니다.' });
   }
   if (
     req.body.approvedAmount === undefined ||
@@ -1925,6 +1963,15 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
   if (!paymentStatusOptions.includes(paymentStatus)) {
     return res.status(400).json({ error: '유효하지 않은 결제상태입니다.' });
   }
+  if (req.body.managerUserId !== undefined && !Number.isInteger(managerUserId)) {
+    return res.status(400).json({ error: '담당자 정보가 올바르지 않습니다.' });
+  }
+  if (req.body.teamLeadUserId !== undefined && req.body.teamLeadUserId !== '' && !Number.isInteger(teamLeadUserId)) {
+    return res.status(400).json({ error: '담당팀장 정보가 올바르지 않습니다.' });
+  }
+  if (req.body.departmentHeadUserId !== undefined && req.body.departmentHeadUserId !== '' && !Number.isInteger(departmentHeadUserId)) {
+    return res.status(400).json({ error: '담당부장 정보가 올바르지 않습니다.' });
+  }
 
   try {
     const currentUser = await getCurrentUserAccess(req.user.id);
@@ -1939,17 +1986,56 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
       where: { id: adId },
       select: {
         id: true,
+        userId: true,
+        cardNumber: true,
       },
     });
     if (!payment) {
       return res.status(404).json({ error: '광고 정보를 찾을 수 없습니다.' });
     }
 
+    const [managerUser, teamLeadUser, departmentHeadUser] = await Promise.all([
+      managerUserId
+        ? prisma.user.findUnique({
+            where: { id: managerUserId },
+            select: { id: true, name: true, team: true, department: true, status: true },
+          })
+        : Promise.resolve(null),
+      teamLeadUserId
+        ? prisma.user.findUnique({
+            where: { id: teamLeadUserId },
+            select: { id: true, name: true, level: true, status: true },
+          })
+        : Promise.resolve(null),
+      departmentHeadUserId
+        ? prisma.user.findUnique({
+            where: { id: departmentHeadUserId },
+            select: { id: true, name: true, level: true, status: true },
+          })
+        : Promise.resolve(null),
+    ]);
+
+    if (managerUserId && !managerUser) {
+      return res.status(400).json({ error: '선택한 담당자를 찾을 수 없습니다.' });
+    }
+    if (teamLeadUserId && !teamLeadUser) {
+      return res.status(400).json({ error: '선택한 담당팀장을 찾을 수 없습니다.' });
+    }
+    if (departmentHeadUserId && !departmentHeadUser) {
+      return res.status(400).json({ error: '선택한 담당부장을 찾을 수 없습니다.' });
+    }
+
     const vat = Math.round(approvedAmount / 11);
     const netProfit = Math.max(approvedAmount - vat - spendingCost, 0);
+    const nextCardNumber = paymentMethod === '카드'
+      ? cardNumberResult.value || payment.cardNumber || null
+      : null;
+    const nextTeamLead = teamLeadUser ? teamLeadUser.name : fallbackTeamLead;
+    const nextDepartmentHead = departmentHeadUser ? departmentHeadUser.name : fallbackDepartmentHead;
     const updatedPayment = await prisma.payment.update({
       where: { id: adId },
       data: {
+        productName,
         approvedAmount,
         startDate,
         endDate,
@@ -1960,14 +2046,35 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
         cardCompany: paymentMethod === '카드' ? cardCompany : null,
         cardExpiryMonth: paymentMethod === '카드' ? cardExpiryMonth : null,
         cardExpiryYear: paymentMethod === '카드' ? cardExpiryYear : null,
-        cardNumber: paymentMethod === '카드' ? cardNumberResult.value : null,
+        cardNumber: nextCardNumber,
         paymentStatus,
         installmentMonths: paymentMethod === '카드' ? installmentMonths : null,
         vat,
         netProfit,
+        ...(managerUser
+          ? {
+              userId: managerUser.id,
+              manager: managerUser.name,
+              managerTeam: managerUser.team,
+            }
+          : {}),
+        teamLead: nextTeamLead,
+        departmentHead: nextDepartmentHead,
+        production1,
+        production2,
+        adProgress,
+        productItems,
+        registrationUrl,
+        titleText,
+        descriptionText,
+        advertiserAccount,
+        memo,
+        fileName,
       },
       select: {
         id: true,
+        userId: true,
+        productName: true,
         approvedAmount: true,
         startDate: true,
         endDate: true,
@@ -1983,13 +2090,39 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
         installmentMonths: true,
         vat: true,
         netProfit: true,
+        manager: true,
+        managerTeam: true,
+        teamLead: true,
+        departmentHead: true,
+        production1: true,
+        production2: true,
+        adProgress: true,
+        productItems: true,
+        registrationUrl: true,
+        titleText: true,
+        descriptionText: true,
+        advertiserAccount: true,
+        memo: true,
+        fileName: true,
+        user: {
+          select: {
+            name: true,
+            team: true,
+            department: true,
+          },
+        },
       },
     });
 
     res.json({
-      message: '결제정보가 수정되었습니다.',
+      message: '광고 정보가 수정되었습니다.',
       payment: {
         id: updatedPayment.id,
+        userId: updatedPayment.userId,
+        manager: updatedPayment.manager || updatedPayment.user?.name || '',
+        team: updatedPayment.managerTeam || updatedPayment.user?.team || '',
+        department: updatedPayment.user?.department || '',
+        productName: updatedPayment.productName,
         approvedAmount: updatedPayment.approvedAmount,
         contractStartDate: toDateString(updatedPayment.startDate),
         contractEndDate: toDateString(updatedPayment.endDate),
@@ -2005,6 +2138,18 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
         installmentMonths: updatedPayment.installmentMonths || '',
         vat: updatedPayment.vat,
         netProfit: updatedPayment.netProfit,
+        teamLead: updatedPayment.teamLead || '',
+        departmentHead: updatedPayment.departmentHead || '',
+        production1: updatedPayment.production1 || '',
+        production2: updatedPayment.production2 || '',
+        productItems: getPaymentProductItemSlots(updatedPayment),
+        adProgress: updatedPayment.adProgress,
+        registrationUrl: updatedPayment.registrationUrl || '',
+        titleText: updatedPayment.titleText || '',
+        descriptionText: updatedPayment.descriptionText || '',
+        advertiserAccount: updatedPayment.advertiserAccount || '',
+        memo: updatedPayment.memo || '',
+        fileName: updatedPayment.fileName || '',
       },
     });
   } catch (error) {

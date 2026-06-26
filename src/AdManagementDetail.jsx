@@ -47,6 +47,9 @@ const CARD_COMPANY_OPTIONS = [
 ];
 const INSTALLMENT_MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => `${index + 1}개월`);
 const CARD_NUMBER_SEGMENTS = [4, 4, 4, 4];
+const MAX_SELECTED_PRODUCT_COUNT = 2;
+const TEAM_LEAD_LEVELS = new Set(['파트장', '팀장']);
+const DEPARTMENT_HEAD_LEVELS = new Set(['대표', '파트장']);
 const currentYear = new Date().getFullYear();
 const contractYearOptions = Array.from({ length: 21 }, (_, index) => currentYear - 10 + index);
 const COMMENT_PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
@@ -96,6 +99,43 @@ function getSelectOptions(options, currentValue) {
   return [...options, value];
 }
 
+function getProductNames(value) {
+  return String(value || '')
+    .split(',')
+    .map(product => product.trim())
+    .filter(Boolean);
+}
+
+function getStaffIdByName(staffOptions, name) {
+  const targetName = String(name || '').trim();
+  if (!targetName) return '';
+  const staff = staffOptions.find(item => item.name === targetName);
+  return staff ? String(staff.id) : '';
+}
+
+function createDetailEditForm(ad = {}) {
+  return {
+    productNames: getProductNames(ad.productName),
+    managerUserId: ad.userId ? String(ad.userId) : '',
+    manager: ad.manager || '',
+    managerTeam: ad.team || '',
+    teamLeadUserId: '',
+    teamLead: ad.teamLead || '',
+    departmentHeadUserId: '',
+    departmentHead: ad.departmentHead || '',
+    production1: ad.production1 || '',
+    production2: ad.production2 || '',
+    adProgress: ad.adProgress || '',
+    productItems: Array.from({ length: 10 }, (_, index) => ad.productItems?.[index] || ''),
+    registrationUrl: ad.registrationUrl || '',
+    titleText: ad.titleText || '',
+    descriptionText: ad.descriptionText || '',
+    advertiserAccount: ad.advertiserAccount || '',
+    memo: ad.memo || '',
+    fileName: ad.fileName || '',
+  };
+}
+
 function splitSegmentedValue(value, segments) {
   const text = String(value || '');
   const parts = text.includes('-') ? text.split('-') : [];
@@ -114,7 +154,11 @@ function splitSegmentedValue(value, segments) {
 }
 
 function joinSegmentedValue(parts) {
-  return parts.every(part => !part) ? '' : parts.join('-');
+  const normalizedParts = [...parts];
+  while (normalizedParts.length > 0 && !normalizedParts[normalizedParts.length - 1]) {
+    normalizedParts.pop();
+  }
+  return normalizedParts.length ? normalizedParts.join('-') : '';
 }
 
 function renderContractDateHeader({ date, changeYear, changeMonth }) {
@@ -216,7 +260,20 @@ function SegmentedInput({ value, segments, className = '', disabled, onChange })
   );
 }
 
-function Chip({ active, children }) {
+function Chip({ active, children, onClick, disabled }) {
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        className={`ad_view_product_chip ${active ? 'active' : ''}`}
+        onClick={onClick}
+        disabled={disabled}
+      >
+        {children}
+      </button>
+    );
+  }
+
   return <span className={`ad_view_product_chip ${active ? 'active' : ''}`}>{children}</span>;
 }
 
@@ -407,6 +464,7 @@ function AdManagementDetail({ user }) {
   const [smsMessage, setSmsMessage] = useState('');
   const [smsError, setSmsError] = useState('');
   const [isSavingPayment, setIsSavingPayment] = useState(false);
+  const [staffOptions, setStaffOptions] = useState([]);
   const [paymentEditForm, setPaymentEditForm] = useState({
     approvedAmount: '',
     contractStartDate: null,
@@ -422,6 +480,7 @@ function AdManagementDetail({ user }) {
     paymentStatus: '결제대기',
     installmentMonths: '',
   });
+  const [detailEditForm, setDetailEditForm] = useState(() => createDetailEditForm());
   const [updateModal, setUpdateModal] = useState({
     show: false,
     mode: 'confirm',
@@ -465,6 +524,7 @@ function AdManagementDetail({ user }) {
       }
 
       setAd(data.ad);
+      setDetailEditForm(createDetailEditForm(data.ad));
       setCommentPagination({
         pageIndex: Math.max((data.ad.commentPagination?.page || 1) - 1, 0),
         pageSize: data.ad.commentPagination?.pageSize || 5,
@@ -505,6 +565,28 @@ function AdManagementDetail({ user }) {
   useEffect(() => {
     fetchAd();
   }, [fetchAd]);
+
+  useEffect(() => {
+    const loadStaffOptions = async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+        const res = await fetch('/api/staff-options', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await res.json();
+
+        if (res.ok && Array.isArray(data.staff)) {
+          setStaffOptions(data.staff);
+        }
+      } catch (err) {
+        console.error('Load staff options error:', err);
+      }
+    };
+
+    loadStaffOptions();
+  }, []);
 
   const fetchComments = useCallback(async (pageIndex, pageSize, scope = 'public') => {
     const isAdminScope = scope === 'admin';
@@ -583,6 +665,68 @@ function AdManagementDetail({ user }) {
     };
   }, [paymentEditForm.approvedAmount, paymentEditForm.spendingCost]);
 
+  const handleDetailProductToggle = product => {
+    const isSelected = detailEditForm.productNames.includes(product);
+    const nextProducts = isSelected
+      ? detailEditForm.productNames.filter(selectedProduct => selectedProduct !== product)
+      : [...detailEditForm.productNames, product];
+
+    if (!isSelected && detailEditForm.productNames.length >= MAX_SELECTED_PRODUCT_COUNT) {
+      setUpdateModal({
+        show: true,
+        mode: 'result',
+        title: '입력 확인',
+        message: '상품군은 최대 2개까지 선택할 수 있습니다.',
+        variant: 'warning',
+      });
+      return;
+    }
+
+    setDetailEditForm(prev => ({
+      ...prev,
+      productNames: nextProducts,
+      production1: nextProducts[0] || '',
+      production2: nextProducts[1] || '',
+    }));
+  };
+
+  const updateDetailProductItem = (index, value) => {
+    setDetailEditForm(prev => ({
+      ...prev,
+      productItems: prev.productItems.map((item, itemIndex) => (
+        itemIndex === index ? value : item
+      )),
+    }));
+  };
+
+  const handleManagerChange = value => {
+    const staff = staffOptions.find(item => String(item.id) === value);
+    setDetailEditForm(prev => ({
+      ...prev,
+      managerUserId: value,
+      manager: staff?.name || '',
+      managerTeam: staff?.team || '',
+    }));
+  };
+
+  const handleTeamLeadChange = value => {
+    const staff = staffOptions.find(item => String(item.id) === value);
+    setDetailEditForm(prev => ({
+      ...prev,
+      teamLeadUserId: value,
+      teamLead: staff?.name || '',
+    }));
+  };
+
+  const handleDepartmentHeadChange = value => {
+    const staff = staffOptions.find(item => String(item.id) === value);
+    setDetailEditForm(prev => ({
+      ...prev,
+      departmentHeadUserId: value,
+      departmentHead: staff?.name || '',
+    }));
+  };
+
   const handleSendSms = async () => {
     if (!ad) return;
 
@@ -630,6 +774,12 @@ function AdManagementDetail({ user }) {
   };
 
   const getPaymentEditValidation = () => {
+    if (detailEditForm.productNames.length === 0) {
+      return '상품군을 선택해주세요.';
+    }
+    if (detailEditForm.productNames.length > MAX_SELECTED_PRODUCT_COUNT) {
+      return '상품군은 최대 2개까지 선택할 수 있습니다.';
+    }
     if (!paymentEditForm.approvedAmount) {
       return '승인금액을 입력해주세요.';
     }
@@ -647,6 +797,9 @@ function AdManagementDetail({ user }) {
     }
     if (!paymentEditForm.paymentMethod) {
       return '결제구분을 선택해주세요.';
+    }
+    if (!detailEditForm.managerUserId) {
+      return '담당자를 선택해주세요.';
     }
 
     return '';
@@ -671,7 +824,7 @@ function AdManagementDetail({ user }) {
       show: true,
       mode: 'confirm',
       title: '광고 수정',
-      message: '수정한 결제정보를 저장하시겠습니까?',
+      message: '수정한 광고 정보를 저장하시겠습니까?',
       variant: 'warning',
     });
   };
@@ -691,6 +844,7 @@ function AdManagementDetail({ user }) {
           approvedAmount: paymentEditForm.approvedAmount,
           contractStartDate: formatDateValue(paymentEditForm.contractStartDate),
           contractEndDate: formatDateValue(paymentEditForm.contractEndDate),
+          productName: detailEditForm.productNames.join(', '),
           taxInvoice: paymentEditForm.taxInvoice,
           approvalNumber: paymentEditForm.approvalNumber,
           spendingCost: paymentEditForm.spendingCost,
@@ -701,6 +855,21 @@ function AdManagementDetail({ user }) {
           cardNumber: paymentEditForm.cardNumber,
           paymentStatus: paymentEditForm.paymentStatus,
           installmentMonths: paymentEditForm.installmentMonths,
+          managerUserId: detailEditForm.managerUserId,
+          teamLeadUserId: detailEditForm.teamLeadUserId || getStaffIdByName(staffOptions, detailEditForm.teamLead),
+          departmentHeadUserId: detailEditForm.departmentHeadUserId || getStaffIdByName(staffOptions, detailEditForm.departmentHead),
+          teamLead: detailEditForm.teamLead,
+          departmentHead: detailEditForm.departmentHead,
+          production1: detailEditForm.production1,
+          production2: detailEditForm.production2,
+          adProgress: detailEditForm.adProgress,
+          productItems: detailEditForm.productItems,
+          registrationUrl: detailEditForm.registrationUrl,
+          titleText: detailEditForm.titleText,
+          descriptionText: detailEditForm.descriptionText,
+          advertiserAccount: detailEditForm.advertiserAccount,
+          memo: detailEditForm.memo,
+          fileName: detailEditForm.fileName,
         }),
       });
       const data = await res.json();
@@ -729,11 +898,15 @@ function AdManagementDetail({ user }) {
         paymentStatus: data.payment.paymentStatus,
         installmentMonths: data.payment.installmentMonths || '',
       }));
+      setDetailEditForm(createDetailEditForm({
+        ...ad,
+        ...data.payment,
+      }));
       setUpdateModal({
         show: true,
         mode: 'result',
         title: '수정 완료',
-        message: data.message || '결제정보가 수정되었습니다.',
+        message: data.message || '광고 정보가 수정되었습니다.',
         variant: 'success',
       });
     } catch (err) {
@@ -974,6 +1147,13 @@ function AdManagementDetail({ user }) {
   const smsHistories = (ad.smsHistories || []).slice(0, 5);
   const agreementPreviewUrl = `${window.location.origin}/contracts/ad-management/${ad.id}/agreement-preview`;
   const productItems = Array.isArray(ad.productItems) ? ad.productItems : [];
+  const selectedAdProducts = getProductNames(ad.productName);
+  const editableProductNames = canEditPayment ? detailEditForm.productNames : selectedAdProducts;
+  const managerOptions = staffOptions;
+  const teamLeadOptions = staffOptions.filter(staff => TEAM_LEAD_LEVELS.has(staff.level));
+  const departmentHeadOptions = staffOptions.filter(staff => DEPARTMENT_HEAD_LEVELS.has(staff.level));
+  const teamLeadSelectValue = detailEditForm.teamLeadUserId || getStaffIdByName(teamLeadOptions, detailEditForm.teamLead);
+  const departmentHeadSelectValue = detailEditForm.departmentHeadUserId || getStaffIdByName(departmentHeadOptions, detailEditForm.departmentHead);
   const hasSmsSendHistory = ad.smsContractStatus === '발송' || Boolean(ad.latestSmsToken) || smsHistories.length > 0;
   const smsSendButtonText = isSendingSms ? '전송중' : hasSmsSendHistory ? '재발송' : '발송';
 
@@ -998,7 +1178,14 @@ function AdManagementDetail({ user }) {
         <div className="ad_view_payment">
           <div className="ad_view_products">
             {PRODUCTS.map(product => (
-              <Chip key={product} active={ad.productName === product}>{product}</Chip>
+              <Chip
+                key={product}
+                active={editableProductNames.includes(product)}
+                onClick={canEditPayment ? () => handleDetailProductToggle(product) : undefined}
+                disabled={isSavingPayment}
+              >
+                {product}
+              </Chip>
             ))}
           </div>
 
@@ -1287,21 +1474,115 @@ function AdManagementDetail({ user }) {
       <div className="ad_view_section_title">상품정보등록</div>
       <section className="ad_view_panel">
         <div className="ad_view_grid three compact">
-          <Field label="담당자" value={ad.manager} />
-          <Field label="담당팀장" value={ad.teamLead} />
-          <Field label="담당부장" value={ad.departmentHead} />
-          <Field label="제작사항-1" value={ad.production1} />
-          <Field label="제작사항-2" value={ad.production2} />
-          <Field label="광고진행" value={ad.adProgress} />
+          {canEditPayment ? (
+            <EditableField label="담당자">
+              <select
+                value={detailEditForm.managerUserId}
+                onChange={event => handleManagerChange(event.target.value)}
+                disabled={isSavingPayment}
+              >
+                <option value="">선택</option>
+                {managerOptions.map(staff => (
+                  <option value={staff.id} key={staff.id}>
+                    {staff.name} ({staff.team || '미지정'})
+                  </option>
+                ))}
+              </select>
+            </EditableField>
+          ) : (
+            <Field label="담당자" value={ad.manager} />
+          )}
+          {canEditPayment ? (
+            <EditableField label="담당팀장">
+              <select
+                value={teamLeadSelectValue}
+                onChange={event => handleTeamLeadChange(event.target.value)}
+                disabled={isSavingPayment}
+              >
+                <option value="">없음</option>
+                {teamLeadOptions.map(staff => (
+                  <option value={staff.id} key={staff.id}>{staff.name}</option>
+                ))}
+              </select>
+            </EditableField>
+          ) : (
+            <Field label="담당팀장" value={ad.teamLead} />
+          )}
+          {canEditPayment ? (
+            <EditableField label="담당부장">
+              <select
+                value={departmentHeadSelectValue}
+                onChange={event => handleDepartmentHeadChange(event.target.value)}
+                disabled={isSavingPayment}
+              >
+                <option value="">없음</option>
+                {departmentHeadOptions.map(staff => (
+                  <option value={staff.id} key={staff.id}>{staff.name}</option>
+                ))}
+              </select>
+            </EditableField>
+          ) : (
+            <Field label="담당부장" value={ad.departmentHead} />
+          )}
+          {canEditPayment ? (
+            <EditableField label="제작사항01">
+              <input
+                type="text"
+                value={detailEditForm.production1}
+                onChange={event => setDetailEditForm(prev => ({ ...prev, production1: event.target.value }))}
+                disabled={isSavingPayment}
+              />
+            </EditableField>
+          ) : (
+            <Field label="제작사항01" value={ad.production1} />
+          )}
+          {canEditPayment ? (
+            <EditableField label="제작사항02">
+              <input
+                type="text"
+                value={detailEditForm.production2}
+                onChange={event => setDetailEditForm(prev => ({ ...prev, production2: event.target.value }))}
+                disabled={isSavingPayment}
+              />
+            </EditableField>
+          ) : (
+            <Field label="제작사항02" value={ad.production2} />
+          )}
+          {canEditPayment ? (
+            <EditableField label="광고진행">
+              <select
+                value={detailEditForm.adProgress}
+                onChange={event => setDetailEditForm(prev => ({ ...prev, adProgress: event.target.value }))}
+                disabled={isSavingPayment}
+              >
+                <option value="">선택</option>
+                <option value="OFF">OFF</option>
+                <option value="ON">ON</option>
+              </select>
+            </EditableField>
+          ) : (
+            <Field label="광고진행" value={ad.adProgress} />
+          )}
         </div>
 
         <div className="ad_view_products_grid">
           {orderedProductIndexes.map(index => (
-            <Field
-              label={`상품${index + 1}`}
-              value={productItems[index]}
-              key={`product_${index + 1}`}
-            />
+            canEditPayment ? (
+              <EditableField label={`상품${index + 1}`} key={`product_${index + 1}`}>
+                <input
+                  type="text"
+                  value={detailEditForm.productItems[index] || ''}
+                  onChange={event => updateDetailProductItem(index, event.target.value)}
+                  disabled={isSavingPayment}
+                />
+              </EditableField>
+            ) : (
+              <Field
+                label={`상품${index + 1}`}
+                value={productItems[index]}
+                key={`product_${index + 1}`}
+              />
+            )
           ))}
         </div>
       </section>
@@ -1309,12 +1590,78 @@ function AdManagementDetail({ user }) {
       <div className="ad_view_section_title">기타정보등록</div>
       <section className="ad_view_panel">
         <div className="ad_view_grid one">
-          <Field label="등록URL" value={ad.registrationUrl} />
-          <Field label="제목문구" value={ad.titleText} />
-          <Field label="설명문구" value={ad.descriptionText} />
-          <Field label="광고주계정" value={ad.advertiserAccount} />
-          <Field label="비고" value={ad.memo} />
-          <Field label="첨부파일" value={ad.fileName} />
+          {canEditPayment ? (
+            <EditableField label="등록URL" wide>
+              <input
+                type="text"
+                value={detailEditForm.registrationUrl}
+                onChange={event => setDetailEditForm(prev => ({ ...prev, registrationUrl: event.target.value }))}
+                disabled={isSavingPayment}
+              />
+            </EditableField>
+          ) : (
+            <Field label="등록URL" value={ad.registrationUrl} />
+          )}
+          {canEditPayment ? (
+            <EditableField label="제목문구" wide>
+              <input
+                type="text"
+                value={detailEditForm.titleText}
+                onChange={event => setDetailEditForm(prev => ({ ...prev, titleText: event.target.value }))}
+                disabled={isSavingPayment}
+              />
+            </EditableField>
+          ) : (
+            <Field label="제목문구" value={ad.titleText} />
+          )}
+          {canEditPayment ? (
+            <EditableField label="설명문구" wide>
+              <input
+                type="text"
+                value={detailEditForm.descriptionText}
+                onChange={event => setDetailEditForm(prev => ({ ...prev, descriptionText: event.target.value }))}
+                disabled={isSavingPayment}
+              />
+            </EditableField>
+          ) : (
+            <Field label="설명문구" value={ad.descriptionText} />
+          )}
+          {canEditPayment ? (
+            <EditableField label="광고주계정" wide>
+              <input
+                type="text"
+                value={detailEditForm.advertiserAccount}
+                onChange={event => setDetailEditForm(prev => ({ ...prev, advertiserAccount: event.target.value }))}
+                disabled={isSavingPayment}
+              />
+            </EditableField>
+          ) : (
+            <Field label="광고주계정" value={ad.advertiserAccount} />
+          )}
+          {canEditPayment ? (
+            <EditableField label="비고" wide>
+              <input
+                type="text"
+                value={detailEditForm.memo}
+                onChange={event => setDetailEditForm(prev => ({ ...prev, memo: event.target.value }))}
+                disabled={isSavingPayment}
+              />
+            </EditableField>
+          ) : (
+            <Field label="비고" value={ad.memo} />
+          )}
+          {canEditPayment ? (
+            <EditableField label="첨부파일" wide>
+              <input
+                type="text"
+                value={detailEditForm.fileName}
+                onChange={event => setDetailEditForm(prev => ({ ...prev, fileName: event.target.value }))}
+                disabled={isSavingPayment}
+              />
+            </EditableField>
+          ) : (
+            <Field label="첨부파일" value={ad.fileName} />
+          )}
         </div>
       </section>
 
