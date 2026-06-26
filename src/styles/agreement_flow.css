@@ -23,9 +23,24 @@
 .agreement_products { margin-top: 18px; border-top: 1px solid #dbe2ef; padding-top: 18px; }
 .agreement_products h2 { margin: 0 0 10px; color: #172033; font-size: 17px; font-weight: 900; }
 .agreement_products p { margin: 0 0 8px; border: 1px solid #dbe2ef; border-radius: 6px; background: #fff; color: #263247; font-size: 14px; font-weight: 700; line-height: 1.6; padding: 10px 12px; }
-.agreement_notice { margin-top: 18px; border-radius: 8px; background: #eef4ff; padding: 14px; }
+.agreement_notice {background: #eef4ff; padding: 14px; }
 .agreement_notice p { margin: 0 0 6px; color: #35506f; font-size: 14px; font-weight: 700; line-height: 1.6; }
 .agreement_notice p:last-child { margin-bottom: 0; }
+.agreement_contract_footer { margin-top: 18px; border: 1px solid #dbe2ef; border-radius: 8px; background: #fff; overflow: hidden; }
+.agreement_contract_disclaimer { border-bottom: 1px solid #dbe2ef; background: #fff7fb; padding: 16px 18px; }
+.agreement_contract_disclaimer p { margin: 0 0 8px; color: #344054; font-size: 14px; font-weight: 700; line-height: 1.65; word-break: keep-all; }
+.agreement_contract_disclaimer p:last-child { margin-bottom: 0; }
+.agreement_signature { border-bottom: 1px solid #dbe2ef; background: #fff; padding: 18px; }
+.agreement_signature_date { margin-bottom: 12px; text-align: center; color: #172033; font-size: 18px; font-weight: 900; }
+.agreement_signature_body { display: flex; width: 100%; max-width: 430px; align-items: center; justify-content: flex-end; gap: 18px; margin-left: auto; }
+.agreement_signature_body img { width: 100px; height: 100px; object-fit: contain; flex: 0 0 auto; }
+.agreement_signature_text { min-width: 0; text-align: right; }
+.agreement_signature_text p { margin: 0 0 8px; color: #172033; font-size: 16px; font-weight: 900; line-height: 1.45; }
+.agreement_signature_text p:last-child { margin-bottom: 0; }
+.agreement_company_info { border-bottom: 1px solid #dbe2ef; background: #f8faff; padding: 14px 18px; text-align: center; }
+.agreement_company_info p { margin: 0 0 6px; color: #344054; font-size: 14px; font-weight: 800; line-height: 1.55; word-break: keep-all; }
+.agreement_company_info p:last-child { margin-bottom: 0; }
+.agreement_contract_last_info { margin: 0; background: #fff; color: #3e4858; font-size: 14px; font-weight: 800; line-height: 1.6; padding: 14px 18px; word-break: keep-all; }
 .agreement_actions { display: flex; justify-content: center; gap: 10px; margin-top: 22px; }
 .agreement_actions.split { justify-content: space-between; }
 .agreement_actions button,
@@ -40,6 +55,9 @@
   .agreement_contract_field { grid-template-columns: minmax(0, 1fr); }
   .agreement_contract_field span { min-height: 38px; justify-content: flex-start; border-right: 1px solid #cfd8e7; border-radius: 6px 6px 0 0; padding: 0 12px; }
   .agreement_contract_field strong { min-height: 42px; border-radius: 0 0 6px 6px; }
+  .agreement_signature_body { justify-content: center; gap: 12px; margin: 0 auto; }
+  .agreement_signature_body img { width: 82px; height: 82px; }
+  .agreement_signature_text p { font-size: 14px; }
   .agreement_actions,
   .agreement_actions.split { display: grid; grid-template-columns: minmax(0, 1fr); }
   .agreement_actions button,

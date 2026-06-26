@@ -150,6 +150,12 @@ function formatDateTime(value) {
   return date.toLocaleString('ko-KR', { hour12: false });
 }
 
+function formatContractDate(value = new Date()) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`;
+}
+
 function AgreementLayout({ children }) {
   return (
     <main className="agreement_page">
@@ -211,6 +217,41 @@ function TermsContent({ companyName }) {
   );
 }
 
+function ContractFooter() {
+  return (
+    <div className="agreement_contract_footer">
+      <div className="agreement_contract_disclaimer">
+        <p>'(주)아이앤뷰커뮤니케이션'는 N사, D사, G사 등의 포털과 파트너사 및 제휴를 하는 별개의 마케팅 대행사입니다.</p>
+        <p>N사, D사, G사의 포털 키워드광고 대행 서비스는 정액제 형태가 아닌 CPC(클릭당과금) 방식이며 과금 비용은 '(주)아이앤뷰커뮤니케이션'에서 부담합니다. 또한, 실시간 입찰 방식으로 인해 고정적인 순위 보장이 불가능합니다.</p>
+        <p>충전 금액 별도 기재 시 해당 금액만큼만 진행됩니다. '(주)아이앤뷰커뮤니케이션'에서 판매하는 홈페이지 솔루션은 광고주님들에게 다양한 프로그램 부가서비스를 지원해 드리고자 주문 제작형으로 제공해 드리고 있습니다.</p>
+        <p>임대형은 프로그램 소스 수정 불가, 외부 FTP 불가(이미지 관련 내역만 제공, 실질적인 파일에 관련된 내역은 제공하지 않음), DB 직접 접근 불가, 타사 호스팅 사용 불가하므로 이 점 유의해주시길 바랍니다.</p>
+      </div>
+
+      <div className="agreement_signature">
+        <div className="agreement_signature_date">{formatContractDate()}</div>
+        <div className="agreement_signature_body">
+          <div className="agreement_signature_text">
+            <p>(주)아이앤뷰커뮤니케이션</p>
+            <p>대 표 이 사&nbsp;&nbsp;&nbsp;안성민, 서인섭</p>
+          </div>
+          <img src="/img/boss_stamp.jpg" alt="(주)아이앤뷰커뮤니케이션 직인" />
+        </div>
+      </div>
+
+      <div className="agreement_company_info">
+        <p>(주)아이앤뷰커뮤니케이션 858-87-01471 서울특별시 마포구 상암동 1607 YTN뉴스퀘어 13층 (주)아이앤뷰커뮤니케이션</p>
+        <p>고객센터 : 02-6956-9091</p>
+      </div>
+
+      <div className="agreement_notice">
+        <p>본 계약서는 고객의 휴대폰으로 발송된 고유 링크를 통해 동의 처리됩니다.</p>
+        <p>동의 일시와 접속 IP는 계약 확인 목적으로 저장될 수 있습니다.</p>
+        <p>약관 및 계약서에 명시되지 않은 사항은 진행되지 않으며, 이와 관련하여 당사에서는 일체의 책임을 지지 않습니다.</p>
+      </div>
+    </div>
+  );
+}
+
 function ContractContent({ contract }) {
   const productItems = contract?.productItems?.length
     ? contract.productItems
@@ -242,12 +283,7 @@ function ContractContent({ contract }) {
           <p>등록된 상품 구성이 없습니다.</p>
         )}
       </div>
-
-      <div className="agreement_notice">
-        <p>본 계약서는 고객의 휴대폰으로 발송된 고유 링크를 통해 동의 처리됩니다.</p>
-        <p>동의 일시와 접속 IP는 계약 확인 목적으로 저장될 수 있습니다.</p>
-        <p>약관 및 계약서에 명시되지 않은 사항은 진행되지 않으며, 이와 관련하여 당사에서는 일체의 책임을 지지 않습니다.</p>
-      </div>
+      <ContractFooter />
     </section>
   );
 }
