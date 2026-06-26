@@ -100,6 +100,9 @@ model Payment {
   approvalNumber      String?
   paymentStatus       String   @default("결제대기")
   cardCompany         String?
+  cardExpiryMonth     String?
+  cardExpiryYear      String?
+  cardNumber          String?
   installmentMonths   String?
   manager             String?
   managerTeam         String?
@@ -130,16 +133,18 @@ model Payment {
 }
 
 model AdComment {
-  id        Int      @id @default(autoincrement())
-  paymentId Int
-  userId    Int
-  content   String   @db.Text
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  payment   Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  user      User     @relation("UserAdComments", fields: [userId], references: [id], onDelete: Cascade)
+  id          Int      @id @default(autoincrement())
+  paymentId   Int
+  userId      Int
+  content     String   @db.Text
+  isAdminOnly Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  payment     Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  user        User     @relation("UserAdComments", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([paymentId, createdAt])
+  @@index([paymentId, isAdminOnly, createdAt])
   @@index([userId])
   @@map("AdComment")
 }

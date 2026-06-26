@@ -31,6 +31,7 @@ apiRouter.use((req, res, next) => {
 const ROLE_OPTIONS = ['전체관리자', '관리자', '팀장', '사용자'];
 const STATUS_OPTIONS = ['가입대기', '재직', '퇴사'];
 const LEVEL_OPTIONS = ['대표', '파트장', '팀장', '과장', '대리', '주임', '사원'];
+const ADMIN_COMMENT_LEVELS = new Set(['대표', '파트장', '팀장']);
 const MAX_PROFILE_IMAGE_SIZE = 2 * 1024 * 1024;
 const PROFILE_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const USER_DELETE_TRANSACTION_OPTIONS = {
@@ -41,6 +42,10 @@ const ACCESS_TOKEN_EXPIRES_IN = '5h';
 
 function isAdminRole(role) {
   return role === '전체관리자' || role === '관리자';
+}
+
+function canAccessAdminComments(user) {
+  return ADMIN_COMMENT_LEVELS.has(user?.level) || user?.role === '팀장' || isAdminRole(user?.role);
 }
 
 function canAccessUser(req, userId) {
@@ -88,6 +93,37 @@ function toMoneyNumber(value) {
   if (value === undefined || value === null || value === '') return 0;
   const number = Number(String(value).replace(/[^\d.-]/g, ''));
   return Number.isFinite(number) ? number : 0;
+}
+
+function normalizeCardNumber(value) {
+  const text = toOptionalString(value);
+  if (!text) return { value: null };
+
+  const digits = text.replace(/\D/g, '');
+  if (digits.length !== 16) {
+    return { error: '카드번호는 16자리로 입력해주세요.' };
+  }
+
+  return {
+    value: [0, 4, 8, 12].map(index => digits.slice(index, index + 4)).join('-'),
+  };
+}
+
+function normalizeCardExpiryMonth(value) {
+  const text = toOptionalString(value);
+  if (!text) return null;
+
+  const digits = text.replace(/\D/g, '').slice(0, 2);
+  const month = Number(digits);
+  if (!month || month < 1 || month > 12) return text;
+
+  return String(month).padStart(2, '0');
+}
+
+function normalizeCardExpiryYear(value) {
+  const text = toOptionalString(value);
+  if (!text) return null;
+  return text.replace(/\D/g, '').slice(0, 2) || null;
 }
 
 function normalizeProductItems(value) {
@@ -389,6 +425,7 @@ function serializeAdComment(comment, currentUser) {
   return {
     id: comment.id,
     userId: comment.userId,
+    isAdminOnly: Boolean(comment.isAdminOnly),
     author: comment.user?.name || '사용자',
     authorProfileImage: comment.user?.profileImage || '',
     content: comment.content,
@@ -1135,6 +1172,19 @@ apiRouter.post('/payment', verifyToken, async (req, res) => {
     const vat = Math.round(approvedAmount / 11);
     const netProfit = Math.max(approvedAmount - vat - spendingCost, 0);
     const productItems = normalizeProductItems(productInfo.products);
+    const cardNumberResult = normalizeCardNumber(
+      paymentDetail.cardNumber ||
+      [
+        paymentDetail.cardNumber1,
+        paymentDetail.cardNumber2,
+        paymentDetail.cardNumber3,
+        paymentDetail.cardNumber4,
+      ].filter(Boolean).join('-')
+    );
+    if (cardNumberResult.error) {
+      return res.status(400).json({ error: cardNumberResult.error });
+    }
+    const isCardPayment = paymentMethod === '카드';
 
     const payment = await prisma.payment.create({
       data: {
@@ -1152,8 +1202,11 @@ apiRouter.post('/payment', verifyToken, async (req, res) => {
         netProfit,
         approvalNumber: toOptionalString(paymentDetail.approvalNumber),
         paymentStatus: toOptionalString(paymentDetail.paymentStatus) || '결제대기',
-        cardCompany: toOptionalString(paymentDetail.cardCompany),
-        installmentMonths: toOptionalString(paymentDetail.installmentMonths),
+        cardCompany: isCardPayment ? toOptionalString(paymentDetail.cardCompany) : null,
+        cardExpiryMonth: isCardPayment ? normalizeCardExpiryMonth(paymentDetail.expiryMonth) : null,
+        cardExpiryYear: isCardPayment ? normalizeCardExpiryYear(paymentDetail.expiryYear) : null,
+        cardNumber: isCardPayment ? cardNumberResult.value : null,
+        installmentMonths: isCardPayment ? toOptionalString(paymentDetail.installmentMonths) : null,
         manager: toOptionalString(productInfo.manager) || req.user.name || null,
         managerTeam: toOptionalString(productInfo.managerTeam) || req.user.team || null,
         teamLead: toOptionalString(productInfo.teamLead),
@@ -1424,26 +1477,6 @@ apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
             },
           },
         },
-        comments: {
-          orderBy: [
-            { createdAt: 'desc' },
-            { id: 'desc' },
-          ],
-          take: 5,
-          include: {
-            user: {
-              select: {
-                name: true,
-                profileImage: true,
-              },
-            },
-          },
-        },
-        _count: {
-          select: {
-            comments: true,
-          },
-        },
       },
     });
 
@@ -1454,6 +1487,49 @@ apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
     if (!canViewAd(currentUser, payment.userId)) {
       return res.status(403).json({ error: '해당 광고 정보를 조회할 권한이 없습니다.' });
     }
+
+    const canUseAdminComments = canAccessAdminComments(currentUser);
+    const commentInclude = {
+      user: {
+        select: {
+          name: true,
+          profileImage: true,
+        },
+      },
+    };
+    const commentOrderBy = [
+      { createdAt: 'desc' },
+      { id: 'desc' },
+    ];
+    const [
+      publicCommentTotal,
+      publicComments,
+      adminCommentTotal,
+      adminComments,
+    ] = await Promise.all([
+      prisma.adComment.count({
+        where: { paymentId: payment.id, isAdminOnly: false },
+      }),
+      prisma.adComment.findMany({
+        where: { paymentId: payment.id, isAdminOnly: false },
+        orderBy: commentOrderBy,
+        take: 5,
+        include: commentInclude,
+      }),
+      canUseAdminComments
+        ? prisma.adComment.count({
+            where: { paymentId: payment.id, isAdminOnly: true },
+          })
+        : Promise.resolve(0),
+      canUseAdminComments
+        ? prisma.adComment.findMany({
+            where: { paymentId: payment.id, isAdminOnly: true },
+            orderBy: commentOrderBy,
+            take: 5,
+            include: commentInclude,
+          })
+        : Promise.resolve([]),
+    ]);
 
     res.json({
       ad: {
@@ -1487,6 +1563,9 @@ apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
         netProfit: payment.netProfit,
         paymentMethod: payment.paymentMethod,
         cardCompany: payment.cardCompany || '',
+        cardExpiryMonth: payment.cardExpiryMonth || '',
+        cardExpiryYear: payment.cardExpiryYear || '',
+        cardNumber: payment.cardNumber || '',
         installmentMonths: payment.installmentMonths || '',
         paymentStatus: payment.paymentStatus,
         teamLead: payment.teamLead || '',
@@ -1512,12 +1591,20 @@ apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
           phoneNumber: history.phoneNumber,
           senderName: history.sender?.name || '-',
         })),
-        comments: payment.comments.map(comment => serializeAdComment(comment, currentUser)),
+        canUseAdminComments,
+        comments: publicComments.map(comment => serializeAdComment(comment, currentUser)),
         commentPagination: {
           page: 1,
           pageSize: 5,
-          pageCount: Math.max(Math.ceil(payment._count.comments / 5), 1),
-          total: payment._count.comments,
+          pageCount: Math.max(Math.ceil(publicCommentTotal / 5), 1),
+          total: publicCommentTotal,
+        },
+        adminComments: adminComments.map(comment => serializeAdComment(comment, currentUser)),
+        adminCommentPagination: {
+          page: 1,
+          pageSize: 5,
+          pageCount: Math.max(Math.ceil(adminCommentTotal / 5), 1),
+          total: adminCommentTotal,
         },
       },
     });
@@ -1533,6 +1620,8 @@ apiRouter.get('/ads/:id/comments', verifyToken, async (req, res) => {
   const requestedPageSize = parseInt(req.query.pageSize, 10) || 5;
   const pageSizeOptions = [5, 10, 20, 50];
   const pageSize = pageSizeOptions.includes(requestedPageSize) ? requestedPageSize : 5;
+  const scope = req.query.scope === 'admin' ? 'admin' : 'public';
+  const isAdminOnly = scope === 'admin';
 
   if (!Number.isInteger(adId)) {
     return res.status(400).json({ error: '광고 ID가 올바르지 않습니다.' });
@@ -1556,14 +1645,17 @@ apiRouter.get('/ads/:id/comments', verifyToken, async (req, res) => {
     if (!canViewAd(currentUser, payment.userId)) {
       return res.status(403).json({ error: '해당 광고의 댓글을 조회할 권한이 없습니다.' });
     }
+    if (isAdminOnly && !canAccessAdminComments(currentUser)) {
+      return res.status(403).json({ error: '관리자 댓글을 조회할 권한이 없습니다.' });
+    }
 
     const total = await prisma.adComment.count({
-      where: { paymentId: adId },
+      where: { paymentId: adId, isAdminOnly },
     });
     const pageCount = Math.max(Math.ceil(total / pageSize), 1);
     const safePage = Math.min(page, pageCount);
     const comments = await prisma.adComment.findMany({
-      where: { paymentId: adId },
+      where: { paymentId: adId, isAdminOnly },
       orderBy: [
         { createdAt: 'desc' },
         { id: 'desc' },
@@ -1586,6 +1678,7 @@ apiRouter.get('/ads/:id/comments', verifyToken, async (req, res) => {
       pageSize,
       pageCount,
       total,
+      scope,
     });
   } catch (error) {
     console.error('Get ad comments error:', error);
@@ -1596,6 +1689,8 @@ apiRouter.get('/ads/:id/comments', verifyToken, async (req, res) => {
 apiRouter.post('/ads/:id/comments', verifyToken, async (req, res) => {
   const adId = parseInt(req.params.id, 10);
   const content = String(req.body.content || '').trim();
+  const scope = req.body.scope === 'admin' ? 'admin' : 'public';
+  const isAdminOnly = scope === 'admin';
 
   if (!Number.isInteger(adId)) {
     return res.status(400).json({ error: '광고 ID가 올바르지 않습니다.' });
@@ -1625,12 +1720,16 @@ apiRouter.post('/ads/:id/comments', verifyToken, async (req, res) => {
     if (!canViewAd(currentUser, payment.userId)) {
       return res.status(403).json({ error: '해당 광고에 댓글을 작성할 권한이 없습니다.' });
     }
+    if (isAdminOnly && !canAccessAdminComments(currentUser)) {
+      return res.status(403).json({ error: '관리자 댓글을 작성할 권한이 없습니다.' });
+    }
 
     const comment = await prisma.adComment.create({
       data: {
         paymentId: adId,
         userId: currentUser.id,
         content,
+        isAdminOnly,
       },
       include: {
         user: {
@@ -1645,6 +1744,7 @@ apiRouter.post('/ads/:id/comments', verifyToken, async (req, res) => {
     res.status(201).json({
       message: '댓글이 등록되었습니다.',
       comment: serializeAdComment(comment, currentUser),
+      scope,
     });
   } catch (error) {
     console.error('Create ad comment error:', error);
@@ -1678,6 +1778,7 @@ apiRouter.patch('/ads/:adId/comments/:commentId', verifyToken, async (req, res) 
         select: {
           id: true,
           userId: true,
+          isAdminOnly: true,
         },
       }),
     ]);
@@ -1687,6 +1788,9 @@ apiRouter.patch('/ads/:adId/comments/:commentId', verifyToken, async (req, res) 
     }
     if (!existingComment) {
       return res.status(404).json({ error: '댓글을 찾을 수 없습니다.' });
+    }
+    if (existingComment.isAdminOnly && !canAccessAdminComments(currentUser)) {
+      return res.status(403).json({ error: '관리자 댓글을 수정할 권한이 없습니다.' });
     }
     if (existingComment.userId !== currentUser.id && !isAdminRole(currentUser.role)) {
       return res.status(403).json({ error: '댓글을 수정할 권한이 없습니다.' });
@@ -1734,6 +1838,7 @@ apiRouter.delete('/ads/:adId/comments/:commentId', verifyToken, async (req, res)
         select: {
           id: true,
           userId: true,
+          isAdminOnly: true,
         },
       }),
     ]);
@@ -1743,6 +1848,9 @@ apiRouter.delete('/ads/:adId/comments/:commentId', verifyToken, async (req, res)
     }
     if (!existingComment) {
       return res.status(404).json({ error: '댓글을 찾을 수 없습니다.' });
+    }
+    if (existingComment.isAdminOnly && !canAccessAdminComments(currentUser)) {
+      return res.status(403).json({ error: '관리자 댓글을 삭제할 권한이 없습니다.' });
     }
     if (existingComment.userId !== currentUser.id && !isAdminRole(currentUser.role)) {
       return res.status(403).json({ error: '댓글을 삭제할 권한이 없습니다.' });
@@ -1762,9 +1870,20 @@ apiRouter.delete('/ads/:adId/comments/:commentId', verifyToken, async (req, res)
 apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
   const adId = parseInt(req.params.id, 10);
   const approvedAmount = Number(String(req.body.approvedAmount ?? '').replace(/[,\s]/g, ''));
+  const spendingCost = Number(String(req.body.spendingCost ?? '').replace(/[,\s]/g, ''));
   const startDate = new Date(req.body.contractStartDate);
   const endDate = new Date(req.body.contractEndDate);
+  const taxInvoice = toOptionalString(req.body.taxInvoice) || '발행';
+  const approvalNumber = toOptionalString(req.body.approvalNumber);
+  const paymentMethod = toOptionalString(req.body.paymentMethod);
+  const cardCompany = toOptionalString(req.body.cardCompany);
+  const cardExpiryMonth = normalizeCardExpiryMonth(req.body.cardExpiryMonth);
+  const cardExpiryYear = normalizeCardExpiryYear(req.body.cardExpiryYear);
+  const cardNumberResult = normalizeCardNumber(req.body.cardNumber);
   const paymentStatus = String(req.body.paymentStatus || '').trim();
+  const installmentMonths = toOptionalString(req.body.installmentMonths);
+  const taxInvoiceOptions = ['발행', '미발행'];
+  const paymentMethodOptions = ['카드', '현금'];
   const paymentStatusOptions = ['결제대기', '결제승인', '매출취소', '위약금'];
 
   if (!Number.isInteger(adId)) {
@@ -1779,11 +1898,29 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
   ) {
     return res.status(400).json({ error: '승인금액을 올바르게 입력해주세요.' });
   }
+  if (
+    req.body.spendingCost === undefined ||
+    req.body.spendingCost === null ||
+    req.body.spendingCost === '' ||
+    !Number.isFinite(spendingCost) ||
+    spendingCost < 0
+  ) {
+    return res.status(400).json({ error: '소진비를 올바르게 입력해주세요.' });
+  }
   if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
     return res.status(400).json({ error: '계약기간 날짜 형식이 올바르지 않습니다.' });
   }
   if (endDate < startDate) {
     return res.status(400).json({ error: '계약 종료일은 시작일보다 빠를 수 없습니다.' });
+  }
+  if (!taxInvoiceOptions.includes(taxInvoice)) {
+    return res.status(400).json({ error: '세금계산서 값을 확인해주세요.' });
+  }
+  if (!paymentMethod || !paymentMethodOptions.includes(paymentMethod)) {
+    return res.status(400).json({ error: '결제구분을 선택해주세요.' });
+  }
+  if (paymentMethod === '카드' && cardNumberResult.error) {
+    return res.status(400).json({ error: cardNumberResult.error });
   }
   if (!paymentStatusOptions.includes(paymentStatus)) {
     return res.status(400).json({ error: '유효하지 않은 결제상태입니다.' });
@@ -1802,7 +1939,6 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
       where: { id: adId },
       select: {
         id: true,
-        spendingCost: true,
       },
     });
     if (!payment) {
@@ -1810,14 +1946,23 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
     }
 
     const vat = Math.round(approvedAmount / 11);
-    const netProfit = Math.max(approvedAmount - vat - payment.spendingCost, 0);
+    const netProfit = Math.max(approvedAmount - vat - spendingCost, 0);
     const updatedPayment = await prisma.payment.update({
       where: { id: adId },
       data: {
         approvedAmount,
         startDate,
         endDate,
+        taxInvoice,
+        approvalNumber,
+        spendingCost,
+        paymentMethod,
+        cardCompany: paymentMethod === '카드' ? cardCompany : null,
+        cardExpiryMonth: paymentMethod === '카드' ? cardExpiryMonth : null,
+        cardExpiryYear: paymentMethod === '카드' ? cardExpiryYear : null,
+        cardNumber: paymentMethod === '카드' ? cardNumberResult.value : null,
         paymentStatus,
+        installmentMonths: paymentMethod === '카드' ? installmentMonths : null,
         vat,
         netProfit,
       },
@@ -1826,7 +1971,16 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
         approvedAmount: true,
         startDate: true,
         endDate: true,
+        taxInvoice: true,
+        approvalNumber: true,
+        spendingCost: true,
+        paymentMethod: true,
+        cardCompany: true,
+        cardExpiryMonth: true,
+        cardExpiryYear: true,
+        cardNumber: true,
         paymentStatus: true,
+        installmentMonths: true,
         vat: true,
         netProfit: true,
       },
@@ -1839,7 +1993,16 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
         approvedAmount: updatedPayment.approvedAmount,
         contractStartDate: toDateString(updatedPayment.startDate),
         contractEndDate: toDateString(updatedPayment.endDate),
+        taxInvoice: updatedPayment.taxInvoice,
+        approvalNumber: updatedPayment.approvalNumber || '',
+        spendingCost: updatedPayment.spendingCost,
+        paymentMethod: updatedPayment.paymentMethod,
+        cardCompany: updatedPayment.cardCompany || '',
+        cardExpiryMonth: updatedPayment.cardExpiryMonth || '',
+        cardExpiryYear: updatedPayment.cardExpiryYear || '',
+        cardNumber: updatedPayment.cardNumber || '',
         paymentStatus: updatedPayment.paymentStatus,
+        installmentMonths: updatedPayment.installmentMonths || '',
         vat: updatedPayment.vat,
         netProfit: updatedPayment.netProfit,
       },

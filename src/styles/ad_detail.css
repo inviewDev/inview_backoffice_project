@@ -49,7 +49,7 @@
 .ad_segmented_control input { min-width: 0; flex: 1 1 0; }
 .ad_segmented_control span { width: 20px; flex: 0 0 20px; color: #333; font-size: 15px; font-weight: 500; text-align: center; }
 .ad_segmented_control.business input:nth-of-type(2) { flex-grow: 0.8; }
-.ad_segmented_control.card { border: 0; }
+.ad_segmented_control.card { border: 0; flex-direction: row;}
 .ad_segmented_control input { width: 100%; height: 40px; padding: 0 14px; border-radius: 6px; background: #fff; color: #333; font-size: 15px; font-weight: 500; outline: none; }
 .ad_compact_address_control { display: flex; width: 100%; min-width: 0; }
 .ad_compact_address_control input { min-width: 0; height: 38px; flex: 1 1 auto; padding: 0 14px; border: 0; border-radius: 0; cursor: pointer; font-size: 15px; }

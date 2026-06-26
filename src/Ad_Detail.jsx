@@ -41,7 +41,7 @@ const card_company_options = [
 ];
 
 const installment_month_options = Array.from({ length: 12 }, (_, index) => `${index + 1}개월`);
-const team_lead_levels = new Set(['팀장']);
+const team_lead_levels = new Set(['파트장', '팀장']);
 const department_head_levels = new Set(['대표', '파트장']);
 const card_number_keys = ['cardNumber1', 'cardNumber2', 'cardNumber3', 'cardNumber4'];
 const current_year = new Date().getFullYear();
@@ -802,7 +802,7 @@ function AdDetail({ user }) {
               >
                 <option value="">없음</option>
                 {departmentHeadOptions.map(staff => (
-                  <option value={staff.name} key={staff.id}>{staff.level} {staff.name}</option>
+                  <option value={staff.name} key={staff.id}>{staff.name}</option>
                 ))}
               </select>
             </AdField>

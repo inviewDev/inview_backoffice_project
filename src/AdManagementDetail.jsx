@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Alert, Modal, Spinner, Table } from 'react-bootstrap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -29,8 +29,33 @@ const PRODUCTS = [
 
 const orderedProductIndexes = [0, 5, 1, 6, 2, 7, 3, 8, 4, 9];
 const PAYMENT_STATUSES = ['결제대기', '결제승인', '매출취소', '위약금'];
+const TAX_INVOICE_OPTIONS = ['발행', '미발행'];
+const PAYMENT_METHOD_OPTIONS = ['카드', '현금'];
+const CARD_COMPANY_OPTIONS = [
+  '롯데카드',
+  '신한카드',
+  'KB국민카드',
+  '삼성카드',
+  '현대카드',
+  'BC카드',
+  '우리카드',
+  '하나카드',
+  'NH농협카드',
+  '씨티카드',
+  '카카오뱅크카드',
+  '토스카드',
+];
+const INSTALLMENT_MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => `${index + 1}개월`);
+const CARD_NUMBER_SEGMENTS = [4, 4, 4, 4];
 const currentYear = new Date().getFullYear();
 const contractYearOptions = Array.from({ length: 21 }, (_, index) => currentYear - 10 + index);
+const COMMENT_PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
+const DEFAULT_COMMENT_PAGINATION = {
+  pageIndex: 0,
+  pageSize: 5,
+  pageCount: 1,
+  total: 0,
+};
 
 function formatMoney(value) {
   if (value === undefined || value === null || value === '') return '-';
@@ -41,6 +66,10 @@ function formatMoney(value) {
 function getMoneyNumber(value) {
   const number = Number(String(value ?? '').replace(/[^\d.-]/g, ''));
   return Number.isFinite(number) ? number : 0;
+}
+
+function getDigits(value) {
+  return String(value || '').replace(/\D/g, '');
 }
 
 function pad(value) {
@@ -59,6 +88,33 @@ function parseDateValue(value) {
 function formatDateValue(value) {
   if (!(value instanceof Date) || Number.isNaN(value.getTime())) return '';
   return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+}
+
+function getSelectOptions(options, currentValue) {
+  const value = String(currentValue || '').trim();
+  if (!value || options.includes(value)) return options;
+  return [...options, value];
+}
+
+function splitSegmentedValue(value, segments) {
+  const text = String(value || '');
+  const parts = text.includes('-') ? text.split('-') : [];
+
+  if (parts.length > 1) {
+    return segments.map((_, index) => parts[index] || '');
+  }
+
+  const digits = getDigits(text);
+  let cursor = 0;
+  return segments.map(length => {
+    const part = digits.slice(cursor, cursor + length);
+    cursor += length;
+    return part;
+  });
+}
+
+function joinSegmentedValue(parts) {
+  return parts.every(part => !part) ? '' : parts.join('-');
 }
 
 function renderContractDateHeader({ date, changeYear, changeMonth }) {
@@ -104,11 +160,58 @@ function Field({ label, value, wide = false, action }) {
   );
 }
 
-function EditableField({ label, children }) {
+function EditableField({ label, children, wide = false }) {
   return (
-    <div className="ad_view_field">
+    <div className={`ad_view_field ${wide ? 'wide' : ''}`}>
       <span className="ad_view_label">{label}</span>
       <div className="ad_view_value editable">{children}</div>
+    </div>
+  );
+}
+
+function SegmentedInput({ value, segments, className = '', disabled, onChange }) {
+  const inputRefs = useRef([]);
+  const parts = splitSegmentedValue(value, segments);
+
+  const focusInput = index => {
+    window.requestAnimationFrame(() => {
+      inputRefs.current[index]?.focus();
+    });
+  };
+
+  return (
+    <div className={`ad_view_segmented_control ${className}`.trim()}>
+      {segments.map((length, index) => (
+        <Fragment key={index}>
+          <IMaskInput
+            inputRef={input => {
+              inputRefs.current[index] = input;
+            }}
+            mask={'0'.repeat(length)}
+            value={parts[index]}
+            onAccept={partValue => {
+              const digits = getDigits(partValue);
+              const nextParts = [...parts];
+              nextParts[index] = digits;
+              onChange(joinSegmentedValue(nextParts));
+              if (!disabled && digits.length >= length && index < segments.length - 1) {
+                focusInput(index + 1);
+              }
+            }}
+            onKeyDown={event => {
+              if (event.key === '-' && index < segments.length - 1) {
+                event.preventDefault();
+                focusInput(index + 1);
+              }
+              if (event.key === 'Backspace' && !parts[index] && index > 0) {
+                focusInput(index - 1);
+              }
+            }}
+            disabled={disabled}
+          />
+          {index < segments.length - 1 && <span aria-hidden="true">-</span>}
+        </Fragment>
+      ))}
     </div>
   );
 }
@@ -135,6 +238,165 @@ function formatCommentDateTime(value) {
   ].join(' ');
 }
 
+function CommentSection({
+  title,
+  emptyText,
+  comments,
+  pagination,
+  isLoading,
+  error,
+  text,
+  onTextChange,
+  isCreating,
+  actionId,
+  editingId,
+  editingText,
+  onEditingTextChange,
+  onSubmit,
+  onStartEdit,
+  onCancelEdit,
+  onUpdate,
+  onDelete,
+  onPageChange,
+  className = '',
+}) {
+  const rangeStart = pagination.total > 0
+    ? pagination.pageIndex * pagination.pageSize + 1
+    : 0;
+  const rangeEnd = Math.min(
+    (pagination.pageIndex + 1) * pagination.pageSize,
+    pagination.total
+  );
+
+  return (
+    <section className={`ad_view_panel comments ${className}`.trim()}>
+      <h2>{title}</h2>
+      <div className="ad_view_comment_list">
+        {isLoading ? (
+          <div className="ad_view_comment_empty">
+            <Spinner animation="border" size="sm" />
+            <span>댓글을 불러오는 중입니다.</span>
+          </div>
+        ) : comments.length > 0 ? comments.map(comment => {
+          const isEditing = editingId === comment.id;
+          const isProcessing = actionId === comment.id;
+
+          return (
+            <div className="ad_view_comment" key={comment.id}>
+              <div className="ad_view_comment_author">
+                <span className="ad_view_comment_avatar">
+                  {comment.authorProfileImage ? (
+                    <img src={comment.authorProfileImage} alt="" />
+                  ) : (
+                    comment.author?.slice(0, 1) || 'I'
+                  )}
+                </span>
+                <strong title={comment.author}>{comment.author}</strong>
+              </div>
+              <div className={`ad_view_comment_bubble ${comment.canManage ? 'manageable' : ''}`}>
+                {isEditing ? (
+                  <div className="ad_view_comment_edit">
+                    <input
+                      type="text"
+                      value={editingText}
+                      onChange={event => onEditingTextChange(event.target.value)}
+                      onKeyDown={event => {
+                        if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                          onUpdate(comment.id);
+                        }
+                        if (event.key === 'Escape') {
+                          onCancelEdit();
+                        }
+                      }}
+                      aria-label="댓글 수정"
+                      maxLength={1000}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      className="save"
+                      onClick={() => onUpdate(comment.id)}
+                      disabled={isProcessing}
+                    >
+                      {isProcessing ? '저장 중' : '저장'}
+                    </button>
+                    <button type="button" onClick={onCancelEdit} disabled={isProcessing}>
+                      취소
+                    </button>
+                  </div>
+                ) : (
+                  <p title={comment.content}>{comment.content}</p>
+                )}
+                {!isEditing && (
+                  <div className="ad_view_comment_meta">
+                    {comment.canManage && (
+                      <div className="ad_view_comment_actions">
+                        <button type="button" onClick={() => onStartEdit(comment)}>
+                          수정
+                        </button>
+                        <button
+                          type="button"
+                          className="delete"
+                          onClick={() => onDelete(comment.id)}
+                          disabled={isProcessing}
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    )}
+                    <time>{formatCommentDateTime(comment.createdAt)}</time>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        }) : (
+          <div className="ad_view_comment_empty">{emptyText}</div>
+        )}
+      </div>
+      <div className="ad_view_comment_footer">
+        <select
+          value={pagination.pageSize}
+          onChange={event => onPageChange(0, Number(event.target.value))}
+          aria-label="댓글 페이지당 표시 개수"
+          disabled={isLoading}
+        >
+          {COMMENT_PAGE_SIZE_OPTIONS.map(size => (
+            <option value={size} key={size}>{size}개</option>
+          ))}
+        </select>
+        <TablePagination
+          pageIndex={pagination.pageIndex}
+          pageCount={pagination.pageCount}
+          onPageChange={pageIndex => onPageChange(pageIndex, pagination.pageSize)}
+          className="ad_view_comment_pages"
+        />
+        <div className="ad_view_comment_count">
+          <span>{rangeStart}-{rangeEnd}</span>
+          <strong>
+            <FontAwesomeIcon icon={faCoins} aria-hidden="true" />
+            {pagination.total}건
+          </strong>
+        </div>
+      </div>
+      <form className="ad_view_comment_form" onSubmit={onSubmit}>
+        <input
+          type="text"
+          value={text}
+          onChange={event => onTextChange(event.target.value)}
+          aria-label={`${title} 입력`}
+          placeholder="댓글을 입력해주세요."
+          maxLength={1000}
+        />
+        <button type="submit" disabled={isCreating}>
+          {isCreating ? '등록 중' : '등록'}
+        </button>
+      </form>
+      {error && <p className="ad_view_comment_error">{error}</p>}
+    </section>
+  );
+}
+
 function AdManagementDetail({ user }) {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -149,7 +411,16 @@ function AdManagementDetail({ user }) {
     approvedAmount: '',
     contractStartDate: null,
     contractEndDate: null,
+    taxInvoice: '발행',
+    approvalNumber: '',
+    spendingCost: '',
+    paymentMethod: '',
+    cardCompany: '',
+    cardExpiryMonth: '',
+    cardExpiryYear: '',
+    cardNumber: '',
     paymentStatus: '결제대기',
+    installmentMonths: '',
   });
   const [updateModal, setUpdateModal] = useState({
     show: false,
@@ -165,12 +436,15 @@ function AdManagementDetail({ user }) {
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editingCommentText, setEditingCommentText] = useState('');
   const [isLoadingComments, setIsLoadingComments] = useState(false);
-  const [commentPagination, setCommentPagination] = useState({
-    pageIndex: 0,
-    pageSize: 5,
-    pageCount: 1,
-    total: 0,
-  });
+  const [commentPagination, setCommentPagination] = useState(() => ({ ...DEFAULT_COMMENT_PAGINATION }));
+  const [adminCommentText, setAdminCommentText] = useState('');
+  const [adminCommentError, setAdminCommentError] = useState('');
+  const [isCreatingAdminComment, setIsCreatingAdminComment] = useState(false);
+  const [adminCommentActionId, setAdminCommentActionId] = useState(null);
+  const [editingAdminCommentId, setEditingAdminCommentId] = useState(null);
+  const [editingAdminCommentText, setEditingAdminCommentText] = useState('');
+  const [isLoadingAdminComments, setIsLoadingAdminComments] = useState(false);
+  const [adminCommentPagination, setAdminCommentPagination] = useState(() => ({ ...DEFAULT_COMMENT_PAGINATION }));
   const canEditPayment = user?.role === '전체관리자' || user?.role === '대표' || user?.level === '대표';
 
   const fetchAd = useCallback(async () => {
@@ -197,13 +471,28 @@ function AdManagementDetail({ user }) {
         pageCount: data.ad.commentPagination?.pageCount || 1,
         total: data.ad.commentPagination?.total || 0,
       });
+      setAdminCommentPagination({
+        pageIndex: Math.max((data.ad.adminCommentPagination?.page || 1) - 1, 0),
+        pageSize: data.ad.adminCommentPagination?.pageSize || 5,
+        pageCount: data.ad.adminCommentPagination?.pageCount || 1,
+        total: data.ad.adminCommentPagination?.total || 0,
+      });
       setPaymentEditForm({
         approvedAmount: String(data.ad.approvedAmount ?? ''),
         contractStartDate: parseDateValue(data.ad.contractStartDate),
         contractEndDate: parseDateValue(data.ad.contractEndDate),
+        taxInvoice: data.ad.taxInvoice || '발행',
+        approvalNumber: data.ad.approvalNumber || '',
+        spendingCost: String(data.ad.spendingCost ?? ''),
+        paymentMethod: data.ad.paymentMethod || '',
+        cardCompany: data.ad.cardCompany || '',
+        cardExpiryMonth: data.ad.cardExpiryMonth || '',
+        cardExpiryYear: data.ad.cardExpiryYear || '',
+        cardNumber: data.ad.cardNumber || '',
         paymentStatus: PAYMENT_STATUSES.includes(data.ad.paymentStatus)
           ? data.ad.paymentStatus
           : '결제대기',
+        installmentMonths: data.ad.installmentMonths || '',
       });
     } catch (err) {
       console.error('Fetch ad detail error:', err);
@@ -217,15 +506,20 @@ function AdManagementDetail({ user }) {
     fetchAd();
   }, [fetchAd]);
 
-  const fetchComments = useCallback(async (pageIndex, pageSize) => {
-    setIsLoadingComments(true);
-    setCommentError('');
+  const fetchComments = useCallback(async (pageIndex, pageSize, scope = 'public') => {
+    const isAdminScope = scope === 'admin';
+    const setLoading = isAdminScope ? setIsLoadingAdminComments : setIsLoadingComments;
+    const setErrorMessage = isAdminScope ? setAdminCommentError : setCommentError;
+
+    setLoading(true);
+    setErrorMessage('');
 
     try {
       const token = localStorage.getItem('access_token');
       const params = new URLSearchParams({
         page: String(pageIndex + 1),
         pageSize: String(pageSize),
+        scope,
       });
       const res = await fetch(`/api/ads/${id}/comments?${params}`, {
         headers: {
@@ -239,22 +533,27 @@ function AdManagementDetail({ user }) {
       }
 
       setAd(prev => ({
-        ...prev,
-        comments: data.comments,
+        ...(prev || {}),
+        [isAdminScope ? 'adminComments' : 'comments']: data.comments,
       }));
-      setCommentPagination({
+      const nextPagination = {
         pageIndex: Math.max(data.page - 1, 0),
         pageSize: data.pageSize,
         pageCount: data.pageCount,
         total: data.total,
-      });
+      };
+      if (isAdminScope) {
+        setAdminCommentPagination(nextPagination);
+      } else {
+        setCommentPagination(nextPagination);
+      }
       return true;
     } catch (err) {
       console.error('Fetch ad comments error:', err);
-      setCommentError(err.message);
+      setErrorMessage(err.message);
       return false;
     } finally {
-      setIsLoadingComments(false);
+      setLoading(false);
     }
   }, [id]);
 
@@ -270,17 +569,19 @@ function AdManagementDetail({ user }) {
 
   const paymentPreview = useMemo(() => {
     const approvedAmount = getMoneyNumber(paymentEditForm.approvedAmount);
+    const spendingCost = getMoneyNumber(paymentEditForm.spendingCost);
     const vat = Math.round(approvedAmount / 11);
     const salesAmount = Math.max(approvedAmount - vat, 0);
-    const netProfit = Math.max(salesAmount - getMoneyNumber(ad?.spendingCost), 0);
+    const netProfit = Math.max(salesAmount - spendingCost, 0);
 
     return {
       approvedAmount,
+      spendingCost,
       vat,
       salesAmount,
       netProfit,
     };
-  }, [ad?.spendingCost, paymentEditForm.approvedAmount]);
+  }, [paymentEditForm.approvedAmount, paymentEditForm.spendingCost]);
 
   const handleSendSms = async () => {
     if (!ad) return;
@@ -332,11 +633,20 @@ function AdManagementDetail({ user }) {
     if (!paymentEditForm.approvedAmount) {
       return '승인금액을 입력해주세요.';
     }
+    if (!paymentEditForm.spendingCost && paymentEditForm.spendingCost !== '0') {
+      return '소진비를 입력해주세요.';
+    }
     if (!paymentEditForm.contractStartDate || !paymentEditForm.contractEndDate) {
       return '계약기간을 선택해주세요.';
     }
     if (paymentEditForm.contractEndDate < paymentEditForm.contractStartDate) {
       return '계약 종료일은 시작일보다 빠를 수 없습니다.';
+    }
+    if (!paymentEditForm.taxInvoice) {
+      return '세금계산서 발행 여부를 선택해주세요.';
+    }
+    if (!paymentEditForm.paymentMethod) {
+      return '결제구분을 선택해주세요.';
     }
 
     return '';
@@ -381,7 +691,16 @@ function AdManagementDetail({ user }) {
           approvedAmount: paymentEditForm.approvedAmount,
           contractStartDate: formatDateValue(paymentEditForm.contractStartDate),
           contractEndDate: formatDateValue(paymentEditForm.contractEndDate),
+          taxInvoice: paymentEditForm.taxInvoice,
+          approvalNumber: paymentEditForm.approvalNumber,
+          spendingCost: paymentEditForm.spendingCost,
+          paymentMethod: paymentEditForm.paymentMethod,
+          cardCompany: paymentEditForm.cardCompany,
+          cardExpiryMonth: paymentEditForm.cardExpiryMonth,
+          cardExpiryYear: paymentEditForm.cardExpiryYear,
+          cardNumber: paymentEditForm.cardNumber,
           paymentStatus: paymentEditForm.paymentStatus,
+          installmentMonths: paymentEditForm.installmentMonths,
         }),
       });
       const data = await res.json();
@@ -399,7 +718,16 @@ function AdManagementDetail({ user }) {
         approvedAmount: String(data.payment.approvedAmount ?? ''),
         contractStartDate: parseDateValue(data.payment.contractStartDate),
         contractEndDate: parseDateValue(data.payment.contractEndDate),
+        taxInvoice: data.payment.taxInvoice || '발행',
+        approvalNumber: data.payment.approvalNumber || '',
+        spendingCost: String(data.payment.spendingCost ?? ''),
+        paymentMethod: data.payment.paymentMethod || '',
+        cardCompany: data.payment.cardCompany || '',
+        cardExpiryMonth: data.payment.cardExpiryMonth || '',
+        cardExpiryYear: data.payment.cardExpiryYear || '',
+        cardNumber: data.payment.cardNumber || '',
         paymentStatus: data.payment.paymentStatus,
+        installmentMonths: data.payment.installmentMonths || '',
       }));
       setUpdateModal({
         show: true,
@@ -422,17 +750,22 @@ function AdManagementDetail({ user }) {
     }
   };
 
-  const handleCreateComment = async event => {
+  const handleCreateComment = async (event, scope = 'public') => {
     event.preventDefault();
-    const content = commentText.trim();
+    const isAdminScope = scope === 'admin';
+    const content = (isAdminScope ? adminCommentText : commentText).trim();
+    const setText = isAdminScope ? setAdminCommentText : setCommentText;
+    const setErrorMessage = isAdminScope ? setAdminCommentError : setCommentError;
+    const setCreating = isAdminScope ? setIsCreatingAdminComment : setIsCreatingComment;
+    const pagination = isAdminScope ? adminCommentPagination : commentPagination;
 
     if (!content) {
-      setCommentError('댓글 내용을 입력해주세요.');
+      setErrorMessage('댓글 내용을 입력해주세요.');
       return;
     }
 
-    setIsCreatingComment(true);
-    setCommentError('');
+    setCreating(true);
+    setErrorMessage('');
 
     try {
       const token = localStorage.getItem('access_token');
@@ -442,7 +775,7 @@ function AdManagementDetail({ user }) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, scope }),
       });
       const data = await res.json();
 
@@ -450,37 +783,54 @@ function AdManagementDetail({ user }) {
         throw new Error(data.error || '댓글 등록에 실패했습니다.');
       }
 
-      setCommentText('');
-      await fetchComments(0, commentPagination.pageSize);
+      setText('');
+      await fetchComments(0, pagination.pageSize, scope);
     } catch (err) {
       console.error('Create ad comment error:', err);
-      setCommentError(err.message);
+      setErrorMessage(err.message);
     } finally {
-      setIsCreatingComment(false);
+      setCreating(false);
     }
   };
 
-  const handleStartCommentEdit = comment => {
+  const handleStartCommentEdit = (comment, scope = 'public') => {
+    if (scope === 'admin') {
+      setEditingAdminCommentId(comment.id);
+      setEditingAdminCommentText(comment.content);
+      setAdminCommentError('');
+      return;
+    }
+
     setEditingCommentId(comment.id);
     setEditingCommentText(comment.content);
     setCommentError('');
   };
 
-  const handleCancelCommentEdit = () => {
+  const handleCancelCommentEdit = (scope = 'public') => {
+    if (scope === 'admin') {
+      setEditingAdminCommentId(null);
+      setEditingAdminCommentText('');
+      return;
+    }
+
     setEditingCommentId(null);
     setEditingCommentText('');
   };
 
-  const handleUpdateComment = async commentId => {
-    const content = editingCommentText.trim();
+  const handleUpdateComment = async (commentId, scope = 'public') => {
+    const isAdminScope = scope === 'admin';
+    const content = (isAdminScope ? editingAdminCommentText : editingCommentText).trim();
+    const setActionId = isAdminScope ? setAdminCommentActionId : setCommentActionId;
+    const setErrorMessage = isAdminScope ? setAdminCommentError : setCommentError;
+    const commentKey = isAdminScope ? 'adminComments' : 'comments';
 
     if (!content) {
-      setCommentError('수정할 댓글 내용을 입력해주세요.');
+      setErrorMessage('수정할 댓글 내용을 입력해주세요.');
       return;
     }
 
-    setCommentActionId(commentId);
-    setCommentError('');
+    setActionId(commentId);
+    setErrorMessage('');
 
     try {
       const token = localStorage.getItem('access_token');
@@ -499,12 +849,12 @@ function AdManagementDetail({ user }) {
       }
 
       setAd(prev => ({
-        ...prev,
-        comments: (prev.comments || []).map(comment => (
+        ...(prev || {}),
+        [commentKey]: (prev?.[commentKey] || []).map(comment => (
           comment.id === commentId ? data.comment : comment
         )),
       }));
-      handleCancelCommentEdit();
+      handleCancelCommentEdit(scope);
       setUpdateModal({
         show: true,
         mode: 'result',
@@ -522,15 +872,22 @@ function AdManagementDetail({ user }) {
         variant: 'danger',
       });
     } finally {
-      setCommentActionId(null);
+      setActionId(null);
     }
   };
 
-  const handleDeleteComment = async commentId => {
+  const handleDeleteComment = async (commentId, scope = 'public') => {
     if (!window.confirm('댓글을 삭제하시겠습니까?')) return;
 
-    setCommentActionId(commentId);
-    setCommentError('');
+    const isAdminScope = scope === 'admin';
+    const setActionId = isAdminScope ? setAdminCommentActionId : setCommentActionId;
+    const setErrorMessage = isAdminScope ? setAdminCommentError : setCommentError;
+    const editingId = isAdminScope ? editingAdminCommentId : editingCommentId;
+    const pagination = isAdminScope ? adminCommentPagination : commentPagination;
+    const commentKey = isAdminScope ? 'adminComments' : 'comments';
+
+    setActionId(commentId);
+    setErrorMessage('');
 
     try {
       const token = localStorage.getItem('access_token');
@@ -547,16 +904,16 @@ function AdManagementDetail({ user }) {
       }
 
       setAd(prev => ({
-        ...prev,
-        comments: (prev.comments || []).filter(comment => comment.id !== commentId),
+        ...(prev || {}),
+        [commentKey]: (prev?.[commentKey] || []).filter(comment => comment.id !== commentId),
       }));
-      if (editingCommentId === commentId) {
-        handleCancelCommentEdit();
+      if (editingId === commentId) {
+        handleCancelCommentEdit(scope);
       }
-      const nextTotal = Math.max(commentPagination.total - 1, 0);
-      const nextPageCount = Math.max(Math.ceil(nextTotal / commentPagination.pageSize), 1);
-      const nextPageIndex = Math.min(commentPagination.pageIndex, nextPageCount - 1);
-      await fetchComments(nextPageIndex, commentPagination.pageSize);
+      const nextTotal = Math.max(pagination.total - 1, 0);
+      const nextPageCount = Math.max(Math.ceil(nextTotal / pagination.pageSize), 1);
+      const nextPageIndex = Math.min(pagination.pageIndex, nextPageCount - 1);
+      await fetchComments(nextPageIndex, pagination.pageSize, scope);
       setUpdateModal({
         show: true,
         mode: 'result',
@@ -574,7 +931,7 @@ function AdManagementDetail({ user }) {
         variant: 'danger',
       });
     } finally {
-      setCommentActionId(null);
+      setActionId(null);
     }
   };
 
@@ -603,6 +960,10 @@ function AdManagementDetail({ user }) {
   if (!ad) return null;
 
   const comments = Array.isArray(ad.comments) ? ad.comments : [];
+  const adminComments = Array.isArray(ad.adminComments) ? ad.adminComments : [];
+  const canUseAdminComments = Boolean(ad.canUseAdminComments);
+  const isEditingCardPayment = paymentEditForm.paymentMethod === '카드';
+  const isCardPayment = ad.paymentMethod === '카드';
   const commentRangeStart = commentPagination.total > 0
     ? commentPagination.pageIndex * commentPagination.pageSize + 1
     : 0;
@@ -697,11 +1058,120 @@ function AdManagementDetail({ user }) {
             <Field label="VAT" value={formatMoney(canEditPayment ? paymentPreview.vat : ad.vat)} />
             <Field label="승인회사" value={ad.approvedCompany} />
             <Field label="순이익" value={formatMoney(canEditPayment ? paymentPreview.netProfit : ad.netProfit)} />
-            <Field label="세금계산서" value={ad.taxInvoice} />
-            <Field label="소진비" value={formatMoney(ad.spendingCost)} />
-            <Field label="승인번호" value={ad.approvalNumber} />
-            <Field label="결제구분" value={ad.paymentMethod} />
-            <Field label="카드사" value={ad.cardCompany} />
+            {canEditPayment ? (
+              <EditableField label="세금계산서">
+                <select
+                  value={paymentEditForm.taxInvoice}
+                  onChange={event => setPaymentEditForm(prev => ({ ...prev, taxInvoice: event.target.value }))}
+                  disabled={isSavingPayment}
+                >
+                  {getSelectOptions(TAX_INVOICE_OPTIONS, paymentEditForm.taxInvoice).map(option => (
+                    <option value={option} key={option}>{option}</option>
+                  ))}
+                </select>
+              </EditableField>
+            ) : (
+              <Field label="세금계산서" value={ad.taxInvoice} />
+            )}
+            {canEditPayment ? (
+              <EditableField label="소진비">
+                <IMaskInput
+                  mask={Number}
+                  thousandsSeparator=","
+                  value={paymentEditForm.spendingCost}
+                  onAccept={value => setPaymentEditForm(prev => ({ ...prev, spendingCost: value }))}
+                  placeholder="0"
+                  inputMode="numeric"
+                  disabled={isSavingPayment}
+                />
+              </EditableField>
+            ) : (
+              <Field label="소진비" value={formatMoney(ad.spendingCost)} />
+            )}
+            {canEditPayment ? (
+              <EditableField label="승인번호">
+                <input
+                  type="text"
+                  value={paymentEditForm.approvalNumber}
+                  onChange={event => setPaymentEditForm(prev => ({ ...prev, approvalNumber: event.target.value }))}
+                  disabled={isSavingPayment}
+                />
+              </EditableField>
+            ) : (
+              <Field label="승인번호" value={ad.approvalNumber} />
+            )}
+            {canEditPayment ? (
+              <EditableField label="결제구분">
+                <select
+                  value={paymentEditForm.paymentMethod}
+                  onChange={event => {
+                    const paymentMethod = event.target.value;
+                    setPaymentEditForm(prev => ({
+                      ...prev,
+                      paymentMethod,
+                      ...(paymentMethod === '카드'
+                        ? {}
+                        : {
+                            cardCompany: '',
+                            cardExpiryMonth: '',
+                            cardExpiryYear: '',
+                            cardNumber: '',
+                            installmentMonths: '',
+                          }),
+                    }));
+                  }}
+                  disabled={isSavingPayment}
+                >
+                  <option value="">선택</option>
+                  {getSelectOptions(PAYMENT_METHOD_OPTIONS, paymentEditForm.paymentMethod).map(option => (
+                    <option value={option} key={option}>{option}</option>
+                  ))}
+                </select>
+              </EditableField>
+            ) : (
+              <Field label="결제구분" value={ad.paymentMethod} />
+            )}
+            {canEditPayment && isEditingCardPayment && (
+              <>
+                <EditableField label="카드사">
+                  <select
+                    value={paymentEditForm.cardCompany}
+                    onChange={event => setPaymentEditForm(prev => ({ ...prev, cardCompany: event.target.value }))}
+                    disabled={isSavingPayment}
+                  >
+                    <option value="">선택</option>
+                    {getSelectOptions(CARD_COMPANY_OPTIONS, paymentEditForm.cardCompany).map(option => (
+                      <option value={option} key={option}>{option}</option>
+                    ))}
+                  </select>
+                </EditableField>
+                <EditableField label="유효기간">
+                  <div className="ad_view_split_pair">
+                    <IMaskInput
+                      mask="00"
+                      value={paymentEditForm.cardExpiryMonth}
+                      onAccept={value => setPaymentEditForm(prev => ({ ...prev, cardExpiryMonth: value }))}
+                      placeholder="월"
+                      disabled={isSavingPayment}
+                    />
+                    <span aria-hidden="true">/</span>
+                    <IMaskInput
+                      mask="00"
+                      value={paymentEditForm.cardExpiryYear}
+                      onAccept={value => setPaymentEditForm(prev => ({ ...prev, cardExpiryYear: value }))}
+                      placeholder="년"
+                      disabled={isSavingPayment}
+                    />
+                  </div>
+                </EditableField>
+              </>
+            )}
+            {!canEditPayment && isCardPayment && (
+              <>
+                <Field label="카드사" value={ad.cardCompany} />
+                <Field label="유효기간" value={[ad.cardExpiryMonth, ad.cardExpiryYear].filter(Boolean).join('/')} />
+              </>
+            )}
             {canEditPayment ? (
               <EditableField label="결제상태">
                 <select
@@ -722,7 +1192,37 @@ function AdManagementDetail({ user }) {
             ) : (
               <Field label="결제상태" value={ad.paymentStatus} />
             )}
-            <Field label="할부개월" value={ad.installmentMonths} />
+            {canEditPayment && isEditingCardPayment ? (
+              <EditableField label="할부개월">
+                <select
+                  value={paymentEditForm.installmentMonths}
+                  onChange={event => setPaymentEditForm(prev => ({ ...prev, installmentMonths: event.target.value }))}
+                  disabled={isSavingPayment}
+                >
+                  <option value="">선택</option>
+                  {getSelectOptions(INSTALLMENT_MONTH_OPTIONS, paymentEditForm.installmentMonths).map(option => (
+                    <option value={option} key={option}>{option}</option>
+                  ))}
+                </select>
+              </EditableField>
+            ) : !canEditPayment && isCardPayment ? (
+              <Field label="할부개월" value={ad.installmentMonths} />
+            ) : null}
+            {canEditPayment && isEditingCardPayment ? (
+              <EditableField label="카드번호" wide>
+                <SegmentedInput
+                  value={paymentEditForm.cardNumber}
+                  segments={CARD_NUMBER_SEGMENTS}
+                  className="card"
+                  disabled={isSavingPayment}
+                  onChange={value => setPaymentEditForm(prev => ({ ...prev, cardNumber: value }))}
+                />
+              </EditableField>
+            ) : !canEditPayment && isCardPayment ? (
+              <Field label="카드번호" value={ad.cardNumber} wide />
+            ) : (
+              null
+            )}
           </div>
         </div>
       </section>
@@ -817,6 +1317,31 @@ function AdManagementDetail({ user }) {
           <Field label="첨부파일" value={ad.fileName} />
         </div>
       </section>
+
+      {canUseAdminComments && (
+        <CommentSection
+          title="관리자 댓글"
+          emptyText="등록된 관리자 댓글이 없습니다."
+          comments={adminComments}
+          pagination={adminCommentPagination}
+          isLoading={isLoadingAdminComments}
+          error={adminCommentError}
+          text={adminCommentText}
+          onTextChange={setAdminCommentText}
+          isCreating={isCreatingAdminComment}
+          actionId={adminCommentActionId}
+          editingId={editingAdminCommentId}
+          editingText={editingAdminCommentText}
+          onEditingTextChange={setEditingAdminCommentText}
+          onSubmit={event => handleCreateComment(event, 'admin')}
+          onStartEdit={comment => handleStartCommentEdit(comment, 'admin')}
+          onCancelEdit={() => handleCancelCommentEdit('admin')}
+          onUpdate={commentId => handleUpdateComment(commentId, 'admin')}
+          onDelete={commentId => handleDeleteComment(commentId, 'admin')}
+          onPageChange={(pageIndex, pageSize) => fetchComments(pageIndex, pageSize, 'admin')}
+          className="admin_comments"
+        />
+      )}
 
       <section className="ad_view_panel comments">
         <h2>전체 공개 댓글</h2>
