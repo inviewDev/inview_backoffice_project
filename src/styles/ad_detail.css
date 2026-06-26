@@ -68,7 +68,7 @@
 .ad_payment_grid > :first-child { width: 100%; max-width: 512px; flex: 0 1 512px; }
 .ad_payment_grid > :last-child { min-width: 0; max-width:1035px; }
 .ad_product_picker { display: flex; width: 100%; flex-wrap: wrap; gap: 4px; }
-.ad_product_picker button { width: calc(33.333% - 3px); min-height: 40px; flex: 1 1 calc(33.333% - 3px); padding: 8px; border: 1px solid transparent; border-radius: 6px; background: #f3f5fa; color: #abb0be; cursor: pointer; font-size: 15px; font-weight: 600; letter-spacing: 0; line-height: 18px; text-align: center; transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease; }
+.ad_product_picker button {width: 100%; max-width: calc(33.333% - 3px);min-height: 40px; flex: 1 1 calc(33.333% - 3px); padding: 8px; border: 1px solid transparent; border-radius: 6px; background: #f3f5fa; color: #abb0be; cursor: pointer; font-size: 15px; font-weight: 600; letter-spacing: 0; line-height: 18px; text-align: center; transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease; }
 .ad_product_picker button:hover,
 .ad_product_picker button.active { border-color: #1962fc; background: #1962fc; color: #fff; }
 .ad_date_range { display: flex; width: 100%; min-width: 0; align-items: center; }
