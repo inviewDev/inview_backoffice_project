@@ -32,7 +32,6 @@ const ROLE_OPTIONS = ['전체관리자', '관리자', '팀장', '사용자'];
 const STATUS_OPTIONS = ['가입대기', '재직', '퇴사'];
 const LEVEL_OPTIONS = ['대표', '파트장', '팀장', '과장', '대리', '주임', '사원'];
 const ADMIN_COMMENT_LEVELS = new Set(['대표', '파트장', '팀장']);
-const AD_LIST_ALL_ACCESS_LEVELS = new Set(['대표', '파트장', '팀장']);
 const MASTER_LOGIN_IDS = new Set(['cchee', 'cchee@gmail.com']);
 const AD_VISIBILITY_SCOPE_OPTIONS = ['own', 'team', 'department', 'all'];
 const MAX_PROFILE_IMAGE_SIZE = 2 * 1024 * 1024;
@@ -436,13 +435,17 @@ function canDeleteAdPayment(user) {
   return isMasterAccount(user) || user?.canDeleteAds === true;
 }
 
-function hasDefaultAllAdAccess(user) {
-  return isAdminRole(user?.role) && AD_LIST_ALL_ACCESS_LEVELS.has(user?.level);
-}
-
 function getEffectiveAdVisibilityScope(user) {
-  if (isMasterAccount(user) || hasDefaultAllAdAccess(user)) return 'all';
-  return normalizeAdVisibilityScope(user?.adVisibilityScope);
+  if (isMasterAccount(user)) return 'all';
+
+  const configuredScope = normalizeAdVisibilityScope(user?.adVisibilityScope);
+  if (configuredScope !== 'own') return configuredScope;
+
+  if (user?.level === '대표') return 'all';
+  if (user?.level === '파트장') return 'department';
+  if (user?.level === '팀장' || user?.role === '팀장') return 'team';
+
+  return 'own';
 }
 
 function buildTeamAdAccessFilter(user) {
