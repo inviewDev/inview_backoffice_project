@@ -34,6 +34,10 @@ const adDeletePermissionLabels = {
   true: '허용',
   false: '미허용',
 };
+const adEditPermissionLabels = {
+  true: '허용',
+  false: '미허용',
+};
 const teamDepartmentMapping = {
   '1팀': '1부서',
   '3팀': '1부서',
@@ -74,6 +78,7 @@ function UserList({ user: currentUser }) {
     team: '',
     role: '',
     adVisibilityScope: 'own',
+    canEditAds: false,
     canDeleteAds: false,
     resetPassword: false,
   });
@@ -343,6 +348,7 @@ function UserList({ user: currentUser }) {
       team: targetUser.level === '대표' ? '대표' : targetUser.team || '',
       role: targetUser.role || '사용자',
       adVisibilityScope: isMasterLoginId(targetUser.email) ? 'all' : targetUser.adVisibilityScope || 'own',
+      canEditAds: isMasterLoginId(targetUser.email) ? true : Boolean(targetUser.canEditAds),
       canDeleteAds: isMasterLoginId(targetUser.email) ? true : Boolean(targetUser.canDeleteAds),
       resetPassword: false,
     });
@@ -356,6 +362,7 @@ function UserList({ user: currentUser }) {
       team: '',
       role: '',
       adVisibilityScope: 'own',
+      canEditAds: false,
       canDeleteAds: false,
       resetPassword: false,
     });
@@ -379,6 +386,7 @@ function UserList({ user: currentUser }) {
       const requestPayload = { ...accountForm };
       if (!isRootMaster) {
         delete requestPayload.adVisibilityScope;
+        delete requestPayload.canEditAds;
         delete requestPayload.canDeleteAds;
       }
 
@@ -453,6 +461,11 @@ function UserList({ user: currentUser }) {
         header: '광고열람',
         size: 130,
         cell: info => adVisibilityScopeLabels[info.getValue()] || '본인 광고만',
+      }),
+      columnHelper.accessor('canEditAds', {
+        header: '광고수정',
+        size: 110,
+        cell: info => adEditPermissionLabels[String(Boolean(info.getValue()))],
       }),
       columnHelper.accessor('canDeleteAds', {
         header: '광고삭제',
@@ -1029,6 +1042,24 @@ function UserList({ user: currentUser }) {
                         {isMasterLoginId(accountTarget?.email) ? ' 마스터 계정은 전체 광고 열람으로 고정됩니다.' : ''}
                       </small>
                     </div>
+                  </label>
+
+                  <label className="userlist_permission_toggle">
+                    <Form.Check
+                      type="checkbox"
+                      checked={accountForm.canEditAds}
+                      onChange={event =>
+                        setAccountForm(prev => ({ ...prev, canEditAds: event.target.checked }))
+                      }
+                      disabled={accountSaving || isMasterLoginId(accountTarget?.email)}
+                    />
+                    <span>
+                      <strong>광고상품 수정권한</strong>
+                      <small>
+                        광고관리 상세에서 광고상품 정보를 수정할 수 있습니다.
+                        {isMasterLoginId(accountTarget?.email) ? ' 마스터 계정은 항상 허용됩니다.' : ''}
+                      </small>
+                    </span>
                   </label>
 
                   <label className="userlist_permission_toggle">

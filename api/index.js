@@ -422,13 +422,14 @@ async function getCurrentUserAccess(userId) {
       team: true,
       department: true,
       adVisibilityScope: true,
+      canEditAds: true,
       canDeleteAds: true,
     },
   });
 }
 
 function canEditAdPayment(user) {
-  return user?.role === '전체관리자' || user?.level === '대표';
+  return isMasterAccount(user) || user?.canEditAds === true || user?.role === '전체관리자' || user?.level === '대표';
 }
 
 function canDeleteAdPayment(user) {
@@ -616,6 +617,7 @@ apiRouter.get('/me', verifyToken, async (req, res) => {
         officePhoneNumber: true,
         profileImage: true,
         adVisibilityScope: true,
+        canEditAds: true,
         canDeleteAds: true,
       },
     });
@@ -636,6 +638,7 @@ apiRouter.get('/me', verifyToken, async (req, res) => {
         officePhoneNumber: user.officePhoneNumber || '미지정',
         profileImage: user.profileImage || '',
         adVisibilityScope: normalizeAdVisibilityScope(user.adVisibilityScope),
+        canEditAds: canEditAdPayment(user),
         canDeleteAds: canDeleteAdPayment(user),
       },
     });
@@ -695,6 +698,7 @@ apiRouter.post('/signup', async (req, res) => {
         officePhoneNumber: newUser.officePhoneNumber,
         profileImage: newUser.profileImage || '',
         adVisibilityScope: normalizeAdVisibilityScope(newUser.adVisibilityScope),
+        canEditAds: Boolean(newUser.canEditAds),
         canDeleteAds: Boolean(newUser.canDeleteAds),
       },
       SECRET,
@@ -717,6 +721,7 @@ apiRouter.post('/signup', async (req, res) => {
         officePhoneNumber: newUser.officePhoneNumber,
         profileImage: newUser.profileImage || '',
         adVisibilityScope: normalizeAdVisibilityScope(newUser.adVisibilityScope),
+        canEditAds: Boolean(newUser.canEditAds),
         canDeleteAds: Boolean(newUser.canDeleteAds),
       },
       token,
@@ -757,6 +762,7 @@ apiRouter.post('/login', async (req, res) => {
         birthDate: user.birthDate ? user.birthDate.toISOString() : null,
         officePhoneNumber: user.officePhoneNumber,
         adVisibilityScope: normalizeAdVisibilityScope(user.adVisibilityScope),
+        canEditAds: canEditAdPayment(user),
         canDeleteAds: canDeleteAdPayment(user),
       },
       SECRET,
@@ -779,6 +785,7 @@ apiRouter.post('/login', async (req, res) => {
         officePhoneNumber: user.officePhoneNumber || '미지정',
         profileImage: user.profileImage || '',
         adVisibilityScope: normalizeAdVisibilityScope(user.adVisibilityScope),
+        canEditAds: canEditAdPayment(user),
         canDeleteAds: canDeleteAdPayment(user),
       },
     });
@@ -962,6 +969,7 @@ apiRouter.patch('/users/:id', verifyToken, async (req, res) => {
         officePhoneNumber: true,
         profileImage: true,
         adVisibilityScope: true,
+        canEditAds: true,
         canDeleteAds: true,
       },
     });
@@ -980,6 +988,7 @@ apiRouter.patch('/users/:id', verifyToken, async (req, res) => {
         officePhoneNumber: updatedUser.officePhoneNumber || '미지정',
         profileImage: updatedUser.profileImage || '',
         adVisibilityScope: normalizeAdVisibilityScope(updatedUser.adVisibilityScope),
+        canEditAds: canEditAdPayment(updatedUser),
         canDeleteAds: canDeleteAdPayment(updatedUser),
       },
     });
@@ -1018,6 +1027,7 @@ apiRouter.post('/users/:id/officePhoneNumber', verifyToken, async (req, res) => 
         officePhoneNumber: true,
         profileImage: true,
         adVisibilityScope: true,
+        canEditAds: true,
         canDeleteAds: true,
       },
     });
@@ -1037,6 +1047,7 @@ apiRouter.post('/users/:id/officePhoneNumber', verifyToken, async (req, res) => 
         officePhoneNumber: updatedUser.officePhoneNumber || '미지정',
         profileImage: updatedUser.profileImage || '',
         adVisibilityScope: normalizeAdVisibilityScope(updatedUser.adVisibilityScope),
+        canEditAds: canEditAdPayment(updatedUser),
         canDeleteAds: canDeleteAdPayment(updatedUser),
       },
     });
@@ -1731,6 +1742,7 @@ apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
           senderName: history.sender?.name || '-',
         })),
         canUseAdminComments,
+        canEditAd: canEditAdPayment(currentUser),
         canDeleteAd: canDeleteAdPayment(currentUser),
         comments: publicComments.map(comment => serializeAdComment(comment, currentUser)),
         commentPagination: {
@@ -3154,6 +3166,7 @@ apiRouter.get('/users/pending', verifyToken, verifyAdminRole, async (req, res) =
         birthDate: true,
         officePhoneNumber: true,
         adVisibilityScope: true,
+        canEditAds: true,
         canDeleteAds: true,
       },
     });
@@ -3187,6 +3200,7 @@ apiRouter.post('/users/:id/approve', verifyToken, verifyMasterRole, async (req, 
         birthDate: true,
         officePhoneNumber: true,
         adVisibilityScope: true,
+        canEditAds: true,
         canDeleteAds: true,
       },
     });
@@ -3220,6 +3234,7 @@ apiRouter.post('/users/:id/reject', verifyToken, verifyMasterRole, async (req, r
         birthDate: true,
         officePhoneNumber: true,
         adVisibilityScope: true,
+        canEditAds: true,
         canDeleteAds: true,
       },
     });
@@ -3255,6 +3270,7 @@ apiRouter.post('/users/:id/status', verifyToken, verifyMasterRole, async (req, r
         birthDate: true,
         officePhoneNumber: true,
         adVisibilityScope: true,
+        canEditAds: true,
         canDeleteAds: true,
       },
     });
@@ -3273,6 +3289,8 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
   const resetPassword = req.body.resetPassword === true;
   const hasAdVisibilityScopeInput = Object.prototype.hasOwnProperty.call(req.body, 'adVisibilityScope');
   const adVisibilityScope = normalizeAdVisibilityScope(req.body.adVisibilityScope);
+  const hasCanEditAdsInput = Object.prototype.hasOwnProperty.call(req.body, 'canEditAds');
+  const canEditAds = req.body.canEditAds === true;
   const hasCanDeleteAdsInput = Object.prototype.hasOwnProperty.call(req.body, 'canDeleteAds');
   const canDeleteAds = req.body.canDeleteAds === true;
 
@@ -3304,6 +3322,7 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
           department: true,
           level: true,
           adVisibilityScope: true,
+          canEditAds: true,
           canDeleteAds: true,
         },
       }),
@@ -3314,6 +3333,9 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
     }
     if (hasAdVisibilityScopeInput && !isMasterAccount(actor)) {
       return res.status(403).json({ error: '광고 열람권한 설정은 마스터 계정만 변경할 수 있습니다.' });
+    }
+    if (hasCanEditAdsInput && !isMasterAccount(actor)) {
+      return res.status(403).json({ error: '광고 수정권한 설정은 마스터 계정만 변경할 수 있습니다.' });
     }
     if (hasCanDeleteAdsInput && !isMasterAccount(actor)) {
       return res.status(403).json({ error: '광고 삭제권한 설정은 마스터 계정만 변경할 수 있습니다.' });
@@ -3351,6 +3373,9 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
     if (hasAdVisibilityScopeInput) {
       updateData.adVisibilityScope = isMasterAccount(targetUser) ? 'all' : adVisibilityScope;
     }
+    if (hasCanEditAdsInput) {
+      updateData.canEditAds = isMasterAccount(targetUser) ? true : canEditAds;
+    }
     if (hasCanDeleteAdsInput) {
       updateData.canDeleteAds = isMasterAccount(targetUser) ? true : canDeleteAds;
     }
@@ -3375,6 +3400,7 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
         birthDate: true,
         officePhoneNumber: true,
         adVisibilityScope: true,
+        canEditAds: true,
         canDeleteAds: true,
       },
     });
@@ -3420,6 +3446,7 @@ apiRouter.post('/users/:id/role', verifyToken, verifyMasterRole, async (req, res
         birthDate: true,
         officePhoneNumber: true,
         adVisibilityScope: true,
+        canEditAds: true,
         canDeleteAds: true,
       },
     });
@@ -3457,6 +3484,7 @@ apiRouter.post('/users/:id/level', verifyToken, verifyMasterRole, async (req, re
         birthDate: true,
         officePhoneNumber: true,
         adVisibilityScope: true,
+        canEditAds: true,
         canDeleteAds: true,
       },
     });
@@ -3638,6 +3666,7 @@ apiRouter.get('/users', verifyToken, verifyAdminRole, async (req, res) => {
         birthDate: true,
         officePhoneNumber: true,
         adVisibilityScope: true,
+        canEditAds: true,
         canDeleteAds: true,
       },
     });

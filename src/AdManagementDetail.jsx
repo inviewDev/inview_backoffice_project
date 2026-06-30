@@ -505,7 +505,7 @@ function AdManagementDetail({ user }) {
   const [editingAdminCommentText, setEditingAdminCommentText] = useState('');
   const [isLoadingAdminComments, setIsLoadingAdminComments] = useState(false);
   const [adminCommentPagination, setAdminCommentPagination] = useState(() => ({ ...DEFAULT_COMMENT_PAGINATION }));
-  const canEditPayment = user?.role === '전체관리자' || user?.role === '대표' || user?.level === '대표';
+  const canEditPayment = Boolean(ad?.canEditAd) || user?.canEditAds === true || user?.role === '전체관리자' || user?.level === '대표';
 
   const fetchAd = useCallback(async () => {
     setIsLoading(true);
@@ -1875,7 +1875,7 @@ function AdManagementDetail({ user }) {
           className="ad_view_update_button"
           onClick={handleUpdateClick}
           disabled={!canEditPayment || isSavingPayment}
-          title={canEditPayment ? '수정한 광고 결제정보 저장' : '전체관리자 또는 대표만 수정할 수 있습니다.'}
+          title={canEditPayment ? '수정한 광고 결제정보 저장' : '광고상품 수정권한이 있는 계정만 수정할 수 있습니다.'}
         >
           {isSavingPayment ? '수정 중...' : '광고수정'}
         </button>

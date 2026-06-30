@@ -49,6 +49,7 @@ function Login({ onLoginSuccess }) {
         birthDate: data.user.birthDate || '미입력',
         officePhoneNumber: data.user.officePhoneNumber || '미입력',
         profileImage: data.user.profileImage || '',
+        canEditAds: Boolean(data.user.canEditAds),
         canDeleteAds: Boolean(data.user.canDeleteAds),
       });
     } catch (err) {

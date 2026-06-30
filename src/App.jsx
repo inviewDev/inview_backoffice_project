@@ -144,6 +144,7 @@ function App() {
           birthDate: data.user.birthDate || '미지정',
           officePhoneNumber: data.user.officePhoneNumber || '',
           profileImage: data.user.profileImage || '',
+          canEditAds: Boolean(data.user.canEditAds),
           canDeleteAds: Boolean(data.user.canDeleteAds),
         });
       } catch (error) {
