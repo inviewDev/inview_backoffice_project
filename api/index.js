@@ -226,9 +226,11 @@ function mapPaymentToAgreement(payment) {
     installmentMonths: payment.installmentMonths || '',
     contractStartDate: toDateString(payment.startDate),
     contractEndDate: toDateString(payment.endDate),
+    team: payment.managerTeam || payment.user?.team || '',
     manager: payment.manager || payment.user?.name || '',
     managerPhone: payment.user?.officePhoneNumber || payment.user?.phoneNumber || '',
     managerEmail: payment.user?.email || '',
+    memo: payment.memo || '',
     productItems: productItems.length
       ? productItems
       : [
@@ -1610,6 +1612,9 @@ apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
             name: true,
             team: true,
             department: true,
+            email: true,
+            phoneNumber: true,
+            officePhoneNumber: true,
             profileImage: true,
           },
         },
@@ -1688,6 +1693,8 @@ apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
         manager: payment.manager || payment.user?.name || '',
         team: payment.managerTeam || payment.user?.team || '',
         department: payment.user?.department || '',
+        managerPhone: payment.user?.officePhoneNumber || payment.user?.phoneNumber || '',
+        managerEmail: payment.user?.email || '',
         companyName: payment.company?.companyName || '',
         ceoName: payment.company?.ceoName || '',
         businessRegNumber: payment.company?.businessRegNumber || '',
@@ -2566,6 +2573,7 @@ apiRouter.get('/agreements/:token', async (req, res) => {
               select: {
                 email: true,
                 name: true,
+                team: true,
                 phoneNumber: true,
                 officePhoneNumber: true,
               },

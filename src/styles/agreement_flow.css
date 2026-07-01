@@ -15,6 +15,21 @@
 .agreement_terms_box p { margin: 0 0 8px; color: #3e4858; font-size: 15px; font-weight: 600; line-height: 1.7; word-break: keep-all; }
 .agreement_term_company { color: #1962fc; font-weight: 900; }
 .agreement_contract_card { border: 1px solid #dbe2ef; border-radius: 8px; background: #f8faff; padding: 18px; }
+.agreement_contract_table_wrap { width: 100%; overflow-x: auto; }
+.agreement_contract_table { width: 100%; min-width: 720px; border-collapse: separate; border-spacing: 0 10px; table-layout: fixed; background: transparent; }
+.agreement_contract_table th,
+.agreement_contract_table td { height: 44px; border: 1px solid #cfd8e7; color: #1f2937; font-size: 14px; line-height: 1.5; padding: 10px 14px; vertical-align: middle; word-break: break-word; }
+.agreement_contract_table th:nth-of-type(1) + td:nth-of-type(1){border-radius:0}
+.agreement_contract_table th:nth-of-type(1) + td:nth-of-type(1) + th{border-radius:0;}
+.agreement_contract_table th:nth-of-type(1) + td:nth-of-type(1):last-of-type{border-radius: 0 6px 6px 0;}
+.agreement_contract_table th { width: 17%; border-right: 0; border-radius: 6px 0 0 6px; background: #e1e7f2; text-align: center; font-weight: 900; }
+.agreement_contract_table td { width: 33%; border-radius: 0 6px 6px 0; background: #fff; font-weight: 700; }
+.agreement_contract_table td + th { border-left: 0; }
+.agreement_contract_table td:first-of-type:last-of-type{border-radius: 6px;}
+.agreement_contract_table .agreement_contract_section { height: 42px; border: 1px solid #cfd8e7; border-radius: 6px; background: #e1e7f2; text-align: center; font-weight: 900; }
+.agreement_contract_products { min-height: 42px; border-radius: 6px; }
+.agreement_contract_products p { margin: 0 0 8px; border-radius: 6px; background: #fff; color: #263247; font-size: 14px; font-weight: 700; line-height: 1.6; padding: 10px 12px; }
+.agreement_contract_products p:last-child { margin-bottom: 0; }
 .agreement_contract_grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .agreement_contract_field { display: grid; grid-template-columns: 150px minmax(0, 1fr); min-height: 44px; }
 .agreement_contract_field.wide { grid-column: 1 / -1; }

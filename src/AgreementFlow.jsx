@@ -180,15 +180,6 @@ function AgreementState({ message, error }) {
   );
 }
 
-function ContractField({ label, value, wide = false }) {
-  return (
-    <div className={`agreement_contract_field ${wide ? 'wide' : ''}`}>
-      <span>{label}</span>
-      <strong>{value || '-'}</strong>
-    </div>
-  );
-}
-
 function renderTermText(text, companyName) {
   if (!text.includes('{{companyName}}')) return text;
 
@@ -256,32 +247,73 @@ function ContractContent({ contract }) {
   const productItems = contract?.productItems?.length
     ? contract.productItems
     : [contract?.productName].filter(Boolean);
+  const paymentMethod = contract.paymentMethod === '카드'
+    ? [contract.cardCompany, contract.installmentMonths].filter(Boolean).join(' ')
+    : contract.paymentMethod;
+  const contractPeriod = `${contract.contractStartDate || '-'}`;
 
   return (
     <section className="agreement_contract_card">
-      <div className="agreement_contract_grid">
-        <ContractField label="상호명" value={contract.companyName} />
-        <ContractField label="대표자명" value={contract.ceoName} />
-        <ContractField label="사업자등록번호" value={contract.businessRegNumber} />
-        <ContractField label="연락처" value={contract.mobile || contract.tel} />
-        <ContractField label="주소" value={contract.address} wide />
-        <ContractField label="상품명" value={contract.productName} wide />
-        <ContractField label="결제수단" value={contract.paymentMethod === '카드' ? contract.cardCompany : contract.paymentMethod} />
-        <ContractField label="결제금액" value={formatMoney(contract.approvedAmount)} />
-        <ContractField label="VAT" value={formatMoney(contract.vat)} />
-        <ContractField label="계약기간" value={`${contract.contractStartDate || '-'} ~ ${contract.contractEndDate || '-'}`} />
-        <ContractField label="담당자" value={contract.manager} />
-        <ContractField label="담당자 연락처" value={contract.managerPhone} />
-        <ContractField label="담당자 이메일" value={contract.managerEmail} wide />
-      </div>
-
-      <div className="agreement_products">
-        <h2>상품정보등록</h2>
-        {productItems.length ? (
-          productItems.map(item => <p key={item}>{item}</p>)
-        ) : (
-          <p>등록된 상품 구성이 없습니다.</p>
-        )}
+      <div className="agreement_contract_table_wrap">
+        <table className="agreement_contract_table">
+          <tbody>
+            <tr>
+              <th scope="row">상호명</th>
+              <td>{contract.companyName || '-'}</td>
+              <th scope="row">대표자명</th>
+              <td>{contract.ceoName || '-'}</td>
+            </tr>
+            <tr>
+              <th scope="row">사업자등록번호</th>
+              <td>{contract.businessRegNumber || '-'}</td>
+              <th scope="row">연락처</th>
+              <td>{contract.mobile || contract.tel || '-'}</td>
+            </tr>
+            <tr>
+              <th scope="row">상품명</th>
+              <td colSpan={3}>{contract.productName || '-'}</td>
+            </tr>
+            <tr>
+              <th className="agreement_contract_section" scope="row" colSpan={4}>상품구성</th>
+            </tr>
+            <tr>
+              <td className="agreement_contract_products" colSpan={4}>
+                {productItems.length ? (
+                  productItems.map(item => <p key={item}>{item}</p>)
+                ) : (
+                  <p>등록된 상품 구성이 없습니다.</p>
+                )}
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">결제수단</th>
+              <td>{paymentMethod || '-'}</td>
+              <th scope="row">결제금액</th>
+              <td>{formatMoney(contract.approvedAmount)}</td>
+            </tr>
+            <tr>
+              <th scope="row">비고</th>
+              <td>{contract.memo || '-'}</td>
+              <th scope="row">서비스개시일</th>
+              <td>{contractPeriod}</td>
+            </tr>
+            <tr>
+              <th className="agreement_contract_section" scope="row" colSpan={4}>문의 / 담당</th>
+            </tr>
+            <tr>
+              <th scope="row">소속</th>
+              <td>{contract.team || '-'}</td>
+              <th scope="row">직통번호</th>
+              <td>{contract.managerPhone || '-'}</td>
+            </tr>
+            <tr>
+              <th scope="row">담당자</th>
+              <td>{contract.manager || '-'}</td>
+              <th scope="row">E-mail</th>
+              <td>{contract.managerEmail || '-'}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
       <ContractFooter />
     </section>
@@ -343,9 +375,11 @@ function mapAdToContract(ad) {
     installmentMonths: ad.installmentMonths || '',
     contractStartDate: ad.contractStartDate || '',
     contractEndDate: ad.contractEndDate || '',
+    team: ad.team || '',
     manager: ad.manager || '',
-    managerPhone: '',
-    managerEmail: '',
+    managerPhone: ad.managerPhone || '',
+    managerEmail: ad.managerEmail || '',
+    memo: ad.memo || '',
     productItems: productItems.length
       ? productItems
       : [ad.productName, ad.titleText, ad.descriptionText, ad.memo].filter(Boolean),

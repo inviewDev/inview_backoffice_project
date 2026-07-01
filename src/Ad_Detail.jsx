@@ -268,6 +268,9 @@ function AdDetail({ user }) {
     message: '',
     variant: 'warning',
   });
+  const contractStartPickerRef = useRef(null);
+  const contractEndPickerRef = useRef(null);
+  const expiryYearInputRef = useRef(null);
 
   const paymentSummary = useMemo(() => {
     const approvedAmount = getNumber(paymentDetail.approvedAmount);
@@ -315,6 +318,38 @@ function AdDetail({ user }) {
     setAlertModal({ show: true, title, message, variant });
   };
 
+  const openDatePicker = pickerRef => {
+    window.setTimeout(() => {
+      pickerRef.current?.setOpen(true);
+    }, 0);
+  };
+
+  const focusInput = inputRef => {
+    window.requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  };
+
+  const handleContractStartDateChange = date => {
+    setPaymentData(prev => ({
+      ...prev,
+      startDate: date,
+      endDate: prev.endDate && date && prev.endDate < date ? null : prev.endDate,
+    }));
+    contractStartPickerRef.current?.setOpen(false);
+    if (date) openDatePicker(contractEndPickerRef);
+  };
+
+  const handleContractEndDateChange = date => {
+    setPaymentData(prev => ({ ...prev, endDate: date }));
+    contractEndPickerRef.current?.setOpen(false);
+  };
+
+  const handleExpiryMonthAccept = value => {
+    setPaymentDetail(prev => ({ ...prev, expiryMonth: value }));
+    if (getDigits(value).length >= 2) focusInput(expiryYearInputRef);
+  };
+
   const validateCompanyData = () => {
     if (!formData.companyName) {
       return '상호명을 입력해주세요.';
@@ -322,7 +357,7 @@ function AdDetail({ user }) {
     if (!formData.ceoName) {
       return '대표자 이름을 입력해주세요.';
     }
-    if (!/^\d{3}-\d{2}-\d{5}$/.test(formData.businessRegNumber)) {
+    if (formData.businessRegNumber && !/^\d{3}-\d{2}-\d{5}$/.test(formData.businessRegNumber)) {
       return '사업자등록번호 형식이 올바르지 않습니다. (예: 123-45-67890)';
     }
     if (!/^\d{2,4}-\d{3,4}-\d{4}$/.test(formData.tel)) {
@@ -533,12 +568,6 @@ function AdDetail({ user }) {
       };
     });
   };
-
-  const addressSummary = [
-    formData.postcode && `(${formData.postcode})`,
-    formData.address,
-    formData.detailAddress,
-  ].filter(Boolean).join(' ');
 
   const teamLeadOptions = staffOptions.filter(staff => team_lead_levels.has(staff.level));
   const departmentHeadOptions = staffOptions.filter(staff => department_head_levels.has(staff.level));
