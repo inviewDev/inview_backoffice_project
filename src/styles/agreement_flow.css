@@ -28,8 +28,8 @@
 .agreement_contract_table td:first-of-type:last-of-type{border-radius: 6px;}
 .agreement_contract_table .agreement_contract_section { height: 42px; border: 1px solid #cfd8e7; border-radius: 6px; background: #e1e7f2; text-align: center; font-weight: 900; }
 .agreement_contract_products { min-height: 42px; border-radius: 6px; }
-.agreement_contract_products p { margin: 0 0 8px; border-radius: 6px; background: #fff; color: #263247; font-size: 14px; font-weight: 700; line-height: 1.6; padding: 10px 12px; }
-.agreement_contract_products p:last-child { margin-bottom: 0; }
+.agreement_contract_products p {background: #fff; color: #263247; font-size: 14px; font-weight: 700; line-height: 1.6; padding: 10px; border-bottom: 1px solid #e3e3e3;}
+.agreement_contract_products p:last-child { margin-bottom: 0; border-bottom:0;}
 .agreement_contract_grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .agreement_contract_field { display: grid; grid-template-columns: 150px minmax(0, 1fr); min-height: 44px; }
 .agreement_contract_field.wide { grid-column: 1 / -1; }

@@ -1224,14 +1224,15 @@ apiRouter.post('/company', verifyToken, async (req, res) => {
     companyEmail,
   } = req.body;
   const targetUserId = parseInt(userId || req.user.id, 10);
+  const normalizedBusinessRegNumber = String(businessRegNumber || '').trim();
 
   if (!canAccessUser(req, targetUserId)) {
     return res.status(403).json({ error: '해당 사용자 정보에 접근할 권한이 없습니다.' });
   }
-  if (!companyName || !ceoName || !businessRegNumber || !tel || !mobile || !postcode || !address || !companyEmail) {
+  if (!companyName || !ceoName || !tel || !mobile || !address || !companyEmail) {
     return res.status(400).json({ error: '회사 필수 정보를 모두 입력해주세요.' });
   }
-  if (!/^\d{3}-\d{2}-\d{5}$/.test(businessRegNumber)) {
+  if (normalizedBusinessRegNumber && !/^\d{3}-\d{2}-\d{5}$/.test(normalizedBusinessRegNumber)) {
     return res.status(400).json({ error: '사업자등록번호 형식이 올바르지 않습니다.' });
   }
   if (!/^\d{2,4}-\d{3,4}-\d{4}$/.test(tel)) {
@@ -1247,11 +1248,11 @@ apiRouter.post('/company', verifyToken, async (req, res) => {
         userId: targetUserId,
         companyName,
         ceoName,
-        businessRegNumber,
+        businessRegNumber: normalizedBusinessRegNumber,
         birthDate: birthDate || '',
         tel,
         mobile,
-        postcode,
+        postcode: postcode || '',
         address,
         detailAddress: detailAddress || null,
         companyUrl: companyUrl || null,

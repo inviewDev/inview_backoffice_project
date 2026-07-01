@@ -505,6 +505,9 @@ function AdManagementDetail({ user }) {
   const [editingAdminCommentText, setEditingAdminCommentText] = useState('');
   const [isLoadingAdminComments, setIsLoadingAdminComments] = useState(false);
   const [adminCommentPagination, setAdminCommentPagination] = useState(() => ({ ...DEFAULT_COMMENT_PAGINATION }));
+  const editContractStartPickerRef = useRef(null);
+  const editContractEndPickerRef = useRef(null);
+  const editCardExpiryYearInputRef = useRef(null);
   const canEditPayment = Boolean(ad?.canEditAd) || user?.canEditAds === true || user?.role === '전체관리자' || user?.level === '대표';
 
   const fetchAd = useCallback(async () => {
@@ -772,6 +775,40 @@ function AdManagementDetail({ user }) {
     } finally {
       setIsSendingSms(false);
     }
+  };
+
+  const openEditDatePicker = pickerRef => {
+    window.setTimeout(() => {
+      pickerRef.current?.setOpen(true);
+    }, 0);
+  };
+
+  const focusEditInput = inputRef => {
+    window.requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  };
+
+  const handleEditContractStartDateChange = date => {
+    setPaymentEditForm(prev => ({
+      ...prev,
+      contractStartDate: date,
+      contractEndDate: prev.contractEndDate && date && prev.contractEndDate < date
+        ? null
+        : prev.contractEndDate,
+    }));
+    editContractStartPickerRef.current?.setOpen(false);
+    if (date) openEditDatePicker(editContractEndPickerRef);
+  };
+
+  const handleEditContractEndDateChange = date => {
+    setPaymentEditForm(prev => ({ ...prev, contractEndDate: date }));
+    editContractEndPickerRef.current?.setOpen(false);
+  };
+
+  const handleEditCardExpiryMonthAccept = value => {
+    setPaymentEditForm(prev => ({ ...prev, cardExpiryMonth: value }));
+    if (getDigits(value).length >= 2) focusEditInput(editCardExpiryYearInputRef);
   };
 
   const getPaymentEditValidation = () => {
@@ -1263,25 +1300,29 @@ function AdManagementDetail({ user }) {
               <EditableField label="계약기간">
                 <div className="ad_view_inline_dates">
                   <DatePicker
+                    ref={editContractStartPickerRef}
                     selected={paymentEditForm.contractStartDate}
-                    onChange={date => {
-                      setPaymentEditForm(prev => ({ ...prev, contractStartDate: date }));
-                    }}
-                    maxDate={paymentEditForm.contractEndDate || undefined}
+                    onChange={handleEditContractStartDateChange}
+                    selectsStart
+                    startDate={paymentEditForm.contractStartDate}
+                    endDate={paymentEditForm.contractEndDate}
                     dateFormat="yyyy-MM-dd"
                     locale={ko}
                     placeholderText="시작일"
                     disabled={isSavingPayment}
                     popperClassName="date_select_calendar ad_payment_edit_calendar"
                     showPopperArrow={false}
+                    shouldCloseOnSelect
                     renderCustomHeader={renderContractDateHeader}
                   />
                   <span aria-hidden="true">-</span>
                   <DatePicker
+                    ref={editContractEndPickerRef}
                     selected={paymentEditForm.contractEndDate}
-                    onChange={date => {
-                      setPaymentEditForm(prev => ({ ...prev, contractEndDate: date }));
-                    }}
+                    onChange={handleEditContractEndDateChange}
+                    selectsEnd
+                    startDate={paymentEditForm.contractStartDate}
+                    endDate={paymentEditForm.contractEndDate}
                     minDate={paymentEditForm.contractStartDate || undefined}
                     dateFormat="yyyy-MM-dd"
                     locale={ko}
@@ -1289,6 +1330,7 @@ function AdManagementDetail({ user }) {
                     disabled={isSavingPayment}
                     popperClassName="date_select_calendar ad_payment_edit_calendar"
                     showPopperArrow={false}
+                    shouldCloseOnSelect
                     renderCustomHeader={renderContractDateHeader}
                   />
                 </div>
@@ -1391,12 +1433,13 @@ function AdManagementDetail({ user }) {
                     <IMaskInput
                       mask="00"
                       value={paymentEditForm.cardExpiryMonth}
-                      onAccept={value => setPaymentEditForm(prev => ({ ...prev, cardExpiryMonth: value }))}
+                      onAccept={handleEditCardExpiryMonthAccept}
                       placeholder="월"
                       disabled={isSavingPayment}
                     />
                     <span aria-hidden="true">/</span>
                     <IMaskInput
+                      inputRef={editCardExpiryYearInputRef}
                       mask="00"
                       value={paymentEditForm.cardExpiryYear}
                       onAccept={value => setPaymentEditForm(prev => ({ ...prev, cardExpiryYear: value }))}

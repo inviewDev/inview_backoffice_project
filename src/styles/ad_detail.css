@@ -52,7 +52,7 @@
 .ad_segmented_control.card { border: 0; flex-direction: row;}
 .ad_segmented_control input { width: 100%; height: 40px; padding: 0 14px; border-radius: 6px; background: #fff; color: #333; font-size: 15px; font-weight: 500; outline: none; }
 .ad_compact_address_control { display: flex; width: 100%; min-width: 0; }
-.ad_compact_address_control input { min-width: 0; height: 38px; flex: 1 1 auto; padding: 0 14px; border: 0; border-radius: 0; cursor: pointer; font-size: 15px; }
+.ad_compact_address_control input { min-width: 0; height: 38px; flex: 1 1 auto; padding: 0 14px; border: 0; border-right: 1px solid #eef1f6; border-radius: 0; cursor: text; font-size: 15px; }
 .ad_compact_address_control button { display: inline-flex; width: 70px; height: 40px; flex: 0 0 70px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 0 6px 6px 0; background: #1962fc; color: #fff; cursor: pointer; font-size: 13px; font-weight: 800; letter-spacing: 0; }
 .ad_section_actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 .ad_primary_button,
@@ -135,6 +135,11 @@
   .ad_address_control > * { width: 100% !important; min-width: 0 !important; flex-basis: auto !important; }
   .ad_address_control input { border-right: 0; border-bottom: 1px solid #eef1f6; }
   .ad_address_control button { width: 100%; border-radius: 0 0 6px 6px; }
+  .ad_compact_address_control { flex-direction: column; }
+  .ad_compact_address_control input,
+  .ad_compact_address_control button { width: 100%; flex-basis: auto; }
+  .ad_compact_address_control input { border-right: 0; border-bottom: 1px solid #eef1f6; }
+  .ad_compact_address_control button { border-radius: 0 0 6px 6px; }
   .ad_date_range { align-items: stretch; flex-direction: column; gap: 4px; }
   .ad_date_range > span { display: none; }
   .ad_card_number { flex-direction: column; }

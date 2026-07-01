@@ -22,7 +22,7 @@
 .date_select_calendar .react-datepicker__day-name { color: #7a8498; font-weight: 800; }
 .date_select_calendar .react-datepicker__day:hover { border-radius: 8px; background: rgba(25, 98, 252, 0.1); color: #1962fc; }
 .date_select_calendar .react-datepicker__day--today { border-radius: 8px; box-shadow: inset 0 0 0 1px #1962fc; color: #1962fc; }
-.date_select_calendar .react-datepicker__day--selected,.date_select_calendar .react-datepicker__day--keyboard-selected { border-radius: 8px; background: #1962fc; box-shadow: none; color: #fff; }
+.date_select_calendar .react-datepicker__day--selected,.date_select_calendar .react-datepicker__day--keyboard-selected { border-radius: 8px; background: #1962fc; box-shadow: none; color: #fff !important; }
 .date_select_calendar .react-datepicker__day--outside-month { color: #b7becc; }
 .date_select_calendar .react-datepicker__day--disabled { color: #c4cbd8; }
 .date_select_calendar .react-datepicker__day--disabled:hover { background: transparent; color: #c4cbd8; }

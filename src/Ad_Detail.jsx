@@ -366,8 +366,8 @@ function AdDetail({ user }) {
     if (!/^\d{3}-\d{4}-\d{4}$/.test(formData.mobile)) {
       return '휴대전화번호 형식이 올바르지 않습니다. (예: 010-1234-5678)';
     }
-    if (!formData.postcode || !formData.address) {
-      return '주소를 검색하여 입력해주세요.';
+    if (!formData.address) {
+      return '주소를 입력해주세요.';
     }
     if (!formData.companyEmail.includes('@')) {
       return '유효한 이메일 주소를 입력해주세요.';
@@ -501,7 +501,7 @@ function AdDetail({ user }) {
   const handleAddressComplete = data => {
     setFormData(prev => ({
       ...prev,
-      postcode: data.zonecode,
+      postcode: '',
       address: data.address,
       detailAddress: '',
     }));
@@ -639,10 +639,10 @@ function AdDetail({ user }) {
               <div className="ad_compact_address_control">
                 <input
                   type="text"
-                  value={addressSummary}
-                  readOnly
+                  value={formData.address}
+                  onChange={e => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                  placeholder="주소"
                   disabled={isLoading.company}
-                  onClick={() => !isLoading.company && setShowPostcodeModal(true)}
                 />
                 <button
                   type="button"
@@ -658,6 +658,15 @@ function AdDetail({ user }) {
                 type="email"
                 value={formData.companyEmail}
                 onChange={e => setFormData(prev => ({ ...prev, companyEmail: e.target.value }))}
+                disabled={isLoading.company}
+              />
+            </AdField>
+            <AdField label="나머지주소" className="span_two">
+              <input
+                type="text"
+                value={formData.detailAddress}
+                onChange={e => setFormData(prev => ({ ...prev, detailAddress: e.target.value }))}
+                placeholder="상세주소"
                 disabled={isLoading.company}
               />
             </AdField>
@@ -697,26 +706,37 @@ function AdDetail({ user }) {
               <AdField label="계약기간">
                 <div className="ad_date_range">
                   <DatePicker
+                    ref={contractStartPickerRef}
                     selected={paymentData.startDate}
-                    onChange={date => setPaymentData(prev => ({ ...prev, startDate: date }))}
+                    onChange={handleContractStartDateChange}
+                    selectsStart
+                    startDate={paymentData.startDate}
+                    endDate={paymentData.endDate}
                     dateFormat="yyyy-MM-dd"
                     locale={ko}
                     placeholderText="시작일"
                     disabled={isLoading.payment}
                     popperClassName="date_select_calendar ad_contract_calendar"
                     showPopperArrow={false}
+                    shouldCloseOnSelect
                     renderCustomHeader={renderContractDateHeader}
                   />
                   <span>-</span>
                   <DatePicker
+                    ref={contractEndPickerRef}
                     selected={paymentData.endDate}
-                    onChange={date => setPaymentData(prev => ({ ...prev, endDate: date }))}
+                    onChange={handleContractEndDateChange}
+                    selectsEnd
+                    startDate={paymentData.startDate}
+                    endDate={paymentData.endDate}
+                    minDate={paymentData.startDate || undefined}
                     dateFormat="yyyy-MM-dd"
                     locale={ko}
                     placeholderText="종료일"
                     disabled={isLoading.payment}
                     popperClassName="date_select_calendar ad_contract_calendar"
                     showPopperArrow={false}
+                    shouldCloseOnSelect
                     renderCustomHeader={renderContractDateHeader}
                   />
                 </div>
@@ -795,12 +815,13 @@ function AdDetail({ user }) {
                       <IMaskInput
                         mask="00"
                         value={paymentDetail.expiryMonth}
-                        onAccept={value => setPaymentDetail(prev => ({ ...prev, expiryMonth: value }))}
+                        onAccept={handleExpiryMonthAccept}
                         placeholder="월"
                         disabled={isLoading.payment}
                       />
                       <span>/</span>
                       <IMaskInput
+                        inputRef={expiryYearInputRef}
                         mask="00"
                         value={paymentDetail.expiryYear}
                         onAccept={value => setPaymentDetail(prev => ({ ...prev, expiryYear: value }))}
@@ -983,7 +1004,7 @@ function AdDetail({ user }) {
         size="lg"
       >
         <Modal.Header closeButton>
-          <Modal.Title>우편번호 검색</Modal.Title>
+          <Modal.Title>주소 검색</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <DaumPostcode
