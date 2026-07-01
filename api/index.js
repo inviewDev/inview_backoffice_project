@@ -1229,8 +1229,20 @@ apiRouter.post('/company', verifyToken, async (req, res) => {
   if (!canAccessUser(req, targetUserId)) {
     return res.status(403).json({ error: '해당 사용자 정보에 접근할 권한이 없습니다.' });
   }
-  if (!companyName || !ceoName || !tel || !mobile || !address || !companyEmail) {
-    return res.status(400).json({ error: '회사 필수 정보를 모두 입력해주세요.' });
+  const missingCompanyFields = [
+    { label: '상호명', value: companyName },
+    { label: '대표자', value: ceoName },
+    { label: 'Tel', value: tel },
+    { label: 'Mobile', value: mobile },
+    { label: '주소', value: address },
+    { label: '업체 E-Mail', value: companyEmail },
+  ].filter(field => !String(field.value ?? '').trim()).map(field => field.label);
+
+  if (missingCompanyFields.length) {
+    return res.status(400).json({
+      error: `회사 필수 정보를 모두 입력해주세요. 누락 항목: ${missingCompanyFields.join(', ')}`,
+      missingFields: missingCompanyFields,
+    });
   }
   if (normalizedBusinessRegNumber && !/^\d{3}-\d{2}-\d{5}$/.test(normalizedBusinessRegNumber)) {
     return res.status(400).json({ error: '사업자등록번호 형식이 올바르지 않습니다.' });
@@ -1288,8 +1300,19 @@ apiRouter.post('/payment', verifyToken, async (req, res) => {
   if (!canAccessUser(req, targetUserId)) {
     return res.status(403).json({ error: '해당 사용자 정보에 접근할 권한이 없습니다.' });
   }
-  if (!productName || !startDate || !endDate || !approvedCompany || !paymentMethod) {
-    return res.status(400).json({ error: '결제 필수 정보를 모두 입력해주세요.' });
+  const missingPaymentFields = [
+    { label: '상품명', value: productName },
+    { label: '계약기간 시작일', value: startDate },
+    { label: '계약기간 종료일', value: endDate },
+    { label: '승인회사', value: approvedCompany },
+    { label: '결제구분', value: paymentMethod },
+  ].filter(field => !String(field.value ?? '').trim()).map(field => field.label);
+
+  if (missingPaymentFields.length) {
+    return res.status(400).json({
+      error: `결제 필수 정보를 모두 입력해주세요. 누락 항목: ${missingPaymentFields.join(', ')}`,
+      missingFields: missingPaymentFields,
+    });
   }
   if (Number.isNaN(parsedStartDate.getTime()) || Number.isNaN(parsedEndDate.getTime())) {
     return res.status(400).json({ error: '계약기간 날짜 형식이 올바르지 않습니다.' });

@@ -189,12 +189,37 @@ function createInitialProductInfo(user) {
   };
 }
 
+function getMissingFieldLabels(fields) {
+  return fields
+    .filter(field => !String(field.value ?? '').trim())
+    .map(field => field.label);
+}
+
+function formatMissingFieldMessage(title, missingFields) {
+  return `${title}\n누락 항목: ${missingFields.join(', ')}`;
+}
+
+function AlertMessage({ message }) {
+  const lines = String(message || '').split('\n');
+
+  return (
+    <p>
+      {lines.map((line, index) => (
+        <Fragment key={`${line}_${index}`}>
+          {line}
+          {index < lines.length - 1 && <br />}
+        </Fragment>
+      ))}
+    </p>
+  );
+}
+
 function AdField({ label, children, className = '' }) {
   return (
-    <label className={`ad_field ${className}`}>
+    <div className={`ad_field ${className}`}>
       <span className="ad_field_label">{label}</span>
       <span className="ad_field_control">{children}</span>
-    </label>
+    </div>
   );
 }
 
@@ -268,8 +293,7 @@ function AdDetail({ user }) {
     message: '',
     variant: 'warning',
   });
-  const contractStartPickerRef = useRef(null);
-  const contractEndPickerRef = useRef(null);
+  const [activeContractPicker, setActiveContractPicker] = useState(null);
   const expiryYearInputRef = useRef(null);
 
   const paymentSummary = useMemo(() => {
@@ -318,12 +342,6 @@ function AdDetail({ user }) {
     setAlertModal({ show: true, title, message, variant });
   };
 
-  const openDatePicker = pickerRef => {
-    window.setTimeout(() => {
-      pickerRef.current?.setOpen(true);
-    }, 0);
-  };
-
   const focusInput = inputRef => {
     window.requestAnimationFrame(() => {
       inputRef.current?.focus();
@@ -336,13 +354,13 @@ function AdDetail({ user }) {
       startDate: date,
       endDate: prev.endDate && date && prev.endDate < date ? null : prev.endDate,
     }));
-    contractStartPickerRef.current?.setOpen(false);
-    if (date) openDatePicker(contractEndPickerRef);
+    setActiveContractPicker(date ? 'end' : null);
   };
 
   const handleContractEndDateChange = date => {
     setPaymentData(prev => ({ ...prev, endDate: date }));
-    contractEndPickerRef.current?.setOpen(false);
+    setActiveContractPicker(null);
+    document.activeElement?.blur?.();
   };
 
   const handleExpiryMonthAccept = value => {
@@ -351,6 +369,19 @@ function AdDetail({ user }) {
   };
 
   const validateCompanyData = () => {
+    const missingFields = getMissingFieldLabels([
+      { label: '상호명', value: formData.companyName },
+      { label: '대표자', value: formData.ceoName },
+      { label: 'Tel', value: formData.tel },
+      { label: 'Mobile', value: formData.mobile },
+      { label: '주소', value: formData.address },
+      { label: '업체 E-Mail', value: formData.companyEmail },
+    ]);
+
+    if (missingFields.length) {
+      return formatMissingFieldMessage('회사 필수정보를 입력해주세요.', missingFields);
+    }
+
     if (!formData.companyName) {
       return '상호명을 입력해주세요.';
     }
@@ -377,6 +408,25 @@ function AdDetail({ user }) {
   };
 
   const validatePaymentData = () => {
+    const missingFields = getMissingFieldLabels([
+      { label: '상품명', value: paymentData.productName },
+      { label: '승인금액', value: paymentDetail.approvedAmount },
+      { label: '계약기간 시작일', value: paymentData.startDate },
+      { label: '계약기간 종료일', value: paymentData.endDate },
+      { label: '결제구분', value: paymentData.paymentMethod },
+      { label: '담당자', value: productInfo.manager },
+      ...(paymentData.paymentMethod === '카드'
+        ? [
+            { label: '카드사', value: paymentDetail.cardCompany },
+            { label: '할부개월수', value: paymentDetail.installmentMonths },
+          ]
+        : []),
+    ]);
+
+    if (missingFields.length) {
+      return formatMissingFieldMessage('결제 필수정보를 입력해주세요.', missingFields);
+    }
+
     if (!paymentData.productName) {
       return '상품명을 선택해주세요.';
     }
@@ -706,29 +756,29 @@ function AdDetail({ user }) {
               <AdField label="계약기간">
                 <div className="ad_date_range">
                   <DatePicker
-                    ref={contractStartPickerRef}
                     selected={paymentData.startDate}
                     onChange={handleContractStartDateChange}
-                    selectsStart
-                    startDate={paymentData.startDate}
-                    endDate={paymentData.endDate}
+                    open={activeContractPicker === 'start'}
+                    onInputClick={() => setActiveContractPicker('start')}
+                    onClickOutside={() => setActiveContractPicker(null)}
+                    preventOpenOnFocus
                     dateFormat="yyyy-MM-dd"
                     locale={ko}
                     placeholderText="시작일"
                     disabled={isLoading.payment}
                     popperClassName="date_select_calendar ad_contract_calendar"
                     showPopperArrow={false}
-                    shouldCloseOnSelect
+                    shouldCloseOnSelect={false}
                     renderCustomHeader={renderContractDateHeader}
                   />
                   <span>-</span>
                   <DatePicker
-                    ref={contractEndPickerRef}
                     selected={paymentData.endDate}
                     onChange={handleContractEndDateChange}
-                    selectsEnd
-                    startDate={paymentData.startDate}
-                    endDate={paymentData.endDate}
+                    open={activeContractPicker === 'end'}
+                    onInputClick={() => setActiveContractPicker('end')}
+                    onClickOutside={() => setActiveContractPicker(null)}
+                    preventOpenOnFocus
                     minDate={paymentData.startDate || undefined}
                     dateFormat="yyyy-MM-dd"
                     locale={ko}
@@ -736,7 +786,7 @@ function AdDetail({ user }) {
                     disabled={isLoading.payment}
                     popperClassName="date_select_calendar ad_contract_calendar"
                     showPopperArrow={false}
-                    shouldCloseOnSelect
+                    shouldCloseOnSelect={false}
                     renderCustomHeader={renderContractDateHeader}
                   />
                 </div>
@@ -1031,7 +1081,7 @@ function AdDetail({ user }) {
       >
         <Modal.Body>
           <strong>{alertModal.title}</strong>
-          <p>{alertModal.message}</p>
+          <AlertMessage message={alertModal.message} />
           <button
             type="button"
             className="ad_primary_button"

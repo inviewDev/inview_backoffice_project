@@ -505,8 +505,7 @@ function AdManagementDetail({ user }) {
   const [editingAdminCommentText, setEditingAdminCommentText] = useState('');
   const [isLoadingAdminComments, setIsLoadingAdminComments] = useState(false);
   const [adminCommentPagination, setAdminCommentPagination] = useState(() => ({ ...DEFAULT_COMMENT_PAGINATION }));
-  const editContractStartPickerRef = useRef(null);
-  const editContractEndPickerRef = useRef(null);
+  const [activeEditContractPicker, setActiveEditContractPicker] = useState(null);
   const editCardExpiryYearInputRef = useRef(null);
   const canEditPayment = Boolean(ad?.canEditAd) || user?.canEditAds === true || user?.role === '전체관리자' || user?.level === '대표';
 
@@ -777,12 +776,6 @@ function AdManagementDetail({ user }) {
     }
   };
 
-  const openEditDatePicker = pickerRef => {
-    window.setTimeout(() => {
-      pickerRef.current?.setOpen(true);
-    }, 0);
-  };
-
   const focusEditInput = inputRef => {
     window.requestAnimationFrame(() => {
       inputRef.current?.focus();
@@ -797,13 +790,13 @@ function AdManagementDetail({ user }) {
         ? null
         : prev.contractEndDate,
     }));
-    editContractStartPickerRef.current?.setOpen(false);
-    if (date) openEditDatePicker(editContractEndPickerRef);
+    setActiveEditContractPicker(date ? 'end' : null);
   };
 
   const handleEditContractEndDateChange = date => {
     setPaymentEditForm(prev => ({ ...prev, contractEndDate: date }));
-    editContractEndPickerRef.current?.setOpen(false);
+    setActiveEditContractPicker(null);
+    document.activeElement?.blur?.();
   };
 
   const handleEditCardExpiryMonthAccept = value => {
@@ -1300,29 +1293,29 @@ function AdManagementDetail({ user }) {
               <EditableField label="계약기간">
                 <div className="ad_view_inline_dates">
                   <DatePicker
-                    ref={editContractStartPickerRef}
                     selected={paymentEditForm.contractStartDate}
                     onChange={handleEditContractStartDateChange}
-                    selectsStart
-                    startDate={paymentEditForm.contractStartDate}
-                    endDate={paymentEditForm.contractEndDate}
+                    open={activeEditContractPicker === 'start'}
+                    onInputClick={() => setActiveEditContractPicker('start')}
+                    onClickOutside={() => setActiveEditContractPicker(null)}
+                    preventOpenOnFocus
                     dateFormat="yyyy-MM-dd"
                     locale={ko}
                     placeholderText="시작일"
                     disabled={isSavingPayment}
                     popperClassName="date_select_calendar ad_payment_edit_calendar"
                     showPopperArrow={false}
-                    shouldCloseOnSelect
+                    shouldCloseOnSelect={false}
                     renderCustomHeader={renderContractDateHeader}
                   />
                   <span aria-hidden="true">-</span>
                   <DatePicker
-                    ref={editContractEndPickerRef}
                     selected={paymentEditForm.contractEndDate}
                     onChange={handleEditContractEndDateChange}
-                    selectsEnd
-                    startDate={paymentEditForm.contractStartDate}
-                    endDate={paymentEditForm.contractEndDate}
+                    open={activeEditContractPicker === 'end'}
+                    onInputClick={() => setActiveEditContractPicker('end')}
+                    onClickOutside={() => setActiveEditContractPicker(null)}
+                    preventOpenOnFocus
                     minDate={paymentEditForm.contractStartDate || undefined}
                     dateFormat="yyyy-MM-dd"
                     locale={ko}
@@ -1330,7 +1323,7 @@ function AdManagementDetail({ user }) {
                     disabled={isSavingPayment}
                     popperClassName="date_select_calendar ad_payment_edit_calendar"
                     showPopperArrow={false}
-                    shouldCloseOnSelect
+                    shouldCloseOnSelect={false}
                     renderCustomHeader={renderContractDateHeader}
                   />
                 </div>
