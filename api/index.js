@@ -425,6 +425,7 @@ async function getCurrentUserAccess(userId) {
       department: true,
       adVisibilityScope: true,
       canEditAds: true,
+      canEditAdPaymentStatus: true,
       canDeleteAds: true,
     },
   });
@@ -432,6 +433,10 @@ async function getCurrentUserAccess(userId) {
 
 function canEditAdPayment(user) {
   return isMasterAccount(user) || user?.canEditAds === true || user?.role === '전체관리자' || user?.level === '대표';
+}
+
+function canEditAdPaymentStatus(user) {
+  return isMasterAccount(user) || user?.canEditAdPaymentStatus === true;
 }
 
 function canDeleteAdPayment(user) {
@@ -502,31 +507,7 @@ function buildAdAccessFilter(user, targetUserId = null) {
 
 function canViewAd(user, payment) {
   if (!user?.id || !payment?.id) return false;
-
-  const scope = getEffectiveAdVisibilityScope(user);
-  if (scope === 'all') return true;
-  if (payment.userId === user.id) return true;
-
-  if (scope === 'team') {
-    return Boolean(
-      user.team &&
-      user.team !== '미지정' &&
-      (
-        payment.managerTeam === user.team ||
-        payment.user?.team === user.team
-      )
-    );
-  }
-
-  if (scope === 'department') {
-    const teams = getTeamsByDepartment(user.department);
-    return Boolean(
-      (user.department && user.department !== '미지정' && payment.user?.department === user.department) ||
-      (payment.managerTeam && teams.includes(payment.managerTeam))
-    );
-  }
-
-  return false;
+  return true;
 }
 
 function canViewAllAdsInList(user) {
@@ -620,6 +601,7 @@ apiRouter.get('/me', verifyToken, async (req, res) => {
         profileImage: true,
         adVisibilityScope: true,
         canEditAds: true,
+        canEditAdPaymentStatus: true,
         canDeleteAds: true,
       },
     });
@@ -641,6 +623,7 @@ apiRouter.get('/me', verifyToken, async (req, res) => {
         profileImage: user.profileImage || '',
         adVisibilityScope: normalizeAdVisibilityScope(user.adVisibilityScope),
         canEditAds: canEditAdPayment(user),
+        canEditAdPaymentStatus: canEditAdPaymentStatus(user),
         canDeleteAds: canDeleteAdPayment(user),
       },
     });
@@ -701,6 +684,7 @@ apiRouter.post('/signup', async (req, res) => {
         profileImage: newUser.profileImage || '',
         adVisibilityScope: normalizeAdVisibilityScope(newUser.adVisibilityScope),
         canEditAds: Boolean(newUser.canEditAds),
+        canEditAdPaymentStatus: Boolean(newUser.canEditAdPaymentStatus),
         canDeleteAds: Boolean(newUser.canDeleteAds),
       },
       SECRET,
@@ -724,6 +708,7 @@ apiRouter.post('/signup', async (req, res) => {
         profileImage: newUser.profileImage || '',
         adVisibilityScope: normalizeAdVisibilityScope(newUser.adVisibilityScope),
         canEditAds: Boolean(newUser.canEditAds),
+        canEditAdPaymentStatus: Boolean(newUser.canEditAdPaymentStatus),
         canDeleteAds: Boolean(newUser.canDeleteAds),
       },
       token,
@@ -765,6 +750,7 @@ apiRouter.post('/login', async (req, res) => {
         officePhoneNumber: user.officePhoneNumber,
         adVisibilityScope: normalizeAdVisibilityScope(user.adVisibilityScope),
         canEditAds: canEditAdPayment(user),
+        canEditAdPaymentStatus: canEditAdPaymentStatus(user),
         canDeleteAds: canDeleteAdPayment(user),
       },
       SECRET,
@@ -788,6 +774,7 @@ apiRouter.post('/login', async (req, res) => {
         profileImage: user.profileImage || '',
         adVisibilityScope: normalizeAdVisibilityScope(user.adVisibilityScope),
         canEditAds: canEditAdPayment(user),
+        canEditAdPaymentStatus: canEditAdPaymentStatus(user),
         canDeleteAds: canDeleteAdPayment(user),
       },
     });
@@ -972,6 +959,7 @@ apiRouter.patch('/users/:id', verifyToken, async (req, res) => {
         profileImage: true,
         adVisibilityScope: true,
         canEditAds: true,
+        canEditAdPaymentStatus: true,
         canDeleteAds: true,
       },
     });
@@ -991,6 +979,7 @@ apiRouter.patch('/users/:id', verifyToken, async (req, res) => {
         profileImage: updatedUser.profileImage || '',
         adVisibilityScope: normalizeAdVisibilityScope(updatedUser.adVisibilityScope),
         canEditAds: canEditAdPayment(updatedUser),
+        canEditAdPaymentStatus: canEditAdPaymentStatus(updatedUser),
         canDeleteAds: canDeleteAdPayment(updatedUser),
       },
     });
@@ -1030,6 +1019,7 @@ apiRouter.post('/users/:id/officePhoneNumber', verifyToken, async (req, res) => 
         profileImage: true,
         adVisibilityScope: true,
         canEditAds: true,
+        canEditAdPaymentStatus: true,
         canDeleteAds: true,
       },
     });
@@ -1050,6 +1040,7 @@ apiRouter.post('/users/:id/officePhoneNumber', verifyToken, async (req, res) => 
         profileImage: updatedUser.profileImage || '',
         adVisibilityScope: normalizeAdVisibilityScope(updatedUser.adVisibilityScope),
         canEditAds: canEditAdPayment(updatedUser),
+        canEditAdPaymentStatus: canEditAdPaymentStatus(updatedUser),
         canDeleteAds: canDeleteAdPayment(updatedUser),
       },
     });
@@ -1376,7 +1367,7 @@ apiRouter.post('/payment', verifyToken, async (req, res) => {
         spendingCost,
         netProfit,
         approvalNumber: toOptionalString(paymentDetail.approvalNumber),
-        paymentStatus: toOptionalString(paymentDetail.paymentStatus) || '결제대기',
+        paymentStatus: '결제대기',
         cardCompany: isCardPayment ? toOptionalString(paymentDetail.cardCompany) : null,
         cardExpiryMonth: isCardPayment ? normalizeCardExpiryMonth(paymentDetail.expiryMonth) : null,
         cardExpiryYear: isCardPayment ? normalizeCardExpiryYear(paymentDetail.expiryYear) : null,
@@ -1440,7 +1431,7 @@ apiRouter.get('/ads', verifyToken, async (req, res) => {
       return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
     }
 
-    const accessFilter = buildAdAccessFilter(currentUser, targetUserId);
+    const accessFilter = targetUserId ? { userId: targetUserId } : {};
     const searchFilter = search
       ? {
           OR: [
@@ -1774,6 +1765,7 @@ apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
         })),
         canUseAdminComments,
         canEditAd: canEditAdPayment(currentUser),
+        canEditPaymentStatus: canEditAdPaymentStatus(currentUser),
         canDeleteAd: canDeleteAdPayment(currentUser),
         comments: publicComments.map(comment => serializeAdComment(comment, currentUser)),
         commentPagination: {
@@ -2282,7 +2274,10 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
     if (!currentUser) {
       return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
     }
-    if (!canEditAdPayment(currentUser)) {
+    const canEditPaymentInfo = canEditAdPayment(currentUser);
+    const canEditPaymentStatusInfo = canEditAdPaymentStatus(currentUser);
+
+    if (!canEditPaymentInfo && !canEditPaymentStatusInfo) {
       return res.status(403).json({ error: '전체관리자 또는 대표만 결제정보를 수정할 수 있습니다.' });
     }
 
@@ -2291,44 +2286,76 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
       select: {
         id: true,
         userId: true,
+        productName: true,
+        approvedAmount: true,
+        startDate: true,
+        endDate: true,
+        taxInvoice: true,
+        approvalNumber: true,
+        spendingCost: true,
+        paymentMethod: true,
+        cardCompany: true,
+        cardExpiryMonth: true,
+        cardExpiryYear: true,
         cardNumber: true,
+        paymentStatus: true,
+        installmentMonths: true,
+        vat: true,
+        netProfit: true,
+        manager: true,
+        managerTeam: true,
+        teamLead: true,
+        departmentHead: true,
+        production1: true,
+        production2: true,
+        adProgress: true,
+        productItems: true,
+        registrationUrl: true,
+        titleText: true,
+        descriptionText: true,
+        advertiserAccount: true,
+        memo: true,
+        fileName: true,
       },
     });
     if (!payment) {
       return res.status(404).json({ error: '광고 정보를 찾을 수 없습니다.' });
     }
 
-    const [managerUser, teamLeadUser, departmentHeadUser] = await Promise.all([
-      managerUserId
-        ? prisma.user.findUnique({
-            where: { id: managerUserId },
-            select: { id: true, name: true, team: true, department: true, status: true },
-          })
-        : Promise.resolve(null),
-      teamLeadUserId
-        ? prisma.user.findUnique({
-            where: { id: teamLeadUserId },
-            select: { id: true, name: true, level: true, status: true },
-          })
-        : Promise.resolve(null),
-      departmentHeadUserId
-        ? prisma.user.findUnique({
-            where: { id: departmentHeadUserId },
-            select: { id: true, name: true, level: true, status: true },
-          })
-        : Promise.resolve(null),
-    ]);
+    const [managerUser, teamLeadUser, departmentHeadUser] = canEditPaymentInfo
+      ? await Promise.all([
+          managerUserId
+            ? prisma.user.findUnique({
+                where: { id: managerUserId },
+                select: { id: true, name: true, team: true, department: true, status: true },
+              })
+            : Promise.resolve(null),
+          teamLeadUserId
+            ? prisma.user.findUnique({
+                where: { id: teamLeadUserId },
+                select: { id: true, name: true, level: true, status: true },
+              })
+            : Promise.resolve(null),
+          departmentHeadUserId
+            ? prisma.user.findUnique({
+                where: { id: departmentHeadUserId },
+                select: { id: true, name: true, level: true, status: true },
+              })
+            : Promise.resolve(null),
+        ])
+      : [null, null, null];
 
-    if (managerUserId && !managerUser) {
+    if (canEditPaymentInfo && managerUserId && !managerUser) {
       return res.status(400).json({ error: '선택한 담당자를 찾을 수 없습니다.' });
     }
-    if (teamLeadUserId && !teamLeadUser) {
+    if (canEditPaymentInfo && teamLeadUserId && !teamLeadUser) {
       return res.status(400).json({ error: '선택한 담당팀장을 찾을 수 없습니다.' });
     }
-    if (departmentHeadUserId && !departmentHeadUser) {
+    if (canEditPaymentInfo && departmentHeadUserId && !departmentHeadUser) {
       return res.status(400).json({ error: '선택한 담당부장을 찾을 수 없습니다.' });
     }
 
+    const nextPaymentStatus = canEditPaymentStatusInfo ? paymentStatus : payment.paymentStatus;
     const vat = Math.round(approvedAmount / 11);
     const netProfit = Math.max(approvedAmount - vat - spendingCost, 0);
     const nextCardNumber = paymentMethod === '카드'
@@ -2339,41 +2366,41 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
     const updatedPayment = await prisma.payment.update({
       where: { id: adId },
       data: {
-        productName,
-        approvedAmount,
-        startDate,
-        endDate,
-        taxInvoice,
-        approvalNumber,
-        spendingCost,
-        paymentMethod,
-        cardCompany: paymentMethod === '카드' ? cardCompany : null,
-        cardExpiryMonth: paymentMethod === '카드' ? cardExpiryMonth : null,
-        cardExpiryYear: paymentMethod === '카드' ? cardExpiryYear : null,
-        cardNumber: nextCardNumber,
-        paymentStatus,
-        installmentMonths: paymentMethod === '카드' ? installmentMonths : null,
-        vat,
-        netProfit,
-        ...(managerUser
+        productName: canEditPaymentInfo ? productName : payment.productName,
+        approvedAmount: canEditPaymentInfo ? approvedAmount : payment.approvedAmount,
+        startDate: canEditPaymentInfo ? startDate : payment.startDate,
+        endDate: canEditPaymentInfo ? endDate : payment.endDate,
+        taxInvoice: canEditPaymentInfo ? taxInvoice : payment.taxInvoice,
+        approvalNumber: canEditPaymentInfo ? approvalNumber : payment.approvalNumber,
+        spendingCost: canEditPaymentInfo ? spendingCost : payment.spendingCost,
+        paymentMethod: canEditPaymentInfo ? paymentMethod : payment.paymentMethod,
+        cardCompany: canEditPaymentInfo ? (paymentMethod === '카드' ? cardCompany : null) : payment.cardCompany,
+        cardExpiryMonth: canEditPaymentInfo ? (paymentMethod === '카드' ? cardExpiryMonth : null) : payment.cardExpiryMonth,
+        cardExpiryYear: canEditPaymentInfo ? (paymentMethod === '카드' ? cardExpiryYear : null) : payment.cardExpiryYear,
+        cardNumber: canEditPaymentInfo ? nextCardNumber : payment.cardNumber,
+        paymentStatus: nextPaymentStatus,
+        installmentMonths: canEditPaymentInfo ? (paymentMethod === '카드' ? installmentMonths : null) : payment.installmentMonths,
+        vat: canEditPaymentInfo ? vat : payment.vat,
+        netProfit: canEditPaymentInfo ? netProfit : payment.netProfit,
+        ...(canEditPaymentInfo && managerUser
           ? {
               userId: managerUser.id,
               manager: managerUser.name,
               managerTeam: managerUser.team,
             }
           : {}),
-        teamLead: nextTeamLead,
-        departmentHead: nextDepartmentHead,
-        production1,
-        production2,
-        adProgress,
-        productItems,
-        registrationUrl,
-        titleText,
-        descriptionText,
-        advertiserAccount,
-        memo,
-        fileName,
+        teamLead: canEditPaymentInfo ? nextTeamLead : payment.teamLead,
+        departmentHead: canEditPaymentInfo ? nextDepartmentHead : payment.departmentHead,
+        production1: canEditPaymentInfo ? production1 : payment.production1,
+        production2: canEditPaymentInfo ? production2 : payment.production2,
+        adProgress: canEditPaymentInfo ? adProgress : payment.adProgress,
+        productItems: canEditPaymentInfo ? productItems : payment.productItems,
+        registrationUrl: canEditPaymentInfo ? registrationUrl : payment.registrationUrl,
+        titleText: canEditPaymentInfo ? titleText : payment.titleText,
+        descriptionText: canEditPaymentInfo ? descriptionText : payment.descriptionText,
+        advertiserAccount: canEditPaymentInfo ? advertiserAccount : payment.advertiserAccount,
+        memo: canEditPaymentInfo ? memo : payment.memo,
+        fileName: canEditPaymentInfo ? fileName : payment.fileName,
       },
       select: {
         id: true,
@@ -2439,6 +2466,7 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
         cardExpiryYear: updatedPayment.cardExpiryYear || '',
         cardNumber: updatedPayment.cardNumber || '',
         paymentStatus: updatedPayment.paymentStatus,
+        canEditPaymentStatus: canEditAdPaymentStatus(currentUser),
         installmentMonths: updatedPayment.installmentMonths || '',
         vat: updatedPayment.vat,
         netProfit: updatedPayment.netProfit,
@@ -2960,7 +2988,7 @@ apiRouter.get('/dashboard/sales', verifyToken, async (req, res) => {
       return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
     }
 
-    const filters = [];
+    const filters = [buildAdAccessFilter(currentUser)];
 
     if (dateFrom || dateTo) {
       const createdAt = {};
@@ -3006,7 +3034,8 @@ apiRouter.get('/dashboard/sales', verifyToken, async (req, res) => {
       });
     }
 
-    const where = filters.length ? { AND: filters } : {};
+    const whereFilters = filters.filter(filter => Object.keys(filter).length > 0);
+    const where = whereFilters.length ? { AND: whereFilters } : {};
     const skip = (page - 1) * pageSize;
     const [total, payments, statusTotals] = await prisma.$transaction([
       prisma.payment.count({ where }),
@@ -3199,6 +3228,7 @@ apiRouter.get('/users/pending', verifyToken, verifyAdminRole, async (req, res) =
         officePhoneNumber: true,
         adVisibilityScope: true,
         canEditAds: true,
+        canEditAdPaymentStatus: true,
         canDeleteAds: true,
       },
     });
@@ -3233,6 +3263,7 @@ apiRouter.post('/users/:id/approve', verifyToken, verifyMasterRole, async (req, 
         officePhoneNumber: true,
         adVisibilityScope: true,
         canEditAds: true,
+        canEditAdPaymentStatus: true,
         canDeleteAds: true,
       },
     });
@@ -3267,6 +3298,7 @@ apiRouter.post('/users/:id/reject', verifyToken, verifyMasterRole, async (req, r
         officePhoneNumber: true,
         adVisibilityScope: true,
         canEditAds: true,
+        canEditAdPaymentStatus: true,
         canDeleteAds: true,
       },
     });
@@ -3303,6 +3335,7 @@ apiRouter.post('/users/:id/status', verifyToken, verifyMasterRole, async (req, r
         officePhoneNumber: true,
         adVisibilityScope: true,
         canEditAds: true,
+        canEditAdPaymentStatus: true,
         canDeleteAds: true,
       },
     });
@@ -3323,6 +3356,8 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
   const adVisibilityScope = normalizeAdVisibilityScope(req.body.adVisibilityScope);
   const hasCanEditAdsInput = Object.prototype.hasOwnProperty.call(req.body, 'canEditAds');
   const canEditAds = req.body.canEditAds === true;
+  const hasCanEditAdPaymentStatusInput = Object.prototype.hasOwnProperty.call(req.body, 'canEditAdPaymentStatus');
+  const canEditAdPaymentStatusValue = req.body.canEditAdPaymentStatus === true;
   const hasCanDeleteAdsInput = Object.prototype.hasOwnProperty.call(req.body, 'canDeleteAds');
   const canDeleteAds = req.body.canDeleteAds === true;
 
@@ -3355,6 +3390,7 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
           level: true,
           adVisibilityScope: true,
           canEditAds: true,
+          canEditAdPaymentStatus: true,
           canDeleteAds: true,
         },
       }),
@@ -3368,6 +3404,9 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
     }
     if (hasCanEditAdsInput && !isMasterAccount(actor)) {
       return res.status(403).json({ error: '광고 수정권한 설정은 마스터 계정만 변경할 수 있습니다.' });
+    }
+    if (hasCanEditAdPaymentStatusInput && !isMasterAccount(actor)) {
+      return res.status(403).json({ error: '결제상태 수정권한 설정은 마스터 계정만 변경할 수 있습니다.' });
     }
     if (hasCanDeleteAdsInput && !isMasterAccount(actor)) {
       return res.status(403).json({ error: '광고 삭제권한 설정은 마스터 계정만 변경할 수 있습니다.' });
@@ -3408,6 +3447,9 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
     if (hasCanEditAdsInput) {
       updateData.canEditAds = isMasterAccount(targetUser) ? true : canEditAds;
     }
+    if (hasCanEditAdPaymentStatusInput) {
+      updateData.canEditAdPaymentStatus = isMasterAccount(targetUser) ? true : canEditAdPaymentStatusValue;
+    }
     if (hasCanDeleteAdsInput) {
       updateData.canDeleteAds = isMasterAccount(targetUser) ? true : canDeleteAds;
     }
@@ -3433,6 +3475,7 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
         officePhoneNumber: true,
         adVisibilityScope: true,
         canEditAds: true,
+        canEditAdPaymentStatus: true,
         canDeleteAds: true,
       },
     });
@@ -3479,6 +3522,7 @@ apiRouter.post('/users/:id/role', verifyToken, verifyMasterRole, async (req, res
         officePhoneNumber: true,
         adVisibilityScope: true,
         canEditAds: true,
+        canEditAdPaymentStatus: true,
         canDeleteAds: true,
       },
     });
@@ -3517,6 +3561,7 @@ apiRouter.post('/users/:id/level', verifyToken, verifyMasterRole, async (req, re
         officePhoneNumber: true,
         adVisibilityScope: true,
         canEditAds: true,
+        canEditAdPaymentStatus: true,
         canDeleteAds: true,
       },
     });
@@ -3699,6 +3744,7 @@ apiRouter.get('/users', verifyToken, verifyAdminRole, async (req, res) => {
         officePhoneNumber: true,
         adVisibilityScope: true,
         canEditAds: true,
+        canEditAdPaymentStatus: true,
         canDeleteAds: true,
       },
     });

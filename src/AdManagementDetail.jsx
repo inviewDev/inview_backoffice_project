@@ -508,6 +508,8 @@ function AdManagementDetail({ user }) {
   const [activeEditContractPicker, setActiveEditContractPicker] = useState(null);
   const editCardExpiryYearInputRef = useRef(null);
   const canEditPayment = Boolean(ad?.canEditAd) || user?.canEditAds === true || user?.role === '전체관리자' || user?.level === '대표';
+  const canEditPaymentStatus = Boolean(ad?.canEditPaymentStatus) || user?.canEditAdPaymentStatus === true;
+  const canSaveAdChanges = canEditPayment || canEditPaymentStatus;
 
   const fetchAd = useCallback(async () => {
     setIsLoading(true);
@@ -805,6 +807,14 @@ function AdManagementDetail({ user }) {
   };
 
   const getPaymentEditValidation = () => {
+    if (!canEditPayment && canEditPaymentStatus) {
+      if (!PAYMENT_STATUSES.includes(paymentEditForm.paymentStatus)) {
+        return '결제상태를 확인해주세요.';
+      }
+
+      return '';
+    }
+
     if (detailEditForm.productNames.length === 0) {
       return '상품군을 선택해주세요.';
     }
@@ -837,7 +847,7 @@ function AdManagementDetail({ user }) {
   };
 
   const handleUpdateClick = () => {
-    if (!canEditPayment) return;
+    if (!canSaveAdChanges) return;
 
     const validationError = getPaymentEditValidation();
     if (validationError) {
@@ -861,6 +871,8 @@ function AdManagementDetail({ user }) {
   };
 
   const handlePaymentEditSubmit = async () => {
+    if (!canSaveAdChanges) return;
+
     setIsSavingPayment(true);
 
     try {
@@ -1449,7 +1461,7 @@ function AdManagementDetail({ user }) {
                 <Field label="유효기간" value={[ad.cardExpiryMonth, ad.cardExpiryYear].filter(Boolean).join('/')} />
               </>
             )}
-            {canEditPayment ? (
+            {canEditPaymentStatus ? (
               <EditableField label="결제상태">
                 <select
                   value={paymentEditForm.paymentStatus}
@@ -1910,8 +1922,8 @@ function AdManagementDetail({ user }) {
           type="button"
           className="ad_view_update_button"
           onClick={handleUpdateClick}
-          disabled={!canEditPayment || isSavingPayment}
-          title={canEditPayment ? '수정한 광고 결제정보 저장' : '광고상품 수정권한이 있는 계정만 수정할 수 있습니다.'}
+          disabled={!canSaveAdChanges || isSavingPayment}
+          title={canSaveAdChanges ? '수정한 광고 정보 저장' : '광고 수정권한 또는 결제상태 수정권한이 있는 계정만 수정할 수 있습니다.'}
         >
           {isSavingPayment ? '수정 중...' : '광고수정'}
         </button>

@@ -145,6 +145,7 @@ function App() {
           officePhoneNumber: data.user.officePhoneNumber || '',
           profileImage: data.user.profileImage || '',
           canEditAds: Boolean(data.user.canEditAds),
+          canEditAdPaymentStatus: Boolean(data.user.canEditAdPaymentStatus),
           canDeleteAds: Boolean(data.user.canDeleteAds),
         });
       } catch (error) {

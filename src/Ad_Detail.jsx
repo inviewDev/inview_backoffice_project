@@ -824,17 +824,7 @@ function AdDetail({ user }) {
                   disabled={isLoading.payment}
                 />
               </AdField>
-              <AdField label="결제상태">
-                <select
-                  value={paymentDetail.paymentStatus}
-                  onChange={e => setPaymentDetail(prev => ({ ...prev, paymentStatus: e.target.value }))}
-                  disabled={isLoading.payment}
-                >
-                  <option value="결제대기">결제대기</option>
-                  <option value="결제승인">결제승인</option>
-                  <option value="매출취소">매출취소</option>
-                </select>
-              </AdField>
+              <AdReadField label="결제상태" value="결제대기" />
               <AdField label="결제구분">
                 <select
                   value={paymentData.paymentMethod}

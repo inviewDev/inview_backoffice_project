@@ -25,6 +25,7 @@ model User {
   profileImage        String?              @db.Text
   adVisibilityScope   String               @default("own")
   canEditAds          Boolean              @default(false)
+  canEditAdPaymentStatus Boolean           @default(false)
   canDeleteAds        Boolean              @default(false)
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
