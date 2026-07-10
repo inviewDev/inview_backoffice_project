@@ -2210,6 +2210,19 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
   const advertiserAccount = toOptionalString(req.body.advertiserAccount);
   const memo = toOptionalString(req.body.memo);
   const fileName = toOptionalString(req.body.fileName);
+  const companyInfo = req.body.companyInfo && typeof req.body.companyInfo === 'object'
+    ? req.body.companyInfo
+    : {};
+  const companyName = toOptionalString(companyInfo.companyName);
+  const ceoName = toOptionalString(companyInfo.ceoName);
+  const businessRegNumber = toOptionalString(companyInfo.businessRegNumber);
+  const tel = toOptionalString(companyInfo.tel);
+  const mobile = toOptionalString(companyInfo.mobile);
+  const postcode = toOptionalString(companyInfo.postcode);
+  const address = toOptionalString(companyInfo.address);
+  const detailAddress = toOptionalString(companyInfo.detailAddress);
+  const companyUrl = toOptionalString(companyInfo.companyUrl);
+  const companyEmail = toOptionalString(companyInfo.companyEmail);
   const taxInvoiceOptions = ['발행', '미발행'];
   const paymentMethodOptions = ['카드', '현금'];
   const paymentStatusOptions = ['결제대기', '결제승인', '매출취소', '위약금'];
@@ -2280,12 +2293,42 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
     if (!canEditPaymentInfo && !canEditPaymentStatusInfo) {
       return res.status(403).json({ error: '전체관리자 또는 대표만 결제정보를 수정할 수 있습니다.' });
     }
+    if (canEditPaymentInfo) {
+      const missingCompanyFields = [
+        { label: '상호명', value: companyName },
+        { label: '대표자', value: ceoName },
+        { label: 'Tel', value: tel },
+        { label: 'Mobile', value: mobile },
+        { label: '주소', value: address },
+        { label: '업체 E-Mail', value: companyEmail },
+      ].filter(field => !String(field.value ?? '').trim()).map(field => field.label);
+
+      if (missingCompanyFields.length) {
+        return res.status(400).json({
+          error: `회사 필수 정보를 모두 입력해주세요. 누락 항목: ${missingCompanyFields.join(', ')}`,
+          missingFields: missingCompanyFields,
+        });
+      }
+      if (businessRegNumber && !/^\d{3}-\d{2}-\d{5}$/.test(businessRegNumber)) {
+        return res.status(400).json({ error: '사업자등록번호 형식이 올바르지 않습니다.' });
+      }
+      if (!/^\d{2,4}-\d{3,4}-\d{4}$/.test(tel)) {
+        return res.status(400).json({ error: '전화번호 형식이 올바르지 않습니다.' });
+      }
+      if (!/^\d{3}-\d{4}-\d{4}$/.test(mobile)) {
+        return res.status(400).json({ error: '휴대전화번호 형식이 올바르지 않습니다.' });
+      }
+      if (!companyEmail.includes('@')) {
+        return res.status(400).json({ error: '유효한 이메일 주소를 입력해주세요.' });
+      }
+    }
 
     const payment = await prisma.payment.findUnique({
       where: { id: adId },
       select: {
         id: true,
         userId: true,
+        companyId: true,
         productName: true,
         approvedAmount: true,
         startDate: true,
@@ -2316,6 +2359,21 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
         advertiserAccount: true,
         memo: true,
         fileName: true,
+        company: {
+          select: {
+            companyName: true,
+            ceoName: true,
+            businessRegNumber: true,
+            birthDate: true,
+            tel: true,
+            mobile: true,
+            postcode: true,
+            address: true,
+            detailAddress: true,
+            companyUrl: true,
+            companyEmail: true,
+          },
+        },
       },
     });
     if (!payment) {
@@ -2363,7 +2421,23 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
       : null;
     const nextTeamLead = teamLeadUser ? teamLeadUser.name : fallbackTeamLead;
     const nextDepartmentHead = departmentHeadUser ? departmentHeadUser.name : fallbackDepartmentHead;
-    const updatedPayment = await prisma.payment.update({
+    const companyUpdateData = canEditPaymentInfo
+      ? {
+          companyName,
+          ceoName,
+          businessRegNumber,
+          birthDate: payment.company?.birthDate || '',
+          tel,
+          mobile,
+          postcode: postcode || '',
+          address,
+          detailAddress: detailAddress || null,
+          companyUrl: companyUrl || null,
+          companyEmail,
+        }
+      : null;
+    const { updatedPayment, updatedCompany } = await prisma.$transaction(async tx => {
+      const updatedPayment = await tx.payment.update({
       where: { id: adId },
       data: {
         productName: canEditPaymentInfo ? productName : payment.productName,
@@ -2445,6 +2519,55 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
       },
     });
 
+      let updatedCompany = payment.company;
+      if (canEditPaymentInfo && companyUpdateData) {
+        if (payment.companyId) {
+          updatedCompany = await tx.company.update({
+            where: { id: payment.companyId },
+            data: companyUpdateData,
+            select: {
+              companyName: true,
+              ceoName: true,
+              businessRegNumber: true,
+              tel: true,
+              mobile: true,
+              postcode: true,
+              address: true,
+              detailAddress: true,
+              companyUrl: true,
+              companyEmail: true,
+            },
+          });
+        } else {
+          updatedCompany = await tx.company.create({
+            data: {
+              userId: updatedPayment.userId,
+              ...companyUpdateData,
+            },
+            select: {
+              id: true,
+              companyName: true,
+              ceoName: true,
+              businessRegNumber: true,
+              tel: true,
+              mobile: true,
+              postcode: true,
+              address: true,
+              detailAddress: true,
+              companyUrl: true,
+              companyEmail: true,
+            },
+          });
+          await tx.payment.update({
+            where: { id: adId },
+            data: { companyId: updatedCompany.id },
+          });
+        }
+      }
+
+      return { updatedPayment, updatedCompany };
+    });
+
     res.json({
       message: '광고 정보가 수정되었습니다.',
       payment: {
@@ -2453,6 +2576,16 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
         manager: updatedPayment.manager || updatedPayment.user?.name || '',
         team: updatedPayment.managerTeam || updatedPayment.user?.team || '',
         department: updatedPayment.user?.department || '',
+        companyName: updatedCompany?.companyName || '',
+        ceoName: updatedCompany?.ceoName || '',
+        businessRegNumber: updatedCompany?.businessRegNumber || '',
+        tel: updatedCompany?.tel || '',
+        mobile: updatedCompany?.mobile || '',
+        postcode: updatedCompany?.postcode || '',
+        address: updatedCompany?.address || '',
+        detailAddress: updatedCompany?.detailAddress || '',
+        companyUrl: updatedCompany?.companyUrl || '',
+        companyEmail: updatedCompany?.companyEmail || '',
         productName: updatedPayment.productName,
         approvedAmount: updatedPayment.approvedAmount,
         contractStartDate: toDateString(updatedPayment.startDate),

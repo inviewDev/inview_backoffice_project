@@ -34,6 +34,10 @@
 .ad_view_segmented_control {display: flex;width: 100%;min-width: 0;align-items: center;border: 0;flex-direction: row;}
 .ad_view_segmented_control input { width: 100%; min-width: 0; height: 38px; padding: 0 8px; border: 0; background: transparent; color: #333; font-size: 14px; font-weight: 500; letter-spacing: 0; outline: 0; text-align: center; }
 .ad_view_segmented_control span { width: 12px; flex: 0 0 12px; color: #8b94a8; font-size: 13px; font-weight: 800; text-align: center; }
+.ad_view_address_control { display: flex; width: 100%; min-width: 0; height: 38px; align-items: center; }
+.ad_view_address_control input { min-width: 0; height: 38px; flex: 1 1 auto; padding: 0 14px; border: 0; background: transparent; color: #333; font-size: 15px; font-weight: 500; letter-spacing: 0; outline: 0; }
+.ad_view_address_control button { width: 70px; height: 38px; flex: 0 0 70px; border-radius: 0 6px 6px 0; background: #1962fc; color: #fff; cursor: pointer; font-size: 13px; font-weight: 800; letter-spacing: 0; }
+.ad_view_address_control button:disabled { background: #a6b0c2; cursor: not-allowed; }
 .ad_payment_edit_calendar.react-datepicker-popper { z-index: 130; } 
 .ad_payment_edit_calendar .react-datepicker { min-width: 266px; } 
 .ad_view_payment { display: flex; width: 100%; align-items: flex-start; gap: 12px; } 

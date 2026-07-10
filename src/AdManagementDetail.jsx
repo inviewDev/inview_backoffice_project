@@ -7,6 +7,7 @@ import { IMaskInput } from 'react-imask';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { ko } from 'date-fns/locale';
+import DaumPostcode from 'react-daum-postcode';
 import TablePagination from './components/TablePagination';
 import './styles/ad_management_detail.css';
 import './styles/date_select_picker.css';
@@ -46,6 +47,9 @@ const CARD_COMPANY_OPTIONS = [
   '토스카드',
 ];
 const INSTALLMENT_MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => `${index + 1}개월`);
+const BUSINESS_NUMBER_SEGMENTS = [3, 2, 5];
+const TEL_NUMBER_SEGMENTS = [4, 4, 4];
+const MOBILE_NUMBER_SEGMENTS = [3, 4, 4];
 const CARD_NUMBER_SEGMENTS = [4, 4, 4, 4];
 const MAX_SELECTED_PRODUCT_COUNT = 2;
 const TEAM_LEAD_LEVELS = new Set(['파트장', '팀장']);
@@ -133,6 +137,21 @@ function createDetailEditForm(ad = {}) {
     advertiserAccount: ad.advertiserAccount || '',
     memo: ad.memo || '',
     fileName: ad.fileName || '',
+  };
+}
+
+function createBasicInfoEditForm(ad = {}) {
+  return {
+    companyName: ad.companyName || '',
+    ceoName: ad.ceoName || '',
+    businessRegNumber: ad.businessRegNumber || '',
+    tel: ad.tel || '',
+    mobile: ad.mobile || '',
+    companyUrl: ad.companyUrl || '',
+    postcode: ad.postcode || '',
+    address: ad.address || '',
+    detailAddress: ad.detailAddress || '',
+    companyEmail: ad.companyEmail || '',
   };
 }
 
@@ -466,6 +485,8 @@ function AdManagementDetail({ user }) {
   const [isSavingPayment, setIsSavingPayment] = useState(false);
   const [isDeletingAd, setIsDeletingAd] = useState(false);
   const [staffOptions, setStaffOptions] = useState([]);
+  const [showPostcodeModal, setShowPostcodeModal] = useState(false);
+  const [basicInfoEditForm, setBasicInfoEditForm] = useState(() => createBasicInfoEditForm());
   const [paymentEditForm, setPaymentEditForm] = useState({
     approvedAmount: '',
     contractStartDate: null,
@@ -529,6 +550,7 @@ function AdManagementDetail({ user }) {
       }
 
       setAd(data.ad);
+      setBasicInfoEditForm(createBasicInfoEditForm(data.ad));
       setDetailEditForm(createDetailEditForm(data.ad));
       setCommentPagination({
         pageIndex: Math.max((data.ad.commentPagination?.page || 1) - 1, 0),
@@ -806,6 +828,58 @@ function AdManagementDetail({ user }) {
     if (getDigits(value).length >= 2) focusEditInput(editCardExpiryYearInputRef);
   };
 
+  const handleBasicInfoChange = (field, value) => {
+    setBasicInfoEditForm(prev => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleBasicAddressComplete = data => {
+    setBasicInfoEditForm(prev => ({
+      ...prev,
+      postcode: data.zonecode || '',
+      address: data.address || '',
+      detailAddress: '',
+    }));
+    setShowPostcodeModal(false);
+  };
+
+  const getBasicInfoEditValidation = () => {
+    const requiredFields = [
+      { label: '상호명', value: basicInfoEditForm.companyName },
+      { label: '대표자', value: basicInfoEditForm.ceoName },
+      { label: 'Tel', value: basicInfoEditForm.tel },
+      { label: 'Mobile', value: basicInfoEditForm.mobile },
+      { label: '주소', value: basicInfoEditForm.address },
+      { label: '업체 E-Mail', value: basicInfoEditForm.companyEmail },
+    ];
+    const missingFields = requiredFields
+      .filter(field => !String(field.value ?? '').trim())
+      .map(field => field.label);
+
+    if (missingFields.length) {
+      return `기본정보 필수항목을 입력해주세요. 누락 항목: ${missingFields.join(', ')}`;
+    }
+    if (
+      basicInfoEditForm.businessRegNumber &&
+      !/^\d{3}-\d{2}-\d{5}$/.test(basicInfoEditForm.businessRegNumber)
+    ) {
+      return '사업자등록번호 형식이 올바르지 않습니다.';
+    }
+    if (!/^\d{2,4}-\d{3,4}-\d{4}$/.test(basicInfoEditForm.tel)) {
+      return '전화번호 형식이 올바르지 않습니다.';
+    }
+    if (!/^\d{3}-\d{4}-\d{4}$/.test(basicInfoEditForm.mobile)) {
+      return '휴대전화번호 형식이 올바르지 않습니다.';
+    }
+    if (!basicInfoEditForm.companyEmail.includes('@')) {
+      return '유효한 이메일 주소를 입력해주세요.';
+    }
+
+    return '';
+  };
+
   const getPaymentEditValidation = () => {
     if (!canEditPayment && canEditPaymentStatus) {
       if (!PAYMENT_STATUSES.includes(paymentEditForm.paymentStatus)) {
@@ -814,6 +888,9 @@ function AdManagementDetail({ user }) {
 
       return '';
     }
+
+    const basicInfoValidation = getBasicInfoEditValidation();
+    if (basicInfoValidation) return basicInfoValidation;
 
     if (detailEditForm.productNames.length === 0) {
       return '상품군을 선택해주세요.';
@@ -884,6 +961,7 @@ function AdManagementDetail({ user }) {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          companyInfo: basicInfoEditForm,
           approvedAmount: paymentEditForm.approvedAmount,
           contractStartDate: formatDateValue(paymentEditForm.contractStartDate),
           contractEndDate: formatDateValue(paymentEditForm.contractEndDate),
@@ -923,6 +1001,10 @@ function AdManagementDetail({ user }) {
 
       setAd(prev => ({
         ...prev,
+        ...data.payment,
+      }));
+      setBasicInfoEditForm(createBasicInfoEditForm({
+        ...ad,
         ...data.payment,
       }));
       setPaymentEditForm(prev => ({
@@ -1258,14 +1340,105 @@ function AdManagementDetail({ user }) {
       <div className="ad_view_section_title">기본정보등록</div>
       <section className="ad_view_panel">
         <div className="ad_view_grid three">
-          <Field label="상호명" value={ad.companyName} />
-          <Field label="대표자" value={ad.ceoName} />
-          <Field label="사업자등록번호" value={ad.businessRegNumber} />
-          <Field label="Tel" value={ad.tel} />
-          <Field label="Mobile" value={ad.mobile} />
-          <Field label="업체 URL" value={ad.companyUrl} />
-          <Field label="주소" value={getFullAddress(ad)} wide />
-          <Field label="업체 E-Mail" value={ad.companyEmail} />
+          {canEditPayment ? (
+            <>
+              <EditableField label="상호명">
+                <input
+                  type="text"
+                  value={basicInfoEditForm.companyName}
+                  onChange={event => handleBasicInfoChange('companyName', event.target.value)}
+                  disabled={isSavingPayment}
+                />
+              </EditableField>
+              <EditableField label="대표자">
+                <input
+                  type="text"
+                  value={basicInfoEditForm.ceoName}
+                  onChange={event => handleBasicInfoChange('ceoName', event.target.value)}
+                  disabled={isSavingPayment}
+                />
+              </EditableField>
+              <EditableField label="사업자등록번호">
+                <SegmentedInput
+                  value={basicInfoEditForm.businessRegNumber}
+                  segments={BUSINESS_NUMBER_SEGMENTS}
+                  className="business"
+                  disabled={isSavingPayment}
+                  onChange={value => handleBasicInfoChange('businessRegNumber', value)}
+                />
+              </EditableField>
+              <EditableField label="Tel">
+                <SegmentedInput
+                  value={basicInfoEditForm.tel}
+                  segments={TEL_NUMBER_SEGMENTS}
+                  disabled={isSavingPayment}
+                  onChange={value => handleBasicInfoChange('tel', value)}
+                />
+              </EditableField>
+              <EditableField label="Mobile">
+                <SegmentedInput
+                  value={basicInfoEditForm.mobile}
+                  segments={MOBILE_NUMBER_SEGMENTS}
+                  disabled={isSavingPayment}
+                  onChange={value => handleBasicInfoChange('mobile', value)}
+                />
+              </EditableField>
+              <EditableField label="업체 URL">
+                <input
+                  type="url"
+                  value={basicInfoEditForm.companyUrl}
+                  onChange={event => handleBasicInfoChange('companyUrl', event.target.value)}
+                  disabled={isSavingPayment}
+                />
+              </EditableField>
+              <EditableField label="주소" wide>
+                <div className="ad_view_address_control">
+                  <input
+                    type="text"
+                    value={basicInfoEditForm.address}
+                    onChange={event => handleBasicInfoChange('address', event.target.value)}
+                    placeholder="주소"
+                    disabled={isSavingPayment}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPostcodeModal(true)}
+                    disabled={isSavingPayment}
+                  >
+                    검색
+                  </button>
+                </div>
+              </EditableField>
+              <EditableField label="업체 E-Mail">
+                <input
+                  type="email"
+                  value={basicInfoEditForm.companyEmail}
+                  onChange={event => handleBasicInfoChange('companyEmail', event.target.value)}
+                  disabled={isSavingPayment}
+                />
+              </EditableField>
+              <EditableField label="나머지주소" wide>
+                <input
+                  type="text"
+                  value={basicInfoEditForm.detailAddress}
+                  onChange={event => handleBasicInfoChange('detailAddress', event.target.value)}
+                  placeholder="상세주소"
+                  disabled={isSavingPayment}
+                />
+              </EditableField>
+            </>
+          ) : (
+            <>
+              <Field label="상호명" value={ad.companyName} />
+              <Field label="대표자" value={ad.ceoName} />
+              <Field label="사업자등록번호" value={ad.businessRegNumber} />
+              <Field label="Tel" value={ad.tel} />
+              <Field label="Mobile" value={ad.mobile} />
+              <Field label="업체 URL" value={ad.companyUrl} />
+              <Field label="주소" value={getFullAddress(ad)} wide />
+              <Field label="업체 E-Mail" value={ad.companyEmail} />
+            </>
+          )}
         </div>
       </section>
 
@@ -1941,6 +2114,32 @@ function AdManagementDetail({ user }) {
           광고 목록
         </button>
       </div>
+
+      <Modal
+        show={showPostcodeModal}
+        onHide={() => setShowPostcodeModal(false)}
+        centered
+        size="lg"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>주소 검색</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <DaumPostcode
+            onComplete={handleBasicAddressComplete}
+            style={{ height: '400px' }}
+          />
+        </Modal.Body>
+        <Modal.Footer>
+          <button
+            type="button"
+            className="ad_view_list_button"
+            onClick={() => setShowPostcodeModal(false)}
+          >
+            닫기
+          </button>
+        </Modal.Footer>
+      </Modal>
 
       <Modal
         show={updateModal.show}
