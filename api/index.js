@@ -41,6 +41,7 @@ const USER_DELETE_TRANSACTION_OPTIONS = {
   timeout: 120000,
 };
 const ACCESS_TOKEN_EXPIRES_IN = '5h';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 function isAdminRole(role) {
   return role === '전체관리자' || role === '관리자';
@@ -115,6 +116,55 @@ function normalizeCardNumber(value) {
 
   return {
     value: digits.match(/.{1,4}/g).join('-'),
+  };
+}
+
+function serializeErrorForLog(error) {
+  return {
+    name: error?.name || '',
+    message: error?.message || '',
+    code: error?.code || '',
+    clientVersion: error?.clientVersion || '',
+    meta: error?.meta || null,
+    stack: error?.stack || '',
+  };
+}
+
+function summarizeAdPaymentUpdateRequest(req) {
+  const body = req.body || {};
+  const companyInfo = body.companyInfo && typeof body.companyInfo === 'object'
+    ? body.companyInfo
+    : {};
+
+  return {
+    approvedAmount: body.approvedAmount,
+    spendingCost: body.spendingCost,
+    contractStartDate: body.contractStartDate,
+    contractEndDate: body.contractEndDate,
+    productName: body.productName,
+    paymentMethod: body.paymentMethod,
+    paymentStatus: body.paymentStatus,
+    taxInvoice: body.taxInvoice,
+    managerUserId: body.managerUserId,
+    teamLeadUserId: body.teamLeadUserId,
+    departmentHeadUserId: body.departmentHeadUserId,
+    productItemsCount: Array.isArray(body.productItems) ? body.productItems.filter(Boolean).length : 0,
+    hasCardNumber: Boolean(toOptionalString(body.cardNumber)),
+    cardNumberLength: toOptionalString(body.cardNumber).replace(/\D/g, '').length,
+    cardCompany: body.cardCompany,
+    installmentMonths: body.installmentMonths,
+    companyInfo: {
+      companyName: companyInfo.companyName || '',
+      ceoName: companyInfo.ceoName || '',
+      businessRegNumber: companyInfo.businessRegNumber || '',
+      tel: companyInfo.tel || '',
+      mobile: companyInfo.mobile || '',
+      postcode: companyInfo.postcode || '',
+      hasAddress: Boolean(companyInfo.address),
+      hasDetailAddress: Boolean(companyInfo.detailAddress),
+      companyUrl: companyInfo.companyUrl || '',
+      companyEmail: companyInfo.companyEmail || '',
+    },
   };
 }
 
@@ -2282,13 +2332,18 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
     return res.status(400).json({ error: '담당부장 정보가 올바르지 않습니다.' });
   }
 
+  let currentUser = null;
+  let payment = null;
+  let canEditPaymentInfo = false;
+  let canEditPaymentStatusInfo = false;
+
   try {
-    const currentUser = await getCurrentUserAccess(req.user.id);
+    currentUser = await getCurrentUserAccess(req.user.id);
     if (!currentUser) {
       return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
     }
-    const canEditPaymentInfo = canEditAdPayment(currentUser);
-    const canEditPaymentStatusInfo = canEditAdPaymentStatus(currentUser);
+    canEditPaymentInfo = canEditAdPayment(currentUser);
+    canEditPaymentStatusInfo = canEditAdPaymentStatus(currentUser);
 
     if (!canEditPaymentInfo && !canEditPaymentStatusInfo) {
       return res.status(403).json({ error: '전체관리자 또는 대표만 결제정보를 수정할 수 있습니다.' });
@@ -2323,7 +2378,7 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
       }
     }
 
-    const payment = await prisma.payment.findUnique({
+    payment = await prisma.payment.findUnique({
       where: { id: adId },
       select: {
         id: true,
@@ -2618,8 +2673,55 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Update ad payment info error:', error);
-    res.status(500).json({ error: '결제정보 수정 중 오류가 발생했습니다.' });
+    const debugId = crypto.randomUUID();
+    const errorDetails = serializeErrorForLog(error);
+    const logContext = {
+      debugId,
+      route: 'PATCH /api/ads/:id/payment-info',
+      adId,
+      actor: currentUser
+        ? {
+            id: currentUser.id,
+            email: currentUser.email,
+            name: currentUser.name,
+            role: currentUser.role,
+            level: currentUser.level,
+            team: currentUser.team,
+            department: currentUser.department,
+          }
+        : { tokenUserId: req.user?.id || null },
+      permissions: {
+        canEditPaymentInfo,
+        canEditPaymentStatusInfo,
+      },
+      paymentSnapshot: payment
+        ? {
+            id: payment.id,
+            userId: payment.userId,
+            companyId: payment.companyId,
+            productName: payment.productName,
+            paymentMethod: payment.paymentMethod,
+            paymentStatus: payment.paymentStatus,
+            hasCompany: Boolean(payment.company),
+            companyName: payment.company?.companyName || '',
+          }
+        : null,
+      requestSummary: summarizeAdPaymentUpdateRequest(req),
+      error: errorDetails,
+    };
+
+    console.error('[AdPaymentInfoUpdateError]', JSON.stringify(logContext, null, 2));
+    console.error('[AdPaymentInfoUpdateError:raw]', error);
+
+    res.status(500).json({
+      error: '결제정보 수정 중 오류가 발생했습니다.',
+      debugId,
+      details: IS_PRODUCTION ? undefined : {
+        message: errorDetails.message,
+        code: errorDetails.code,
+        meta: errorDetails.meta,
+      },
+    });
   }
 });
 

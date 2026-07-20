@@ -42,7 +42,7 @@ const notice_items = [
 ];
 
 const months = ['01월', '02월', '03월', '04월', '05월', '06월', '07월', '08월', '09월', '10월', '11월', '12월'];
-const salesSeriesColors = ['#1962fc', '#ff3b5c', '#20b26b'];
+const salesSeriesColors = ['#182032', '#ff3b5c', '#20b26b'];
 
 function getKoreanCurrentYear() {
   return Number(new Intl.DateTimeFormat('en-US', {
@@ -409,7 +409,7 @@ function MiniLineChart({ series, yearOptions, selectedYears, onYearToggle }) {
 
 function TopBarChart({ title, values, color }) {
   const scaleMax = getNiceScaleMax(values.map(item => item.total));
-  const colorValue = color === 'blue' ? '#1962fc' : '#ff2174';
+  const colorValue = color === 'blue' ? '#182032' : '#ff2174';
   const scaleValues = [1, 0.75, 0.5, 0.25, 0];
 
   return (

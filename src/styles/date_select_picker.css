@@ -1,8 +1,8 @@
 .date_select_picker { display: grid; width: 100%; min-width: 0; grid-template-columns: minmax(82px, 1fr) minmax(68px, 0.8fr) minmax(68px, 0.8fr) 54px; align-items: center; gap: 6px; }
 .date_select_picker select,.date_select_calendar_button { width: 100%; min-width: 0; height: 32px; border: 1px solid #d8dce6; border-radius: 8px; background: #fff; color: #333; font-size: 13px; font-weight: 700; letter-spacing: 0; line-height: 18px; outline: 0; }
 .date_select_picker select { cursor: pointer; padding: 0 8px; }
-.date_select_calendar_button { border-color: #1962fc; background: #1962fc; color: #fff; cursor: pointer; padding: 0; }
-.date_select_picker select:focus,.date_select_calendar_button:focus { border-color: #1962fc; box-shadow: 0 0 0 3px rgba(25, 98, 252, 0.12); }
+.date_select_calendar_button { border-color: #182032; background: #182032; color: #fff; cursor: pointer; padding: 0; }
+.date_select_picker select:focus,.date_select_calendar_button:focus { border-color: #182032; box-shadow: 0 0 0 3px rgba(25, 98, 252, 0.12); }
 .date_select_picker select:disabled,.date_select_calendar_button:disabled { cursor: not-allowed; opacity: 0.58; }
 .signup_date_select { flex: 1; }
 .signup_date_select select,.signup_date_select .date_select_calendar_button { height: 34px; }
@@ -14,15 +14,15 @@
 .date_select_calendar .react-datepicker__header { border-bottom: 1px solid #edf0f6; background: #f6f8fd; padding: 12px 12px 10px; }
 .date_select_header { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 .date_select_header select { width: 100%; height: 34px; border: 1px solid #d8dce6; border-radius: 8px; background: #fff; color: #253044; cursor: pointer; font-size: 13px; font-weight: 800; letter-spacing: 0; outline: 0; padding: 0 28px 0 10px; }
-.date_select_header select:focus { border-color: #1962fc; box-shadow: 0 0 0 3px rgba(25, 98, 252, 0.12); }
+.date_select_header select:focus { border-color: #182032; box-shadow: 0 0 0 3px rgba(25, 98, 252, 0.12); }
 .date_select_calendar .react-datepicker__current-month { margin-bottom: 8px; color: #253044; font-size: 14px; font-weight: 800; letter-spacing: 0; }
 .date_select_calendar .react-datepicker__month { margin: 8px 10px 12px; }
 .date_select_calendar .react-datepicker__week { white-space: nowrap; }
 .date_select_calendar .react-datepicker__day-name,.date_select_calendar .react-datepicker__day { width: 34px; height: 34px; margin: 1px; color: #3a4356; font-size: 13px; font-weight: 700; line-height: 34px; }
 .date_select_calendar .react-datepicker__day-name { color: #7a8498; font-weight: 800; }
-.date_select_calendar .react-datepicker__day:hover { border-radius: 8px; background: rgba(25, 98, 252, 0.1); color: #1962fc; }
-.date_select_calendar .react-datepicker__day--today { border-radius: 8px; box-shadow: inset 0 0 0 1px #1962fc; color: #1962fc; }
-.date_select_calendar .react-datepicker__day--selected,.date_select_calendar .react-datepicker__day--keyboard-selected { border-radius: 8px; background: #1962fc; box-shadow: none; color: #fff !important; }
+.date_select_calendar .react-datepicker__day:hover { border-radius: 8px; background: rgba(25, 98, 252, 0.1); color: #182032; }
+.date_select_calendar .react-datepicker__day--today { border-radius: 8px; box-shadow: inset 0 0 0 1px #182032; color: #182032; }
+.date_select_calendar .react-datepicker__day--selected,.date_select_calendar .react-datepicker__day--keyboard-selected { border-radius: 8px; background: #182032; box-shadow: none; color: #fff !important; }
 .date_select_calendar .react-datepicker__day--outside-month { color: #b7becc; }
 .date_select_calendar .react-datepicker__day--disabled { color: #c4cbd8; }
 .date_select_calendar .react-datepicker__day--disabled:hover { background: transparent; color: #c4cbd8; }
@@ -38,7 +38,7 @@
 .mypage_calendar_datepicker .react-datepicker__time-list { height: 242px !important; padding: 8px 6px !important; }
 .mypage_calendar_datepicker .react-datepicker__time-list-item { height: 30px !important; border-radius: 7px; color: #3a4356; font-size: 13px; font-weight: 700; line-height: 30px !important; margin-bottom: 2px; padding: 0 !important; }
 .mypage_calendar_datepicker .react-datepicker__time-list-item:hover { background: rgba(25, 98, 252, 0.1) !important; }
-.mypage_calendar_datepicker .react-datepicker__time-list-item--selected { background: #1962fc !important; color: #fff !important; }
+.mypage_calendar_datepicker .react-datepicker__time-list-item--selected { background: #182032 !important; color: #fff !important; }
 
 @media (max-width: 480px) {
   .date_select_picker { grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr) 48px; gap: 5px; }

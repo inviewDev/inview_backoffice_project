@@ -45,6 +45,16 @@ const CARD_COMPANY_OPTIONS = [
   '씨티카드',
   '카카오뱅크카드',
   '토스카드',
+  '케이뱅크카드',
+  '기업은행카드',
+  '새마을금고카드',
+  '우체국카드',
+  '광주카드',
+  '전북카드',
+  '산업은행카드',
+  '제주카드',
+  '저축은행카드',
+  '유니온페이카드',
 ];
 const INSTALLMENT_MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => `${index + 1}개월`);
 const BUSINESS_NUMBER_SEGMENTS = [3, 2, 5];
@@ -993,9 +1003,22 @@ function AdManagementDetail({ user }) {
           fileName: detailEditForm.fileName,
         }),
       });
-      const data = await res.json();
+      const responseText = await res.text();
+      let data = {};
+
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        data = { error: responseText || '응답 본문이 비어있습니다.' };
+      }
 
       if (!res.ok) {
+        console.error('Update ad payment info response error:', {
+          adId: id,
+          status: res.status,
+          statusText: res.statusText,
+          response: data,
+        });
         throw new Error(data.error || '결제정보 수정에 실패했습니다.');
       }
 
@@ -1035,7 +1058,11 @@ function AdManagementDetail({ user }) {
         variant: 'success',
       });
     } catch (err) {
-      console.error('Update ad payment info error:', err);
+      console.error('Update ad payment info error:', {
+        adId: id,
+        message: err.message,
+        error: err,
+      });
       setUpdateModal({
         show: true,
         mode: 'result',

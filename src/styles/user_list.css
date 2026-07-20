@@ -6,11 +6,11 @@
 .userlist_summary { display: flex; align-items: center; gap: 8px; }
 .userlist_summary span,
 .userlist_summary strong { display: inline-flex; height: 34px; align-items: center; justify-content: center; border-radius: 999px; font-size: 13px; font-weight: 800; letter-spacing: 0; padding: 0 14px; }
-.userlist_summary span { background: #1962fc; color: #fff; }
+.userlist_summary span { background: #182032; color: #fff; }
 .userlist_summary strong { background: #fff; color: #333; box-shadow: inset 0 0 0 1px #d8deea; }
 .userlist_tabs.nav-tabs { gap: 6px; margin-bottom: 16px; border: 0; }
 .userlist_tabs .nav-link { min-width: 120px; height: 40px; border: 1px solid #d8deea; border-radius: 6px; background: #fff; color: #5d6880; font-size: 14px; font-weight: 800; letter-spacing: 0; }
-.userlist_tabs .nav-link.active { border-color: #1962fc; background: #1962fc; color: #fff; box-shadow: 0 8px 16px rgba(25, 98, 252, 0.14); }
+.userlist_tabs .nav-link.active { border-color: #182032; background: #182032; color: #fff; box-shadow: 0 8px 16px rgba(25, 98, 252, 0.14); }
 .userlist_bulk_alert { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; border: 1px solid #cfe0ff; border-radius: 10px; background: #edf4ff; color: #254269; font-size: 14px; font-weight: 700; letter-spacing: 0; }
 .userlist_bulk_alert .form-select { height: 34px; border-color: #c9d4e7; border-radius: 6px; font-size: 13px; font-weight: 700; }
 .userlist_bulk_alert .btn { height: 34px; border-radius: 6px; font-size: 13px; font-weight: 800; }
@@ -18,7 +18,7 @@
 .userlist_filter .form-control,
 .userlist_filter .form-select { height: 40px; border: 1px solid #d8deea; border-radius: 6px; color: #333; font-size: 14px; font-weight: 700; letter-spacing: 0; box-shadow: none; }
 .userlist_filter .form-control:focus,
-.userlist_filter .form-select:focus { border-color: #1962fc; box-shadow: 0 0 0 3px rgba(25, 98, 252, 0.1); }
+.userlist_filter .form-select:focus { border-color: #182032; box-shadow: 0 0 0 3px rgba(25, 98, 252, 0.1); }
 .userlist_filter .form-control::placeholder { color: #a4adbe; }
 .userlist_filter .form-control-plaintext { min-height: 40px; color: #73809d !important; font-size: 13px; font-weight: 700; letter-spacing: 0; }
 .userlist_table_card { overflow: hidden; border-radius: 10px; background: #fff; box-shadow: 4px 4px 20px rgba(137, 145, 169, 0.2); padding: 20px; }
@@ -27,28 +27,28 @@
 .userlist_table.table > :not(caption) > * > * { border: 0; box-shadow: none; }
 .userlist_table th,
 .userlist_table td { height: 54px; padding: 9px 12px; color: #333; font-size: 13px; font-weight: 700; letter-spacing: 0; line-height: 18px; text-align: center; vertical-align: middle; }
-.userlist_table th { height: 38px; background: #1962fc; color: #fff; font-size: 13px; white-space: nowrap; }
+.userlist_table th { height: 38px; background: #182032; color: #fff; font-size: 13px; white-space: nowrap; }
 .userlist_table tbody tr:nth-child(odd) { background: #f4f6fb; }
 .userlist_table tbody tr:nth-child(even) { background: #fff; }
 .userlist_table tbody tr:hover { background: #eaf1ff; }
 .userlist_table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .userlist_table .form-check { display: flex; justify-content: center; margin: 0; min-height: 0; }
 .userlist_table .form-check-input { width: 16px; height: 16px; margin: 0; cursor: pointer; }
-.userlist_table .form-check-input:checked { border-color: #1962fc; background-color: #1962fc; }
+.userlist_table .form-check-input:checked { border-color: #182032; background-color: #182032; }
 .userlist_table .form-select { height: 34px; min-width: 94px; border: 1px solid #d8deea; border-radius: 6px; color: #333; font-size: 13px; font-weight: 700; letter-spacing: 0; padding: 0 28px 0 10px; box-shadow: none; }
 .userlist_table .btn { height: 32px; border-radius: 6px; font-size: 13px; font-weight: 800; letter-spacing: 0; padding: 0 12px; }
 .userlist_action_buttons { display: flex; align-items: center; justify-content: center; gap: 6px; }
 .userlist_delete_button,
 .userlist_action_buttons .btn-outline-danger { border-color: #ffb7c9; color: #d11a2a; background: #fff; }
-.userlist_account_button { border-color: #9bbcff; background: #fff; color: #1962fc; }
-.userlist_account_button:hover { border-color: #1962fc; background: #1962fc; color: #fff; }
+.userlist_account_button { border-color: #9bbcff; background: #fff; color: #182032; }
+.userlist_account_button:hover { border-color: #182032; background: #182032; color: #fff; }
 .userlist_readonly_text { color: #8792a7; font-size: 12px; font-weight: 700; letter-spacing: 0; }
 .userlist_delete_button:hover:not(:disabled),
 .userlist_action_buttons .btn-outline-danger:hover:not(:disabled) { border-color: #d11a2a; background: #d11a2a; color: #fff; }
 .userlist_delete_button:disabled,
 .userlist_action_buttons .btn:disabled { cursor: not-allowed; opacity: 0.48; }
 .userlist_sort_mark { display: inline-block; min-width: 12px; margin-left: 6px; margin-right:-16px; color: #fff; font-size: 10px; line-height: 1; vertical-align: middle; }
-.userlist_expand_button { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; cursor: pointer; color: #1962fc; font-weight: 800; }
+.userlist_expand_button { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; cursor: pointer; color: #182032; font-weight: 800; }
 .userlist_detail_row { background: #fbfcff !important; padding: 18px !important; text-align: left !important; }
 .userlist_detail_row strong { display: block; margin-bottom: 8px; color: #333; font-size: 14px; font-weight: 800; letter-spacing: 0; }
 .userlist_detail_row pre { max-height: 240px; overflow: auto; margin: 0; border-radius: 8px; background: #202636; color: #f7f9ff; font-size: 12px; line-height: 1.5; padding: 14px; white-space: pre-wrap; }
@@ -85,7 +85,7 @@
 .userlist_account_row .form-control,
 .userlist_account_row .form-select { height: 42px; }
 .userlist_account_row .form-control:focus,
-.userlist_account_row .form-select:focus { z-index: 1; border-color: #1962fc; box-shadow: 0 0 0 3px rgba(25, 98, 252, 0.1); }
+.userlist_account_row .form-select:focus { z-index: 1; border-color: #182032; box-shadow: 0 0 0 3px rgba(25, 98, 252, 0.1); }
 .userlist_account_row small { display: block; margin: 5px 0 0 10px; color: #8792a7; font-size: 12px; font-weight: 600; line-height: 16px; }
 .userlist_account_readonly { display: flex; min-width: 0; flex: 1 1 auto; align-items: center; padding: 0 12px; background: #f3f5fa; }
 .userlist_password_reset { display: flex; align-items: center; gap: 12px; margin: 4px 0 0; padding: 14px 16px; border: 1px solid #ffc7d5; border-radius: 8px; background: #fff3f6; cursor: pointer; }
@@ -98,7 +98,7 @@
 .userlist_permission_toggle .form-check { min-height: 0; margin: 0; }
 .userlist_permission_toggle .form-check-input { width: 18px; height: 18px; margin: 0; cursor: pointer; }
 .userlist_permission_toggle > span { display: flex; flex-direction: column; gap: 2px; }
-.userlist_permission_toggle strong { color: #1962fc; font-size: 14px; font-weight: 800; letter-spacing: 0; }
+.userlist_permission_toggle strong { color: #182032; font-size: 14px; font-weight: 800; letter-spacing: 0; }
 .userlist_permission_toggle small { color: #46648f; font-size: 12px; font-weight: 700; letter-spacing: 0; line-height: 16px; }
 
 @media (max-width: 900px) {

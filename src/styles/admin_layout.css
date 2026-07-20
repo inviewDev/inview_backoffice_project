@@ -1,11 +1,11 @@
 .admin_loading { display: flex; min-height: 100vh; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: #f4f6fb; } 
 .admin_loading p { color: #333; font-size: 14px; letter-spacing: 0; } 
 .admin_shell { display: flex; width: 100%; min-height: 100vh; background: #f4f6fb; }
-.admin_sidebar { position: sticky; top: 0; z-index: 20; display: flex; width: 240px; height: 100vh; min-width: 0; flex: 0 0 240px; flex-direction: column; background: #1962fc; transition: width 0.22s ease, flex-basis 0.22s ease; }
+.admin_sidebar { position: sticky; top: 0; z-index: 20; display: flex; width: 240px; height: 100vh; min-width: 0; flex: 0 0 240px; flex-direction: column; background: #182032; transition: width 0.22s ease, flex-basis 0.22s ease; }
 .admin_shell.sidebar_collapsed .admin_sidebar { width: 76px; flex-basis: 76px; }
-.admin_sidebar_toggle { position: absolute; top: 28px; right: -15px; z-index: 30; display: flex; width: 30px; height: 30px; align-items: center; justify-content: center; border: 1px solid #d8deea; border-radius: 50%; background: #fff; color: #1962fc; cursor: pointer; box-shadow: 0 5px 14px rgba(25, 98, 252, 0.2); transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease; }
+.admin_sidebar_toggle { position: absolute; top: 28px; right: -15px; z-index: 30; display: flex; width: 30px; height: 30px; align-items: center; justify-content: center; border: 1px solid #d8deea; border-radius: 50%; background: #fff; color: #182032; cursor: pointer; box-shadow: 0 5px 14px rgba(25, 98, 252, 0.2); transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease; }
 .admin_sidebar_toggle svg { width: 12px; height: 12px; transition: transform 0.18s ease; }
-.admin_sidebar_toggle:hover { border-color: #1962fc; background: #1962fc; color: #fff; transform: translateY(-1px); box-shadow: 0 8px 18px rgba(25, 98, 252, 0.28); }
+.admin_sidebar_toggle:hover { border-color: #182032; background: #182032; color: #fff; transform: translateY(-1px); box-shadow: 0 8px 18px rgba(25, 98, 252, 0.28); }
 .admin_sidebar_toggle:hover svg { transform: scale(1.08); }
 .admin_sidebar_toggle:focus-visible { outline: 3px solid rgba(25, 98, 252, 0.24); outline-offset: 2px; }
 .admin_sidebar_logo { display: flex; height: 88px; align-items: center; justify-content: center; } 
@@ -16,7 +16,7 @@
 .admin_nav_item span{color:inherit; font-size:inherit;}
 .admin_nav_item img { width: 24px; height: 24px; flex: 0 0 24px; } 
 .admin_nav_item.active,
-.admin_nav_item.active:hover { background: #fff; color: #1962fc; } 
+.admin_nav_item.active:hover { background: #fff; color: #182032; } 
 .admin_nav_item:hover { background: rgba(255, 255, 255, 0.14); color: #fff; } 
 .admin_nav_chart_icon { position: relative; display: grid; width: 24px; height: 24px; flex: 0 0 24px; grid-template-columns: repeat(4, 3px); align-items: end; justify-content: center; gap: 2px; } 
 .admin_nav_chart_icon span { display: block; width: 3px; border-radius: 2px; background: currentColor; } 
@@ -53,4 +53,4 @@
 .admin_session_modal .modal-title { color: #202636; font-size: 18px; font-weight: 800; letter-spacing: 0; }
 .admin_session_modal .modal-body { padding: 22px; color: #4d5872; font-size: 14px; font-weight: 700; letter-spacing: 0; line-height: 1.6; }
 .admin_session_modal .modal-footer { border-top: 1px solid #e6eaf2; padding: 14px 22px; }
-.admin_session_modal .btn { min-width: 88px; height: 38px; border-radius: 6px; background: #1962fc; font-size: 14px; font-weight: 800; letter-spacing: 0; }
+.admin_session_modal .btn { min-width: 88px; height: 38px; border-radius: 6px; background: #182032; font-size: 14px; font-weight: 800; letter-spacing: 0; }

@@ -3,7 +3,7 @@
 .agreement_logo { display: flex; justify-content: center; margin-bottom: 28px; }
 .agreement_logo img { width: min(100%, 360px); height: auto; }
 .agreement_header { text-align: center; margin-bottom: 24px; }
-.agreement_header p { margin: 0 0 8px; color: #1962fc; font-size: 14px; font-weight: 800; }
+.agreement_header p { margin: 0 0 8px; color: #182032; font-size: 14px; font-weight: 800; }
 .agreement_header h1 { margin: 0; color: #111827; font-size: 30px; font-weight: 900; letter-spacing: 0; }
 .agreement_header span { display: block; margin-top: 10px; color: #6a7487; font-size: 14px; font-weight: 700; }
 .agreement_state { display: flex; min-height: 320px; align-items: center; justify-content: center; gap: 10px; color: #596579; font-size: 15px; font-weight: 800; }
@@ -13,7 +13,7 @@
 .agreement_terms_box section + section { margin-top: 20px; }
 .agreement_terms_box h2 { margin: 0 0 10px; color: #172033; font-size: 18px; font-weight: 900; }
 .agreement_terms_box p { margin: 0 0 8px; color: #3e4858; font-size: 15px; font-weight: 600; line-height: 1.7; word-break: keep-all; }
-.agreement_term_company { color: #1962fc; font-weight: 900; }
+.agreement_term_company { color: #182032; font-weight: 900; }
 .agreement_contract_card { border: 1px solid #dbe2ef; border-radius: 8px; background: #f8faff; padding: 18px; }
 .agreement_contract_table_wrap { width: 100%; overflow-x: auto; }
 .agreement_contract_table { width: 100%; min-width: 720px; border-collapse: separate; border-spacing: 0 10px; table-layout: fixed; background: transparent; }
@@ -60,9 +60,9 @@
 .agreement_actions.split { justify-content: space-between; }
 .agreement_actions button,
 .agreement_actions a { display: inline-flex; min-width: 150px; height: 44px; align-items: center; justify-content: center; border-radius: 7px; font-size: 14px; font-weight: 900; text-decoration: none; }
-.agreement_actions button { border: 0; background: #1962fc; color: #fff; cursor: pointer; }
+.agreement_actions button { border: 0; background: #182032; color: #fff; cursor: pointer; }
 .agreement_actions button:disabled { background: #9ba8bd; cursor: not-allowed; }
-.agreement_actions a { border: 1px solid #cfd8e7; background: #fff; color: #1962fc; }
+.agreement_actions a { border: 1px solid #cfd8e7; background: #fff; color: #182032; }
 
 @media (max-width: 720px) {
   .agreement_shell { padding: 20px 14px; }
