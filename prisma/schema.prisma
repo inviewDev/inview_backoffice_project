@@ -70,7 +70,7 @@ model Company {
   userId            Int
   companyName       String
   ceoName           String
-  businessRegNumber String
+  businessRegNumber String?
   birthDate         String
   tel               String
   mobile            String
