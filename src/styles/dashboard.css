@@ -175,7 +175,7 @@
 .dash_sales_table th,
 .dash_sales_table td { height: 54px; padding: 9px 10px; border: 0; color: #333; font-size: 15px; font-weight: 500; letter-spacing: 0; line-height: 18px; text-align: center; vertical-align: middle; word-break: keep-all; }
 .dash_sales_table th { position: sticky; top: 0; z-index: 2; height: 36px; padding: 0 8px; background: #182032; color: #fff; font-size: 15px; font-weight: 700; letter-spacing: 0; line-height: 18px; text-align: center; }
-.dash_sales_table th:nth-child(even) { background: #1254dd; }
+.dash_sales_table th:nth-child(even) { background: #2A3958; }
 .dash_sales_table th:nth-child(odd) { background: #182032; }
 .dash_sales_table th:first-child { border-radius: 6px 0 0; }
 .dash_sales_table th:last-child { border-radius: 0 6px 0 0; }

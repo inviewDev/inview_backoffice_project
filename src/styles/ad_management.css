@@ -20,7 +20,7 @@
 .ad_manage_table th,
 .ad_manage_table td { height: 54px; padding: 9px 10px; border: 0; color: #333; font-size: 15px; font-weight: 500; letter-spacing: 0; line-height: 18px; text-align: center; vertical-align: middle; }
 .ad_manage_table th { height: 36px; background: #182032; color: #fff; font-size: 15px; }
-.ad_manage_table th:nth-child(even) { background: #1254dd; }
+.ad_manage_table th:nth-child(even) { background: #2A3958; }
 .ad_manage_table th:nth-child(odd) { background: #182032; }
 .ad_manage_table th.sortable { cursor: pointer; user-select: none; }
 .ad_manage_table th.sortable:first-of-type{border-radius: 6px 0 0;}
