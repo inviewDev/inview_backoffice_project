@@ -1301,7 +1301,7 @@ apiRouter.post('/company', verifyToken, async (req, res) => {
         userId: targetUserId,
         companyName,
         ceoName,
-        businessRegNumber: normalizedBusinessRegNumber || null,
+        businessRegNumber: normalizedBusinessRegNumber || '',
         birthDate: birthDate || '',
         tel,
         mobile,
@@ -2480,7 +2480,7 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
       ? {
           companyName,
           ceoName,
-          businessRegNumber: businessRegNumber || null,
+          businessRegNumber: businessRegNumber || '',
           birthDate: payment.company?.birthDate || '',
           tel,
           mobile,
