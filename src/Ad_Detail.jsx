@@ -38,6 +38,16 @@ const card_company_options = [
   '씨티카드',
   '카카오뱅크카드',
   '토스카드',
+  '케이뱅크카드',
+  '기업은행카드',
+  '새마을금고카드',
+  '우체국카드',
+  '광주카드',
+  '전북카드',
+  '산업은행카드',
+  '제주카드',
+  '저축은행카드',
+  '유니온페이카드',
 ];
 
 const installment_month_options = Array.from({ length: 12 }, (_, index) => `${index + 1}개월`);
