@@ -2480,7 +2480,7 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
       ? {
           companyName,
           ceoName,
-          businessRegNumber,
+          businessRegNumber: businessRegNumber || '',
           birthDate: payment.company?.birthDate || '',
           tel,
           mobile,
