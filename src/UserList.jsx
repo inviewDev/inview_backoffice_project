@@ -993,7 +993,7 @@ function UserList({ user: currentUser }) {
                     autoComplete="off"
                     required
                   />
-                  <small>아이디는 영문만 사용할 수 있습니다.</small>
+                  <small>아이디는 영문과 숫자만 사용할 수 있습니다.</small>
                 </div>
               </label>
 

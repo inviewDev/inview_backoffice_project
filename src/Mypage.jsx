@@ -136,8 +136,8 @@ function MyPage({ user, setUser }) {
     const phoneRegex = /^\d{3}-\d{4}-\d{4}$/;
     const officePhoneRegex = /^\d{2,3}-\d{3,4}-\d{4}$/;
 
-    if (field === 'loginId' && !/^[A-Za-z]+$/.test(value)) {
-      setError('아이디는 영문만 사용할 수 있습니다.');
+    if (field === 'loginId' && !/^[A-Za-z0-9]+$/.test(value)) {
+      setError('아이디는 영문과 숫자만 사용할 수 있습니다.');
       setIsLoading(false);
       return;
     }
@@ -609,13 +609,13 @@ function MyPage({ user, setUser }) {
                     value={formData.loginId}
                     onChange={e => setFormData({
                       ...formData,
-                      loginId: e.target.value.replace(/[^A-Za-z]/g, ''),
+                      loginId: e.target.value.replace(/[^A-Za-z0-9]/g, ''),
                     })}
                     className="mypage_input"
-                    placeholder="아이디(영문)"
+                    placeholder="아이디(영문/숫자)"
                     aria-label="아이디"
-                    pattern="[A-Za-z]+"
-                    title="아이디는 영문만 사용할 수 있습니다."
+                    pattern="[A-Za-z0-9]+"
+                    title="아이디는 영문과 숫자만 사용할 수 있습니다."
                     autoComplete="username"
                     required
                     disabled={isLoading}

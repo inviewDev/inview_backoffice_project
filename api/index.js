@@ -694,8 +694,8 @@ apiRouter.post('/signup', async (req, res) => {
     if (/\s/.test(loginId)) {
       return res.status(400).json({ error: '아이디에는 공백을 사용할 수 없습니다.' });
     }
-    if (!/^[A-Za-z]+$/.test(loginId)) {
-      return res.status(400).json({ error: '아이디는 영문만 사용할 수 있습니다.' });
+    if (!/^[A-Za-z0-9]+$/.test(loginId)) {
+      return res.status(400).json({ error: '아이디는 영문과 숫자만 사용할 수 있습니다.' });
     }
     const existingUser = await prisma.user.findUnique({ where: { email: loginId } });
     if (existingUser) return res.status(400).json({ error: '이미 존재하는 아이디입니다.' });
@@ -966,8 +966,8 @@ apiRouter.patch('/users/:id', verifyToken, async (req, res) => {
       if (!loginId) {
         return res.status(400).json({ error: '아이디를 입력해주세요.' });
       }
-      if (!/^[A-Za-z]+$/.test(loginId)) {
-        return res.status(400).json({ error: '아이디는 영문만 사용할 수 있습니다.' });
+      if (!/^[A-Za-z0-9]+$/.test(loginId)) {
+        return res.status(400).json({ error: '아이디는 영문과 숫자만 사용할 수 있습니다.' });
       }
 
       const duplicateUser = await prisma.user.findUnique({
@@ -1273,9 +1273,6 @@ apiRouter.post('/company', verifyToken, async (req, res) => {
   const missingCompanyFields = [
     { label: '상호명', value: companyName },
     { label: '대표자', value: ceoName },
-    { label: 'Tel', value: tel },
-    { label: 'Mobile', value: mobile },
-    { label: '주소', value: address },
     { label: '업체 E-Mail', value: companyEmail },
   ].filter(field => !String(field.value ?? '').trim()).map(field => field.label);
 
@@ -1288,8 +1285,11 @@ apiRouter.post('/company', verifyToken, async (req, res) => {
   if (normalizedBusinessRegNumber && !/^\d{3}-\d{2}-\d{5}$/.test(normalizedBusinessRegNumber)) {
     return res.status(400).json({ error: '사업자등록번호 형식이 올바르지 않습니다.' });
   }
-  if (!/^\d{2,4}-\d{3,4}-\d{4}$/.test(tel)) {
+  if (tel && !/^\d{2,4}-\d{3,4}-\d{4}$/.test(tel)) {
     return res.status(400).json({ error: '전화번호 형식이 올바르지 않습니다.' });
+  }
+  if (mobile && !/^\d{3}-\d{4}-\d{4}$/.test(mobile)) {
+    return res.status(400).json({ error: '휴대전화번호 형식이 올바르지 않습니다.' });
   }
   if (!companyEmail.includes('@')) {
     return res.status(400).json({ error: '유효한 이메일 주소를 입력해주세요.' });
@@ -1303,10 +1303,10 @@ apiRouter.post('/company', verifyToken, async (req, res) => {
         ceoName,
         businessRegNumber: normalizedBusinessRegNumber || '',
         birthDate: birthDate || '',
-        tel,
-        mobile,
+        tel: tel || '',
+        mobile: mobile || '',
         postcode: postcode || '',
-        address,
+        address: address || '',
         detailAddress: detailAddress || null,
         companyUrl: companyUrl || null,
         companyEmail,
@@ -2352,9 +2352,6 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
       const missingCompanyFields = [
         { label: '상호명', value: companyName },
         { label: '대표자', value: ceoName },
-        { label: 'Tel', value: tel },
-        { label: 'Mobile', value: mobile },
-        { label: '주소', value: address },
         { label: '업체 E-Mail', value: companyEmail },
       ].filter(field => !String(field.value ?? '').trim()).map(field => field.label);
 
@@ -2367,10 +2364,10 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
       if (businessRegNumber && !/^\d{3}-\d{2}-\d{5}$/.test(businessRegNumber)) {
         return res.status(400).json({ error: '사업자등록번호 형식이 올바르지 않습니다.' });
       }
-      if (!/^\d{2,4}-\d{3,4}-\d{4}$/.test(tel)) {
+      if (tel && !/^\d{2,4}-\d{3,4}-\d{4}$/.test(tel)) {
         return res.status(400).json({ error: '전화번호 형식이 올바르지 않습니다.' });
       }
-      if (!/^\d{3}-\d{4}-\d{4}$/.test(mobile)) {
+      if (mobile && !/^\d{3}-\d{4}-\d{4}$/.test(mobile)) {
         return res.status(400).json({ error: '휴대전화번호 형식이 올바르지 않습니다.' });
       }
       if (!companyEmail.includes('@')) {
@@ -2482,10 +2479,10 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
           ceoName,
           businessRegNumber: businessRegNumber || '',
           birthDate: payment.company?.birthDate || '',
-          tel,
-          mobile,
+          tel: tel || '',
+          mobile: mobile || '',
           postcode: postcode || '',
-          address,
+          address: address || '',
           detailAddress: detailAddress || null,
           companyUrl: companyUrl || null,
           companyEmail,
@@ -3648,8 +3645,8 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
     }
 
     if (loginId !== targetUser.email) {
-      if (!/^[A-Za-z]+$/.test(loginId)) {
-        return res.status(400).json({ error: '아이디는 영문만 사용할 수 있습니다.' });
+      if (!/^[A-Za-z0-9]+$/.test(loginId)) {
+        return res.status(400).json({ error: '아이디는 영문과 숫자만 사용할 수 있습니다.' });
       }
 
       const duplicateUser = await prisma.user.findUnique({

@@ -15,7 +15,7 @@ const initial_form_data = {
 };
 
 const team_options = ['1팀', '2팀', '3팀', '4팀', '5팀', '6팀', '개발관리부'];
-const login_id_regex = /^[A-Za-z]+$/;
+const login_id_regex = /^[A-Za-z0-9]+$/;
 
 function Signup() {
   const [formData, setFormData] = useState(initial_form_data);
@@ -39,7 +39,7 @@ function Signup() {
 
     setFormData({
       ...formData,
-      [name]: name === 'loginId' ? value.replace(/[^A-Za-z]/g, '') : value,
+      [name]: name === 'loginId' ? value.replace(/[^A-Za-z0-9]/g, '') : value,
     });
   };
 
@@ -60,7 +60,7 @@ function Signup() {
     }
 
     if (!login_id_regex.test(formData.loginId)) {
-      setError('아이디는 영문만 사용할 수 있습니다.');
+      setError('아이디는 영문과 숫자만 사용할 수 있습니다.');
       return;
     }
 
@@ -121,11 +121,11 @@ function Signup() {
             type="text"
             value={formData.loginId}
             onChange={handleChange}
-            placeholder="아이디(영문)"
+            placeholder="아이디(영문/숫자)"
             aria-label="아이디"
             required
-            pattern="[A-Za-z]+"
-            title="아이디는 영문만 사용할 수 있습니다."
+            pattern="[A-Za-z0-9]+"
+            title="아이디는 영문과 숫자만 사용할 수 있습니다."
             className="signup_auth_input"
             disabled={isLoading}
             autoComplete="username"

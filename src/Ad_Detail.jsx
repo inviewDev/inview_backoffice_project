@@ -382,9 +382,6 @@ function AdDetail({ user }) {
     const missingFields = getMissingFieldLabels([
       { label: '상호명', value: formData.companyName },
       { label: '대표자', value: formData.ceoName },
-      { label: 'Tel', value: formData.tel },
-      { label: 'Mobile', value: formData.mobile },
-      { label: '주소', value: formData.address },
       { label: '업체 E-Mail', value: formData.companyEmail },
     ]);
 
@@ -401,14 +398,11 @@ function AdDetail({ user }) {
     if (formData.businessRegNumber && !/^\d{3}-\d{2}-\d{5}$/.test(formData.businessRegNumber)) {
       return '사업자등록번호 형식이 올바르지 않습니다. (예: 123-45-67890)';
     }
-    if (!/^\d{2,4}-\d{3,4}-\d{4}$/.test(formData.tel)) {
+    if (formData.tel && !/^\d{2,4}-\d{3,4}-\d{4}$/.test(formData.tel)) {
       return '전화번호 형식이 올바르지 않습니다. (예: 02-1234-5678, 0507-1234-5678)';
     }
-    if (!/^\d{3}-\d{4}-\d{4}$/.test(formData.mobile)) {
+    if (formData.mobile && !/^\d{3}-\d{4}-\d{4}$/.test(formData.mobile)) {
       return '휴대전화번호 형식이 올바르지 않습니다. (예: 010-1234-5678)';
-    }
-    if (!formData.address) {
-      return '주소를 입력해주세요.';
     }
     if (!formData.companyEmail.includes('@')) {
       return '유효한 이메일 주소를 입력해주세요.';

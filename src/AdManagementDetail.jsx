@@ -859,9 +859,6 @@ function AdManagementDetail({ user }) {
     const requiredFields = [
       { label: '상호명', value: basicInfoEditForm.companyName },
       { label: '대표자', value: basicInfoEditForm.ceoName },
-      { label: 'Tel', value: basicInfoEditForm.tel },
-      { label: 'Mobile', value: basicInfoEditForm.mobile },
-      { label: '주소', value: basicInfoEditForm.address },
       { label: '업체 E-Mail', value: basicInfoEditForm.companyEmail },
     ];
     const missingFields = requiredFields
@@ -877,10 +874,10 @@ function AdManagementDetail({ user }) {
     ) {
       return '사업자등록번호 형식이 올바르지 않습니다.';
     }
-    if (!/^\d{2,4}-\d{3,4}-\d{4}$/.test(basicInfoEditForm.tel)) {
+    if (basicInfoEditForm.tel && !/^\d{2,4}-\d{3,4}-\d{4}$/.test(basicInfoEditForm.tel)) {
       return '전화번호 형식이 올바르지 않습니다.';
     }
-    if (!/^\d{3}-\d{4}-\d{4}$/.test(basicInfoEditForm.mobile)) {
+    if (basicInfoEditForm.mobile && !/^\d{3}-\d{4}-\d{4}$/.test(basicInfoEditForm.mobile)) {
       return '휴대전화번호 형식이 올바르지 않습니다.';
     }
     if (!basicInfoEditForm.companyEmail.includes('@')) {
