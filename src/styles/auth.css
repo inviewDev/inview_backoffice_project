@@ -21,7 +21,7 @@
 .login_submit,
 .sign_in_wrap .signup_button { display: flex; width: 100%; height: 50px; align-items: center; justify-content: center; margin-top: 4px; padding: 0 10px; border: 0; border-radius: 10px; background: #182032; color: #eff3ff; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0; line-height: 24px; transition: background 0.18s ease, transform 0.18s ease; }
 .login_submit:hover,
-.sign_in_wrap .signup_button:hover:not(:disabled) { background: #0f54e7; }
+.sign_in_wrap .signup_button:hover:not(:disabled) { background: #E6296F; }
 .login_submit:active,
 .sign_in_wrap .signup_button:active:not(:disabled) { transform: translateY(1px); }
 .login_forgot,

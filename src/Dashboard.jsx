@@ -34,13 +34,6 @@ const calendar_events = [
   },
 ];
 
-const notice_items = [
-  { id: 11, title: '추후 연동 예정', author: '-', date: '-' },
-  { id: 10, title: '추후 연동 예정', author: '-', date: '-' },
-  { id: 9, title: '추후 연동 예정', author: '-', date: '-' },
-  { id: 9, title: '추후 연동 예정', author: '-', date: '-' },
-];
-
 const months = ['01월', '02월', '03월', '04월', '05월', '06월', '07월', '08월', '09월', '10월', '11월', '12월'];
 const salesSeriesColors = ['#182032', '#ff3b5c', '#20b26b'];
 
@@ -72,6 +65,16 @@ async function parseResponse(res) {
 
 function formatCurrency(value) {
   return `${Number(value || 0).toLocaleString('ko-KR')} 원`;
+}
+
+function formatDashboardNoticeDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return new Intl.DateTimeFormat('ko-KR', {
+    year: '2-digit',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
 }
 
 function formatNumber(value) {
@@ -488,6 +491,8 @@ function Dashboard({ user }) {
   });
   const [salesTableError, setSalesTableError] = useState('');
   const [isSalesTableLoading, setIsSalesTableLoading] = useState(true);
+  const [noticeItems, setNoticeItems] = useState([]);
+  const [noticeTotal, setNoticeTotal] = useState(0);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -495,6 +500,28 @@ function Dashboard({ user }) {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const fetchNotices = async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+        const res = await fetch('/api/community/posts?boardType=notice&page=1&pageSize=5', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await parseResponse(res);
+        if (!res.ok) throw new Error(data.error || '공지사항을 불러오지 못했습니다.');
+
+        setNoticeItems((data.posts || []).slice(0, 4));
+        setNoticeTotal(Number(data.pagination?.total) || 0);
+      } catch (error) {
+        console.error('Fetch dashboard notices error:', error);
+        setNoticeItems([]);
+        setNoticeTotal(0);
+      }
+    };
+
+    if (user?.id) fetchNotices();
+  }, [user?.id]);
 
   useEffect(() => {
     const fetchMyMonthlySales = async () => {
@@ -856,16 +883,23 @@ function Dashboard({ user }) {
                   <span>작성자</span>
                   <span>작성일자</span>
                 </div>
-                {notice_items.map(item => (
-                  <div className="dash_notice_row" key={item.id}>
-                    <span>{item.id}</span>
+                {noticeItems.length > 0 ? noticeItems.map((item, index) => (
+                  <button
+                    type="button"
+                    className="dash_notice_row"
+                    key={item.id}
+                    onClick={() => navigate(`/community/${item.id}?tab=notice`)}
+                  >
+                    <span>{noticeTotal - index}</span>
                     <strong>{item.title}</strong>
-                    <span>{item.author}</span>
-                    <span>{item.date}</span>
-                  </div>
-                ))}
+                    <span>{item.authorName}</span>
+                    <span>{formatDashboardNoticeDate(item.createdAt)}</span>
+                  </button>
+                )) : (
+                  <div className="dash_notice_empty">등록된 공지사항이 없습니다.</div>
+                )}
               </div>
-              <button type="button" className="dash_more_button">더보기 ›</button>
+              <button type="button" className="dash_more_button" onClick={() => navigate('/community?tab=notice')}>더보기 ›</button>
             </div>
           </section>
 

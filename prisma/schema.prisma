@@ -27,6 +27,7 @@ model User {
   canEditAds          Boolean              @default(false)
   canEditAdPaymentStatus Boolean           @default(false)
   canDeleteAds        Boolean              @default(false)
+  canWritePosts       Boolean              @default(false)
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   memos               PersonalMemo[]       @relation("UserMemos")
@@ -35,10 +36,44 @@ model User {
   companies           Company[]            @relation("UserCompanies")
   payments            Payment[]            @relation("UserPayments")
   adComments          AdComment[]           @relation("UserAdComments")
+  communityPosts      CommunityPost[]       @relation("UserCommunityPosts")
+  communityPostViews  CommunityPostView[]   @relation("UserCommunityPostViews")
   smsSendHistories    SmsSendHistory[]     @relation("UserSmsSendHistories")
   passwordResetTokens PasswordResetToken[] @relation("UserPasswordResetTokens")
 
   @@map("User")
+}
+
+model CommunityPost {
+  id          Int      @id @default(autoincrement())
+  boardType   String
+  title       String
+  content     Json
+  contentText String   @db.Text
+  viewCount   Int      @default(0)
+  authorId    Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  author      User?    @relation("UserCommunityPosts", fields: [authorId], references: [id], onDelete: SetNull)
+  views       CommunityPostView[]
+
+  @@index([boardType, createdAt])
+  @@index([authorId])
+  @@map("CommunityPost")
+}
+
+model CommunityPostView {
+  id        Int           @id @default(autoincrement())
+  postId    Int
+  userId    Int
+  viewDate  String
+  createdAt DateTime      @default(now())
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User          @relation("UserCommunityPostViews", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId, viewDate])
+  @@index([userId])
+  @@map("CommunityPostView")
 }
 
 model PersonalMemo {

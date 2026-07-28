@@ -60,7 +60,7 @@
 .mypage_primary_button,
 .mypage_secondary_button { height: 32px; padding: 0 15px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 700; line-height: 18px; }
 .mypage_primary_button { background: #182032; color: #fff; }
-.mypage_primary_button:hover:not(:disabled) { background: #0f54e7; }
+.mypage_primary_button:hover:not(:disabled) { background: #E6296F; }
 .mypage_secondary_button { background: #dce0eb; color: #333; }
 .mypage_primary_button:disabled,
 .mypage_secondary_button:disabled,

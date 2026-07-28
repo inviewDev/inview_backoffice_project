@@ -34,6 +34,11 @@ const LEVEL_OPTIONS = ['대표', '파트장', '팀장', '과장', '대리', '주
 const ADMIN_COMMENT_LEVELS = new Set(['대표', '파트장', '팀장']);
 const MASTER_LOGIN_IDS = new Set(['cchee', 'cchee@gmail.com']);
 const AD_VISIBILITY_SCOPE_OPTIONS = ['own', 'team', 'department', 'all'];
+const COMMUNITY_BOARD_TYPES = new Set(['notice', 'board']);
+const COMMUNITY_POST_TITLE_MAX_LENGTH = 200;
+const COMMUNITY_POST_CONTENT_MAX_LENGTH = 100000;
+const COMMUNITY_POST_IMAGE_MAX_SIZE = 2 * 1024 * 1024;
+const COMMUNITY_POST_PAYLOAD_MAX_SIZE = 6 * 1024 * 1024;
 const MAX_PROFILE_IMAGE_SIZE = 2 * 1024 * 1024;
 const PROFILE_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const USER_DELETE_TRANSACTION_OPTIONS = {
@@ -469,6 +474,7 @@ async function getCurrentUserAccess(userId) {
     select: {
       id: true,
       email: true,
+      name: true,
       role: true,
       level: true,
       team: true,
@@ -477,6 +483,7 @@ async function getCurrentUserAccess(userId) {
       canEditAds: true,
       canEditAdPaymentStatus: true,
       canDeleteAds: true,
+      canWritePosts: true,
     },
   });
 }
@@ -491,6 +498,177 @@ function canEditAdPaymentStatus(user) {
 
 function canDeleteAdPayment(user) {
   return isMasterAccount(user) || user?.canDeleteAds === true;
+}
+
+function canWriteCommunityPosts(user) {
+  return isMasterAccount(user) || user?.canWritePosts === true;
+}
+
+function normalizeCommunityBoardType(value) {
+  const boardType = String(value || '').trim().toLowerCase();
+  return COMMUNITY_BOARD_TYPES.has(boardType) ? boardType : null;
+}
+
+function getKoreanDateKey(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function sanitizeCommunityLinkHref(value) {
+  const href = String(value || '').trim();
+  if (!href) return null;
+
+  if (/^(https?:\/\/|mailto:|tel:)/i.test(href)) return href;
+  if (href.startsWith('/') && !href.startsWith('//')) return href;
+  return null;
+}
+
+function sanitizeCommunityImageSrc(value) {
+  const src = String(value || '').trim();
+  if (/^https:\/\//i.test(src)) return src;
+
+  const match = src.match(/^data:(image\/(?:jpeg|png|webp|gif));base64,([A-Za-z0-9+/=]+)$/i);
+  if (!match) return null;
+  if (Buffer.byteLength(match[2], 'base64') > COMMUNITY_POST_IMAGE_MAX_SIZE) return null;
+  return `data:${match[1].toLowerCase()};base64,${match[2]}`;
+}
+
+function sanitizeCommunityContentNode(node, depth = 0) {
+  if (!node || typeof node !== 'object' || Array.isArray(node) || depth > 30) return null;
+
+  const allowedNodeTypes = new Set([
+    'doc',
+    'paragraph',
+    'text',
+    'heading',
+    'bulletList',
+    'orderedList',
+    'listItem',
+    'blockquote',
+    'codeBlock',
+    'hardBreak',
+    'horizontalRule',
+    'image',
+  ]);
+  const allowedMarkTypes = new Set(['bold', 'italic', 'underline', 'strike', 'code', 'link']);
+  const type = String(node.type || '');
+
+  if (!allowedNodeTypes.has(type)) return null;
+
+  const sanitized = { type };
+  if (type === 'text') {
+    sanitized.text = String(node.text || '');
+  }
+
+  if (type === 'image') {
+    const src = sanitizeCommunityImageSrc(node.attrs?.src);
+    if (!src) return null;
+    sanitized.attrs = {
+      src,
+      alt: String(node.attrs?.alt || '').trim().slice(0, 200) || null,
+      title: null,
+    };
+  } else if (type === 'heading') {
+    const level = Number(node.attrs?.level);
+    const textAlign = String(node.attrs?.textAlign || 'left');
+    sanitized.attrs = {
+      level: [1, 2, 3].includes(level) ? level : 2,
+      ...(['center', 'right', 'justify'].includes(textAlign) ? { textAlign } : {}),
+    };
+  } else if (type === 'paragraph') {
+    const textAlign = String(node.attrs?.textAlign || 'left');
+    if (['left', 'center', 'right', 'justify'].includes(textAlign) && textAlign !== 'left') {
+      sanitized.attrs = { textAlign };
+    }
+  } else if (type === 'orderedList' && Number.isInteger(Number(node.attrs?.start))) {
+    sanitized.attrs = { start: Math.max(1, Number(node.attrs.start)) };
+  }
+
+  if (Array.isArray(node.marks) && type === 'text') {
+    sanitized.marks = node.marks.reduce((marks, mark) => {
+      const markType = String(mark?.type || '');
+      if (!allowedMarkTypes.has(markType)) return marks;
+
+      if (markType === 'link') {
+        const href = sanitizeCommunityLinkHref(mark?.attrs?.href);
+        if (!href) return marks;
+        marks.push({
+          type: 'link',
+          attrs: {
+            href,
+            target: '_blank',
+            rel: 'noopener noreferrer nofollow',
+            class: null,
+          },
+        });
+        return marks;
+      }
+
+      marks.push({ type: markType });
+      return marks;
+    }, []);
+
+    if (sanitized.marks.length === 0) delete sanitized.marks;
+  }
+
+  if (Array.isArray(node.content)) {
+    sanitized.content = node.content
+      .map(child => sanitizeCommunityContentNode(child, depth + 1))
+      .filter(Boolean);
+    if (sanitized.content.length === 0) delete sanitized.content;
+  }
+
+  return sanitized;
+}
+
+function extractCommunityContentText(node) {
+  if (!node || typeof node !== 'object') return '';
+  if (node.type === 'text') return String(node.text || '');
+  if (node.type === 'hardBreak') return '\n';
+  if (!Array.isArray(node.content)) return '';
+
+  const separator = ['doc', 'bulletList', 'orderedList', 'listItem', 'blockquote'].includes(node.type)
+    ? '\n'
+    : '';
+  return node.content.map(extractCommunityContentText).join(separator);
+}
+
+function hasCommunityRenderableContent(node) {
+  if (!node || typeof node !== 'object') return false;
+  if (node.type === 'image') return true;
+  if (node.type === 'text' && String(node.text || '').trim()) return true;
+  return Array.isArray(node.content) && node.content.some(hasCommunityRenderableContent);
+}
+
+function validateCommunityPostInput(body) {
+  const boardType = normalizeCommunityBoardType(body?.boardType);
+  const title = String(body?.title || '').trim();
+  const rawContentSize = Buffer.byteLength(JSON.stringify(body?.content || null), 'utf8');
+  const content = sanitizeCommunityContentNode(body?.content);
+  const contentText = extractCommunityContentText(content).replace(/\n{3,}/g, '\n\n').trim();
+
+  if (!boardType) return { error: '게시판 구분을 확인해주세요.' };
+  if (!title) return { error: '제목을 입력해주세요.' };
+  if (title.length > COMMUNITY_POST_TITLE_MAX_LENGTH) {
+    return { error: `제목은 ${COMMUNITY_POST_TITLE_MAX_LENGTH}자 이하로 입력해주세요.` };
+  }
+  if (rawContentSize > COMMUNITY_POST_PAYLOAD_MAX_SIZE) {
+    return { error: '본문 전체 용량은 6MB 이하로 등록해주세요.' };
+  }
+  if (!content || content.type !== 'doc' || !hasCommunityRenderableContent(content)) {
+    return { error: '본문을 입력해주세요.' };
+  }
+  if (contentText.length > COMMUNITY_POST_CONTENT_MAX_LENGTH) {
+    return { error: '본문이 너무 깁니다.' };
+  }
+
+  return { boardType, title, content, contentText };
 }
 
 function getEffectiveAdVisibilityScope(user) {
@@ -653,6 +831,7 @@ apiRouter.get('/me', verifyToken, async (req, res) => {
         canEditAds: true,
         canEditAdPaymentStatus: true,
         canDeleteAds: true,
+        canWritePosts: true,
       },
     });
     if (!user) {
@@ -675,6 +854,7 @@ apiRouter.get('/me', verifyToken, async (req, res) => {
         canEditAds: canEditAdPayment(user),
         canEditAdPaymentStatus: canEditAdPaymentStatus(user),
         canDeleteAds: canDeleteAdPayment(user),
+        canWritePosts: canWriteCommunityPosts(user),
       },
     });
   } catch (error) {
@@ -736,6 +916,7 @@ apiRouter.post('/signup', async (req, res) => {
         canEditAds: Boolean(newUser.canEditAds),
         canEditAdPaymentStatus: Boolean(newUser.canEditAdPaymentStatus),
         canDeleteAds: Boolean(newUser.canDeleteAds),
+        canWritePosts: Boolean(newUser.canWritePosts),
       },
       SECRET,
       { expiresIn: ACCESS_TOKEN_EXPIRES_IN }
@@ -760,6 +941,7 @@ apiRouter.post('/signup', async (req, res) => {
         canEditAds: Boolean(newUser.canEditAds),
         canEditAdPaymentStatus: Boolean(newUser.canEditAdPaymentStatus),
         canDeleteAds: Boolean(newUser.canDeleteAds),
+        canWritePosts: Boolean(newUser.canWritePosts),
       },
       token,
     });
@@ -802,6 +984,7 @@ apiRouter.post('/login', async (req, res) => {
         canEditAds: canEditAdPayment(user),
         canEditAdPaymentStatus: canEditAdPaymentStatus(user),
         canDeleteAds: canDeleteAdPayment(user),
+        canWritePosts: canWriteCommunityPosts(user),
       },
       SECRET,
       { expiresIn: ACCESS_TOKEN_EXPIRES_IN }
@@ -826,6 +1009,7 @@ apiRouter.post('/login', async (req, res) => {
         canEditAds: canEditAdPayment(user),
         canEditAdPaymentStatus: canEditAdPaymentStatus(user),
         canDeleteAds: canDeleteAdPayment(user),
+        canWritePosts: canWriteCommunityPosts(user),
       },
     });
   } catch (error) {
@@ -1011,6 +1195,7 @@ apiRouter.patch('/users/:id', verifyToken, async (req, res) => {
         canEditAds: true,
         canEditAdPaymentStatus: true,
         canDeleteAds: true,
+        canWritePosts: true,
       },
     });
     res.json({
@@ -1031,6 +1216,7 @@ apiRouter.patch('/users/:id', verifyToken, async (req, res) => {
         canEditAds: canEditAdPayment(updatedUser),
         canEditAdPaymentStatus: canEditAdPaymentStatus(updatedUser),
         canDeleteAds: canDeleteAdPayment(updatedUser),
+        canWritePosts: canWriteCommunityPosts(updatedUser),
       },
     });
   } catch (error) {
@@ -1071,6 +1257,7 @@ apiRouter.post('/users/:id/officePhoneNumber', verifyToken, async (req, res) => 
         canEditAds: true,
         canEditAdPaymentStatus: true,
         canDeleteAds: true,
+        canWritePosts: true,
       },
     });
 
@@ -1092,6 +1279,7 @@ apiRouter.post('/users/:id/officePhoneNumber', verifyToken, async (req, res) => 
         canEditAds: canEditAdPayment(updatedUser),
         canEditAdPaymentStatus: canEditAdPaymentStatus(updatedUser),
         canDeleteAds: canDeleteAdPayment(updatedUser),
+        canWritePosts: canWriteCommunityPosts(updatedUser),
       },
     });
   } catch (error) {
@@ -3442,6 +3630,296 @@ apiRouter.get('/payroll', verifyToken, async (req, res) => {
   }
 });
 
+apiRouter.post('/community/images/authorize', verifyToken, async (req, res) => {
+  try {
+    const currentUser = await getCurrentUserAccess(req.user.id);
+    if (!currentUser || !canWriteCommunityPosts(currentUser)) {
+      return res.status(403).json({ error: '게시글 작성 권한이 없습니다.' });
+    }
+
+    return res.json({ authorized: true, userId: currentUser.id });
+  } catch (error) {
+    console.error('Authorize community image upload error:', serializeErrorForLog(error));
+    return res.status(500).json({ error: '이미지 업로드 권한 확인 중 오류가 발생했습니다.' });
+  }
+});
+
+apiRouter.get('/community/posts', verifyToken, async (req, res) => {
+  const boardType = normalizeCommunityBoardType(req.query.boardType);
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const pageSize = Math.min(50, Math.max(5, parseInt(req.query.pageSize, 10) || 10));
+  const search = String(req.query.search || '').trim().slice(0, 100);
+
+  if (!boardType) {
+    return res.status(400).json({ error: '게시판 구분을 확인해주세요.' });
+  }
+
+  try {
+    const currentUser = await getCurrentUserAccess(req.user.id);
+    if (!currentUser) {
+      return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+    }
+
+    const where = {
+      boardType,
+      ...(search
+        ? {
+            OR: [
+              { title: { contains: search, mode: 'insensitive' } },
+              { contentText: { contains: search, mode: 'insensitive' } },
+              { author: { name: { contains: search, mode: 'insensitive' } } },
+            ],
+          }
+        : {}),
+    };
+
+    const [posts, total] = await prisma.$transaction([
+      prisma.communityPost.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        select: {
+          id: true,
+          boardType: true,
+          title: true,
+          contentText: true,
+          viewCount: true,
+          authorId: true,
+          createdAt: true,
+          updatedAt: true,
+          author: {
+            select: {
+              id: true,
+              name: true,
+              team: true,
+            },
+          },
+        },
+      }),
+      prisma.communityPost.count({ where }),
+    ]);
+
+    res.json({
+      posts: posts.map(post => ({
+        ...post,
+        authorName: post.author?.name || '탈퇴 사용자',
+        authorTeam: post.author?.team || '',
+        canEdit: isMasterAccount(currentUser) || post.authorId === currentUser.id,
+        canDelete: isMasterAccount(currentUser) || post.authorId === currentUser.id,
+      })),
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      },
+      permissions: {
+        canWrite: canWriteCommunityPosts(currentUser),
+      },
+    });
+  } catch (error) {
+    console.error('Fetch community posts error:', error);
+    res.status(500).json({ error: '게시글 목록 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+apiRouter.get('/community/posts/:id', verifyToken, async (req, res) => {
+  const postId = parseInt(req.params.id, 10);
+  const shouldTrackView = req.query.trackView === 'true';
+  if (!Number.isInteger(postId)) {
+    return res.status(400).json({ error: '게시글 ID가 올바르지 않습니다.' });
+  }
+
+  try {
+    const [currentUser, post] = await Promise.all([
+      getCurrentUserAccess(req.user.id),
+      prisma.communityPost.findUnique({
+        where: { id: postId },
+        include: {
+          author: {
+            select: {
+              id: true,
+              name: true,
+              team: true,
+              department: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    if (!currentUser) {
+      return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+    }
+    if (!post) {
+      return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
+    }
+
+    let nextViewCount = post.viewCount;
+
+    if (shouldTrackView) {
+      try {
+        nextViewCount = await prisma.$transaction(async tx => {
+          await tx.communityPostView.create({
+            data: {
+              postId,
+              userId: currentUser.id,
+              viewDate: getKoreanDateKey(),
+            },
+          });
+
+          const updated = await tx.communityPost.update({
+            where: { id: postId },
+            data: { viewCount: { increment: 1 } },
+            select: { viewCount: true },
+          });
+
+          return updated.viewCount;
+        });
+      } catch (viewError) {
+        if (viewError?.code !== 'P2002') throw viewError;
+      }
+    }
+
+    res.json({
+      post: {
+        ...post,
+        viewCount: nextViewCount,
+        authorName: post.author?.name || '탈퇴 사용자',
+        authorTeam: post.author?.team || '',
+        authorDepartment: post.author?.department || '',
+        canEdit: isMasterAccount(currentUser) || post.authorId === currentUser.id,
+        canDelete: isMasterAccount(currentUser) || post.authorId === currentUser.id,
+      },
+      permissions: {
+        canWrite: canWriteCommunityPosts(currentUser),
+      },
+    });
+  } catch (error) {
+    console.error('Fetch community post error:', error);
+    res.status(500).json({ error: '게시글 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+apiRouter.post('/community/posts', verifyToken, async (req, res) => {
+  const validated = validateCommunityPostInput(req.body);
+  if (validated.error) {
+    return res.status(400).json({ error: validated.error });
+  }
+
+  try {
+    const currentUser = await getCurrentUserAccess(req.user.id);
+    if (!currentUser) {
+      return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+    }
+    if (!canWriteCommunityPosts(currentUser)) {
+      return res.status(403).json({ error: '게시글 작성 권한이 없습니다.' });
+    }
+
+    const post = await prisma.communityPost.create({
+      data: {
+        boardType: validated.boardType,
+        title: validated.title,
+        content: validated.content,
+        contentText: validated.contentText,
+        authorId: currentUser.id,
+      },
+      include: {
+        author: { select: { id: true, name: true, team: true } },
+      },
+    });
+
+    res.status(201).json({
+      message: '게시글이 등록되었습니다.',
+      post: {
+        ...post,
+        authorName: post.author?.name || currentUser.name,
+        authorTeam: post.author?.team || currentUser.team,
+        canEdit: true,
+        canDelete: true,
+      },
+    });
+  } catch (error) {
+    console.error('Create community post error:', error);
+    res.status(500).json({ error: '게시글 등록 중 오류가 발생했습니다.' });
+  }
+});
+
+apiRouter.patch('/community/posts/:id', verifyToken, async (req, res) => {
+  const postId = parseInt(req.params.id, 10);
+  if (!Number.isInteger(postId)) {
+    return res.status(400).json({ error: '게시글 ID가 올바르지 않습니다.' });
+  }
+
+  const validated = validateCommunityPostInput(req.body);
+  if (validated.error) {
+    return res.status(400).json({ error: validated.error });
+  }
+
+  try {
+    const [currentUser, existingPost] = await Promise.all([
+      getCurrentUserAccess(req.user.id),
+      prisma.communityPost.findUnique({ where: { id: postId }, select: { id: true, authorId: true } }),
+    ]);
+
+    if (!currentUser) {
+      return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+    }
+    if (!existingPost) {
+      return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
+    }
+    if (!isMasterAccount(currentUser) && existingPost.authorId !== currentUser.id) {
+      return res.status(403).json({ error: '게시글 수정 권한이 없습니다.' });
+    }
+
+    const post = await prisma.communityPost.update({
+      where: { id: postId },
+      data: {
+        boardType: validated.boardType,
+        title: validated.title,
+        content: validated.content,
+        contentText: validated.contentText,
+      },
+    });
+
+    res.json({ message: '게시글이 수정되었습니다.', post });
+  } catch (error) {
+    console.error('Update community post error:', error);
+    res.status(500).json({ error: '게시글 수정 중 오류가 발생했습니다.' });
+  }
+});
+
+apiRouter.delete('/community/posts/:id', verifyToken, async (req, res) => {
+  const postId = parseInt(req.params.id, 10);
+  if (!Number.isInteger(postId)) {
+    return res.status(400).json({ error: '게시글 ID가 올바르지 않습니다.' });
+  }
+
+  try {
+    const [currentUser, existingPost] = await Promise.all([
+      getCurrentUserAccess(req.user.id),
+      prisma.communityPost.findUnique({ where: { id: postId }, select: { id: true, authorId: true } }),
+    ]);
+
+    if (!currentUser) {
+      return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+    }
+    if (!existingPost) {
+      return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
+    }
+    if (!isMasterAccount(currentUser) && existingPost.authorId !== currentUser.id) {
+      return res.status(403).json({ error: '게시글 삭제 권한이 없습니다.' });
+    }
+
+    await prisma.communityPost.delete({ where: { id: postId } });
+    res.json({ message: '게시글이 삭제되었습니다.' });
+  } catch (error) {
+    console.error('Delete community post error:', error);
+    res.status(500).json({ error: '게시글 삭제 중 오류가 발생했습니다.' });
+  }
+});
+
 apiRouter.get('/users/pending', verifyToken, verifyAdminRole, async (req, res) => {
   try {
     const pendingUsers = await prisma.user.findMany({
@@ -3462,6 +3940,7 @@ apiRouter.get('/users/pending', verifyToken, verifyAdminRole, async (req, res) =
         canEditAds: true,
         canEditAdPaymentStatus: true,
         canDeleteAds: true,
+        canWritePosts: true,
       },
     });
     res.json(pendingUsers);
@@ -3497,6 +3976,7 @@ apiRouter.post('/users/:id/approve', verifyToken, verifyMasterRole, async (req, 
         canEditAds: true,
         canEditAdPaymentStatus: true,
         canDeleteAds: true,
+        canWritePosts: true,
       },
     });
     res.json({ message: '사용자 승인 완료', user: updatedUser });
@@ -3532,6 +4012,7 @@ apiRouter.post('/users/:id/reject', verifyToken, verifyMasterRole, async (req, r
         canEditAds: true,
         canEditAdPaymentStatus: true,
         canDeleteAds: true,
+        canWritePosts: true,
       },
     });
     res.json({ message: '사용자 거절 완료', user: updatedUser });
@@ -3569,6 +4050,7 @@ apiRouter.post('/users/:id/status', verifyToken, verifyMasterRole, async (req, r
         canEditAds: true,
         canEditAdPaymentStatus: true,
         canDeleteAds: true,
+        canWritePosts: true,
       },
     });
     res.json({ message: '상태 변경 완료', user: updatedUser });
@@ -3592,6 +4074,8 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
   const canEditAdPaymentStatusValue = req.body.canEditAdPaymentStatus === true;
   const hasCanDeleteAdsInput = Object.prototype.hasOwnProperty.call(req.body, 'canDeleteAds');
   const canDeleteAds = req.body.canDeleteAds === true;
+  const hasCanWritePostsInput = Object.prototype.hasOwnProperty.call(req.body, 'canWritePosts');
+  const canWritePosts = req.body.canWritePosts === true;
 
   if (!Number.isInteger(targetUserId)) {
     return res.status(400).json({ error: '사용자 ID가 올바르지 않습니다.' });
@@ -3624,6 +4108,7 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
           canEditAds: true,
           canEditAdPaymentStatus: true,
           canDeleteAds: true,
+          canWritePosts: true,
         },
       }),
     ]);
@@ -3642,6 +4127,9 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
     }
     if (hasCanDeleteAdsInput && !isMasterAccount(actor)) {
       return res.status(403).json({ error: '광고 삭제권한 설정은 마스터 계정만 변경할 수 있습니다.' });
+    }
+    if (hasCanWritePostsInput && !isMasterAccount(actor)) {
+      return res.status(403).json({ error: '게시글 작성권한 설정은 마스터 계정만 변경할 수 있습니다.' });
     }
 
     if (loginId !== targetUser.email) {
@@ -3685,6 +4173,9 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
     if (hasCanDeleteAdsInput) {
       updateData.canDeleteAds = isMasterAccount(targetUser) ? true : canDeleteAds;
     }
+    if (hasCanWritePostsInput) {
+      updateData.canWritePosts = isMasterAccount(targetUser) ? true : canWritePosts;
+    }
 
     if (resetPassword) {
       updateData.passwordHash = await bcrypt.hash('1111', 10);
@@ -3709,6 +4200,7 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
         canEditAds: true,
         canEditAdPaymentStatus: true,
         canDeleteAds: true,
+        canWritePosts: true,
       },
     });
 
@@ -3756,6 +4248,7 @@ apiRouter.post('/users/:id/role', verifyToken, verifyMasterRole, async (req, res
         canEditAds: true,
         canEditAdPaymentStatus: true,
         canDeleteAds: true,
+        canWritePosts: true,
       },
     });
     res.json({ message: '권한 변경 완료', user: updatedUser });
@@ -3795,6 +4288,7 @@ apiRouter.post('/users/:id/level', verifyToken, verifyMasterRole, async (req, re
         canEditAds: true,
         canEditAdPaymentStatus: true,
         canDeleteAds: true,
+        canWritePosts: true,
       },
     });
     res.json({ message: '직급 변경 완료', user: updatedUser });
@@ -3978,6 +4472,7 @@ apiRouter.get('/users', verifyToken, verifyAdminRole, async (req, res) => {
         canEditAds: true,
         canEditAdPaymentStatus: true,
         canDeleteAds: true,
+        canWritePosts: true,
       },
     });
     res.json(users);

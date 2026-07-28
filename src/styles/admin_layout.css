@@ -1,7 +1,7 @@
 .admin_loading { display: flex; min-height: 100vh; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: #f4f6fb; } 
 .admin_loading p { color: #333; font-size: 14px; letter-spacing: 0; } 
 .admin_shell { display: flex; width: 100%; min-height: 100vh; background: #f4f6fb; }
-.admin_sidebar { position: sticky; top: 0; z-index: 20; display: flex; width: 240px; height: 100vh; min-width: 0; flex: 0 0 240px; flex-direction: column; background: #182032; transition: width 0.22s ease, flex-basis 0.22s ease; }
+.admin_sidebar {position: sticky;top: 0;z-index: 20;display: flex;width: 240px;height: 100vh;min-width: 0;flex: 0 0 240px;flex-direction: column;background: #182032;transition: width 0.22s ease, flex-basis 0.22s ease;padding: 0 20px;}
 .admin_shell.sidebar_collapsed .admin_sidebar { width: 76px; flex-basis: 76px; }
 .admin_sidebar_toggle { position: absolute; top: 28px; right: -15px; z-index: 30; display: flex; width: 30px; height: 30px; align-items: center; justify-content: center; border: 1px solid #d8deea; border-radius: 50%; background: #fff; color: #182032; cursor: pointer; box-shadow: 0 5px 14px rgba(25, 98, 252, 0.2); transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease; }
 .admin_sidebar_toggle svg { width: 12px; height: 12px; transition: transform 0.18s ease; }
@@ -11,7 +11,7 @@
 .admin_sidebar_logo { display: flex; height: 88px; align-items: center; justify-content: center; } 
 .admin_sidebar_logo img { display: block; width: 164px; height: auto; } 
 .admin_sidebar_nav { display: flex; flex-direction: column; padding-top: 40px; } 
-.admin_nav_item { display: flex; height: 50px; align-items: center; gap: 20px; padding: 0 24px 0 40px; color: #fff; font-size: 17px; font-weight: 500; letter-spacing: 0; line-height: 20px; transition: background 0.18s ease, color 0.18s ease; } 
+.admin_nav_item {display: flex;height: 50px;align-items: center;gap: 20px;padding: 0 20px;color: #fff;font-size: 17px;font-weight: 500;letter-spacing: 0;line-height: 20px;transition: background 0.18s ease, color 0.18s ease;border-radius: 8px;} 
 .admin_nav_text {white-space: nowrap; transition: opacity 0.16s ease, width 0.16s ease; } 
 .admin_nav_item span{color:inherit; font-size:inherit;}
 .admin_nav_item img { width: 24px; height: 24px; flex: 0 0 24px; } 

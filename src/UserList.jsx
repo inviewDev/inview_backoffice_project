@@ -42,6 +42,10 @@ const adPaymentStatusPermissionLabels = {
   true: '허용',
   false: '미허용',
 };
+const postWritePermissionLabels = {
+  true: '허용',
+  false: '미허용',
+};
 const teamDepartmentMapping = {
   '1팀': '1부서',
   '3팀': '1부서',
@@ -85,6 +89,7 @@ function UserList({ user: currentUser }) {
     canEditAds: false,
     canEditAdPaymentStatus: false,
     canDeleteAds: false,
+    canWritePosts: false,
     resetPassword: false,
   });
   const isMaster = currentUser?.role === '전체관리자';
@@ -356,6 +361,7 @@ function UserList({ user: currentUser }) {
       canEditAds: isMasterLoginId(targetUser.email) ? true : Boolean(targetUser.canEditAds),
       canEditAdPaymentStatus: isMasterLoginId(targetUser.email) ? true : Boolean(targetUser.canEditAdPaymentStatus),
       canDeleteAds: isMasterLoginId(targetUser.email) ? true : Boolean(targetUser.canDeleteAds),
+      canWritePosts: isMasterLoginId(targetUser.email) ? true : Boolean(targetUser.canWritePosts),
       resetPassword: false,
     });
   };
@@ -371,6 +377,7 @@ function UserList({ user: currentUser }) {
       canEditAds: false,
       canEditAdPaymentStatus: false,
       canDeleteAds: false,
+      canWritePosts: false,
       resetPassword: false,
     });
   };
@@ -396,6 +403,7 @@ function UserList({ user: currentUser }) {
         delete requestPayload.canEditAds;
         delete requestPayload.canEditAdPaymentStatus;
         delete requestPayload.canDeleteAds;
+        delete requestPayload.canWritePosts;
       }
 
       const res = await fetch(`/api/users/${accountTarget.id}/account-settings`, {
@@ -484,6 +492,11 @@ function UserList({ user: currentUser }) {
         header: '광고삭제',
         size: 110,
         cell: info => adDeletePermissionLabels[String(Boolean(info.getValue()))],
+      }),
+      columnHelper.accessor('canWritePosts', {
+        header: '게시글작성',
+        size: 120,
+        cell: info => postWritePermissionLabels[String(Boolean(info.getValue()))],
       }),
     ] : []),
     ...(isMaster ? [{
@@ -1106,6 +1119,24 @@ function UserList({ user: currentUser }) {
                       <strong>광고상품 삭제권한</strong>
                       <small>
                         광고관리 상세에서 광고상품을 삭제할 수 있습니다.
+                        {isMasterLoginId(accountTarget?.email) ? ' 마스터 계정은 항상 허용됩니다.' : ''}
+                      </small>
+                    </span>
+                  </label>
+
+                  <label className="userlist_permission_toggle">
+                    <Form.Check
+                      type="checkbox"
+                      checked={accountForm.canWritePosts}
+                      onChange={event =>
+                        setAccountForm(prev => ({ ...prev, canWritePosts: event.target.checked }))
+                      }
+                      disabled={accountSaving || isMasterLoginId(accountTarget?.email)}
+                    />
+                    <span>
+                      <strong>게시글 작성권한</strong>
+                      <small>
+                        공지사항과 자유게시판에 게시글을 등록할 수 있습니다.
                         {isMasterLoginId(accountTarget?.email) ? ' 마스터 계정은 항상 허용됩니다.' : ''}
                       </small>
                     </span>

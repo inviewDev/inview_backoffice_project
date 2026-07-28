@@ -52,6 +52,7 @@ function Login({ onLoginSuccess }) {
         canEditAds: Boolean(data.user.canEditAds),
         canEditAdPaymentStatus: Boolean(data.user.canEditAdPaymentStatus),
         canDeleteAds: Boolean(data.user.canDeleteAds),
+        canWritePosts: Boolean(data.user.canWritePosts),
       });
     } catch (err) {
       console.error('Login error:', err);

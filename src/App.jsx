@@ -12,6 +12,7 @@ import AdDetail from './Ad_Detail.jsx';
 import AdManagement from './AdManagement.jsx';
 import AdManagementDetail from './AdManagementDetail.jsx';
 import Paystub from './Paystub.jsx';
+import Community from './Community.jsx';
 import ResetPassword from './ResetPassword.jsx';
 import {
   AgreementContractPage,
@@ -147,6 +148,7 @@ function App() {
           canEditAds: Boolean(data.user.canEditAds),
           canEditAdPaymentStatus: Boolean(data.user.canEditAdPaymentStatus),
           canDeleteAds: Boolean(data.user.canDeleteAds),
+          canWritePosts: Boolean(data.user.canWritePosts),
         });
       } catch (error) {
         console.error('Fetch user error:', error);
@@ -207,7 +209,9 @@ function App() {
 
   const isActiveNav = item => {
     if (item.to.includes('?')) {
-      return `${location.pathname}${location.search}` === item.to;
+      const [itemPath, itemQuery] = item.to.split('?');
+      const targetTab = new URLSearchParams(itemQuery).get('tab');
+      return location.pathname.startsWith(itemPath) && new URLSearchParams(location.search).get('tab') === targetTab;
     }
     if (item.exact) return location.pathname === item.to;
     return location.pathname === item.to.split('?')[0];
@@ -403,15 +407,10 @@ function App() {
               }
             />
             <Route path="/paystub" element={<Paystub user={user} />} />
-            <Route
-              path="/community"
-              element={
-                <AppPlaceholder
-                  title={location.search.includes('board') ? '자유게시판' : '공지사항'}
-                  description="작업전"
-                />
-              }
-            />
+            <Route path="/community" element={<Community user={user} mode="list" />} />
+            <Route path="/community/write" element={<Community user={user} mode="write" />} />
+            <Route path="/community/:id/edit" element={<Community user={user} mode="edit" />} />
+            <Route path="/community/:id" element={<Community user={user} mode="detail" />} />
             <Route path="*" element={<Navigate replace to="/" />} />
           </Routes>
         </main>
