@@ -166,7 +166,6 @@ function CommunityList({ boardType, onBoardChange }) {
 
         <div className="community_list_summary">
           <strong>전체 <span>{total.toLocaleString('ko-KR')}</span>개</strong>
-          <span>최신 등록순</span>
         </div>
 
         <div className="community_post_list" aria-live="polite">
