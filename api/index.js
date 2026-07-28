@@ -569,10 +569,12 @@ function sanitizeCommunityContentNode(node, depth = 0) {
   if (type === 'image') {
     const src = sanitizeCommunityImageSrc(node.attrs?.src);
     if (!src) return null;
+    const textAlign = String(node.attrs?.textAlign || 'left');
     sanitized.attrs = {
       src,
       alt: String(node.attrs?.alt || '').trim().slice(0, 200) || null,
       title: null,
+      ...(['left', 'center', 'right', 'justify'].includes(textAlign) ? { textAlign } : {}),
     };
   } else if (type === 'heading') {
     const level = Number(node.attrs?.level);
@@ -3630,7 +3632,6 @@ apiRouter.get('/payroll', verifyToken, async (req, res) => {
   }
 });
 
-apiRouter.post('/community/images/authorize', verifyToken, async (req, res) => {
 apiRouter.get('/community/posts', verifyToken, async (req, res) => {
   const boardType = normalizeCommunityBoardType(req.query.boardType);
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);

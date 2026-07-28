@@ -128,7 +128,6 @@
 .community_prose .community_editor_image[style*="text-align: right"] { margin-right: 0; margin-left: auto; }
 .community_prose .community_editor_image[style*="text-align: left"] { margin-right: auto; margin-left: 0; }
 .community_prose .community_editor_image[style*="text-align: justify"] { width: 100%; margin-right: 0; margin-left: 0; }
-.community_prose .community_editor_image.ProseMirror-selectednode { outline: 3px solid rgba(25, 98, 252, 0.35); outline-offset: 3px; }
 .community_prose p.is-editor-empty:first-child::before { height: 0; float: left; color: #a2a9b8; content: attr(data-placeholder); pointer-events: none; }
 
 .community_modal .modal-dialog { width: calc(100% - 32px); max-width: 440px; }
