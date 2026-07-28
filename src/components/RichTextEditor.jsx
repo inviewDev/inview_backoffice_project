@@ -254,7 +254,7 @@ function RichTextEditor({ value, onChange, readOnly = false, placeholder = 'ë‚´ì
           },
         },
       }),
-      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      TextAlign.configure({ types: ['heading', 'paragraph', 'image'] }),
       Placeholder.configure({ placeholder }),
       Image.configure({
         inline: false,

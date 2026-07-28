@@ -123,7 +123,11 @@
 .community_prose pre code { padding: 0; background: transparent; color: inherit; }
 .community_prose hr { margin: 28px 0; border: 0; border-top: 1px solid #d8dce6; }
 .community_prose a { color: #ff2174; text-decoration: underline; text-underline-offset: 2px; }
-.community_prose .community_editor_image { display: block; width: auto; max-width: 100%; height: auto; max-height: 760px; margin: 20px auto; border-radius: 6px; object-fit: contain; }
+.community_prose .community_editor_image { display: block; width: auto; max-width: 100%; height: auto; margin: 20px auto 20px 0; border-radius: 6px; }
+.community_prose .community_editor_image[style*="text-align: center"] { margin-right: auto; margin-left: auto; }
+.community_prose .community_editor_image[style*="text-align: right"] { margin-right: 0; margin-left: auto; }
+.community_prose .community_editor_image[style*="text-align: left"] { margin-right: auto; margin-left: 0; }
+.community_prose .community_editor_image[style*="text-align: justify"] { width: 100%; margin-right: 0; margin-left: 0; }
 .community_prose .community_editor_image.ProseMirror-selectednode { outline: 3px solid rgba(25, 98, 252, 0.35); outline-offset: 3px; }
 .community_prose p.is-editor-empty:first-child::before { height: 0; float: left; color: #a2a9b8; content: attr(data-placeholder); pointer-events: none; }
 

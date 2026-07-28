@@ -3631,19 +3631,6 @@ apiRouter.get('/payroll', verifyToken, async (req, res) => {
 });
 
 apiRouter.post('/community/images/authorize', verifyToken, async (req, res) => {
-  try {
-    const currentUser = await getCurrentUserAccess(req.user.id);
-    if (!currentUser || !canWriteCommunityPosts(currentUser)) {
-      return res.status(403).json({ error: '게시글 작성 권한이 없습니다.' });
-    }
-
-    return res.json({ authorized: true, userId: currentUser.id });
-  } catch (error) {
-    console.error('Authorize community image upload error:', serializeErrorForLog(error));
-    return res.status(500).json({ error: '이미지 업로드 권한 확인 중 오류가 발생했습니다.' });
-  }
-});
-
 apiRouter.get('/community/posts', verifyToken, async (req, res) => {
   const boardType = normalizeCommunityBoardType(req.query.boardType);
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);

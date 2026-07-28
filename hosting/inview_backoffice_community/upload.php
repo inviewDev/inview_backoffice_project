@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-const AUTHORIZATION_URL = 'https://inview-backoffice-project.vercel.app/api/community/images/authorize';
+const AUTHORIZATION_URL = 'https://inview-backoffice-project.vercel.app/api/me';
 const PUBLIC_FILE_BASE_URL = 'https://inview01.cafe24.com/inview_backoffice_community/files';
 const MAX_IMAGE_SIZE = 4718592;
 const MAX_REQUEST_SIZE = 6291456;
@@ -55,11 +55,8 @@ function authorize_upload(string $authorization): array
 
     $request = curl_init(AUTHORIZATION_URL);
     curl_setopt_array($request, [
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => '{}',
         CURLOPT_HTTPHEADER => [
             'Authorization: ' . $authorization,
-            'Content-Type: application/json',
         ],
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_CONNECTTIMEOUT => 5,
@@ -78,17 +75,22 @@ function authorize_upload(string $authorization): array
     }
 
     $decoded = json_decode((string) $body, true);
-    if ($status !== 200 || !is_array($decoded) || empty($decoded['authorized'])) {
+    if ($status !== 200 || !is_array($decoded) || !isset($decoded['user'])) {
         return [
             'ok' => false,
             'status' => in_array($status, [401, 403], true) ? $status : 502,
             'error' => is_array($decoded) && !empty($decoded['error'])
                 ? (string) $decoded['error']
-                : '이미지 업로드 권한이 없습니다.',
+                : '관리자 서버의 사용자 권한 정보를 불러오지 못했습니다.',
         ];
     }
 
-    return ['ok' => true, 'userId' => $decoded['userId'] ?? null];
+    $user = is_array($decoded['user']) ? $decoded['user'] : [];
+    if (empty($user['canWritePosts'])) {
+        return ['ok' => false, 'status' => 403, 'error' => '게시글 작성 권한이 없습니다.'];
+    }
+
+    return ['ok' => true, 'userId' => $user['id'] ?? null];
 }
 
 $origin = trim((string) ($_SERVER['HTTP_ORIGIN'] ?? ''));
