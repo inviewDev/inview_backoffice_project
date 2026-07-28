@@ -233,6 +233,7 @@ function Signup() {
             maxDate={new Date()}
             placeholder="생년월일"
             className="signup_date_select"
+            popperPlacement="top-end"
           />
         </label>
 

@@ -77,7 +77,7 @@
 .userlist_account_subject span { overflow: hidden; color: #73809d; font-size: 13px; font-weight: 700; letter-spacing: 0; text-overflow: ellipsis; white-space: nowrap; }
 .userlist_account_form { display: flex; flex-direction: column; gap: 12px; }
 .userlist_account_row { display: flex; width: 100%; min-height: 42px; align-items: stretch; margin: 0; }
-.userlist_account_row > span { display: flex; width: 120px; flex: 0 0 120px; align-items: center; justify-content: center; border: 1px solid #d8deea; border-right: 0; border-radius: 6px 0 0 6px; background: #dce2ef; color: #333; font-size: 14px; font-weight: 800; letter-spacing: 0; }
+.userlist_account_row > span { display: flex; width: 100%; max-width: 120px; flex: 0 0 auto; align-items: center; justify-content: center; border: 1px solid #d8deea; border-right: 0; border-radius: 6px 0 0 6px; background: #dce2ef; color: #333; font-size: 14px; font-weight: 800; letter-spacing: 0; }
 .userlist_account_row > div:not(.userlist_account_readonly) { min-width: 0; flex: 1 1 auto; }
 .userlist_account_row .form-control,
 .userlist_account_row .form-select,
@@ -101,23 +101,20 @@
 .userlist_permission_toggle strong { color: #182032; font-size: 14px; font-weight: 800; letter-spacing: 0; }
 .userlist_permission_toggle small { color: #46648f; font-size: 12px; font-weight: 700; letter-spacing: 0; line-height: 16px; }
 
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   .userlist_block { padding: 20px 18px 64px; }
   .userlist_header { display: block; }
   .userlist_summary { margin-top: 12px; }
   .userlist_filter,
   .userlist_table_card { padding: 14px; }
   .userlist_pager { min-height: 50px; padding: 10px 12px; }
-}
-
-@media (max-width: 560px) {
   .userlist_bulk_delete_list > div { align-items: flex-start; flex-direction: column; gap: 2px; }
   .userlist_bulk_delete_list span { width: 100%; white-space: normal; word-break: break-all; }
   .userlist_account_modal .modal-body { padding: 20px 16px; }
   .userlist_account_subject { align-items: flex-start; flex-direction: column; gap: 4px; }
   .userlist_account_subject span { width: 100%; white-space: normal; word-break: break-all; }
   .userlist_account_row { flex-direction: column; }
-  .userlist_account_row > span { width: 100%; min-height: 38px; flex-basis: auto; justify-content: flex-start; border-right: 1px solid #d8deea; border-radius: 6px 6px 0 0; padding: 0 12px; }
+  .userlist_account_row > span { width: 100%; max-width: none; min-height: 38px; flex-basis: auto; justify-content: flex-start; border-right: 1px solid #d8deea; border-radius: 6px 6px 0 0; padding: 0 12px; }
   .userlist_account_row .form-control,
   .userlist_account_row .form-select,
   .userlist_account_readonly { border-radius: 0 0 6px 6px; }

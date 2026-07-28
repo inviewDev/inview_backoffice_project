@@ -86,6 +86,7 @@ function DateSelectPicker({
   maxDate = new Date(),
   className = '',
   placeholder = '날짜',
+  popperPlacement,
 }) {
   const [parts, setParts] = useState(() => getDateParts(value));
 
@@ -190,6 +191,7 @@ function DateSelectPicker({
         maxDate={maxDate}
         disabled={disabled}
         popperClassName="date_select_calendar"
+        popperPlacement={popperPlacement}
         showPopperArrow={false}
         placeholderText={placeholder}
         customInput={<CalendarButton placeholder={placeholder} />}

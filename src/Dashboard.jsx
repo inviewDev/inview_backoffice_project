@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Spinner } from 'react-bootstrap';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
 import { useNavigate } from 'react-router-dom';
@@ -274,12 +274,15 @@ function getNiceScaleMax(values) {
 }
 
 function MiniLineChart({ series, yearOptions, selectedYears, onYearToggle }) {
+  const chartRef = useRef(null);
   const [hoveredPoint, setHoveredPoint] = useState(null);
+  const [renderWidth, setRenderWidth] = useState(910);
   const maxValue = getMaxValue(series.flatMap(item => item.values));
-  const width = 910;
+  const width = renderWidth;
   const height = 186;
-  const left = 44;
-  const right = 44;
+  const isCompactChart = width < 600;
+  const left = isCompactChart ? 20 : 44;
+  const right = isCompactChart ? 20 : 44;
   const top = 16;
   const bottom = 2;
   const chartWidth = width - left - right;
@@ -298,17 +301,36 @@ function MiniLineChart({ series, yearOptions, selectedYears, onYearToggle }) {
   const tooltipPoint = hoveredPoint
     ? getPoint(hoveredPoint.value, hoveredPoint.monthIndex)
     : null;
-  const tooltipWidth = 170;
-  const tooltipHeight = 48;
+  const tooltipWidth = isCompactChart ? 150 : 170;
+  const tooltipHeight = 50;
   const tooltipX = tooltipPoint
     ? Math.min(Math.max(tooltipPoint.x - tooltipWidth / 2, 4), width - tooltipWidth - 4)
     : 0;
   const tooltipY = tooltipPoint
     ? Math.max(tooltipPoint.y - tooltipHeight - 12, 4)
     : 0;
+  const tooltipValueColor = String(hoveredPoint?.color || '').toLowerCase() === salesSeriesColors[0]
+    ? '#fff'
+    : hoveredPoint?.color;
+
+  useLayoutEffect(() => {
+    const chartElement = chartRef.current;
+    if (!chartElement) return undefined;
+
+    const updateWidth = () => {
+      const nextWidth = Math.max(Math.round(chartElement.getBoundingClientRect().width), 240);
+      setRenderWidth(currentWidth => currentWidth === nextWidth ? currentWidth : nextWidth);
+    };
+
+    updateWidth();
+    const resizeObserver = new ResizeObserver(updateWidth);
+    resizeObserver.observe(chartElement);
+
+    return () => resizeObserver.disconnect();
+  }, []);
 
   return (
-    <div className="dash_line_chart">
+    <div className="dash_line_chart" ref={chartRef}>
       <div className="dash_chart_legend" aria-label="매출 연도 선택">
         {yearOptions.map(item => {
           const isActive = selectedYears.includes(Number(item.year));
@@ -397,14 +419,19 @@ function MiniLineChart({ series, yearOptions, selectedYears, onYearToggle }) {
           <g className="dash_chart_tooltip">
             <rect x={tooltipX} y={tooltipY} width={tooltipWidth} height={tooltipHeight} rx="8" />
             <text x={tooltipX + 12} y={tooltipY + 19}>{`${hoveredPoint.year}년 ${months[hoveredPoint.monthIndex]}`}</text>
-            <text x={tooltipX + 12} y={tooltipY + 38} style={{ fill: hoveredPoint.color }}>
+            <text x={tooltipX + 12} y={tooltipY + 38} style={{ fill: tooltipValueColor }}>
               {formatCurrency(hoveredPoint.value)}
             </text>
           </g>
         )}
       </svg>
       <div className="dash_month_axis">
-        {months.map(month => <span key={month}>{month}</span>)}
+        {months.map(month => (
+          <span key={month}>
+            <strong>{month.slice(0, -1)}</strong>
+            <small>월</small>
+          </span>
+        ))}
       </div>
     </div>
   );
@@ -429,7 +456,7 @@ function TopBarChart({ title, values, color }) {
             {scaleValues.map(scale => <span key={scale} className="dash_bar_grid" />)}
             <div className="dash_bar_items">
               {values.length > 0 ? values.map((item, index) => {
-                const height = Math.max((Number(item.total) / scaleMax) * 178, 4);
+                const heightRatio = Math.max(Number(item.total) / scaleMax, 4 / 178);
 
                 return (
                   <button
@@ -441,7 +468,10 @@ function TopBarChart({ title, values, color }) {
                     <span className="dash_bar_track">
                       <span
                         className={`dash_bar ${color === 'blue' ? 'blue' : 'pink'}`}
-                        style={{ height: `${height}px` }}
+                        style={{
+                          '--bar-height': `${heightRatio * 178}px`,
+                          '--bar-height-mobile': `${Math.max(heightRatio * 125, 4)}px`,
+                        }}
                       >
                         <span className="dash_bar_tooltip" style={{ '--bar-color': colorValue }}>
                           <strong>{item.manager}</strong>
@@ -505,13 +535,13 @@ function Dashboard({ user }) {
     const fetchNotices = async () => {
       try {
         const token = localStorage.getItem('access_token');
-        const res = await fetch('/api/community/posts?boardType=notice&page=1&pageSize=5', {
+        const res = await fetch('/api/community/posts?boardType=notice&page=1&pageSize=10', {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await parseResponse(res);
         if (!res.ok) throw new Error(data.error || '공지사항을 불러오지 못했습니다.');
 
-        setNoticeItems((data.posts || []).slice(0, 4));
+        setNoticeItems((data.posts || []).slice(0, 10));
         setNoticeTotal(Number(data.pagination?.total) || 0);
       } catch (error) {
         console.error('Fetch dashboard notices error:', error);
@@ -787,7 +817,7 @@ function Dashboard({ user }) {
   return (
     <section className="dashboard_block">
       <div className="dashboard_top_grid">
-        <div>
+        <div className="dash_profile_section">
           <div className="dash_title_row">
             <h1>내 정보</h1>
             <button type="button" onClick={() => navigate('/mypage')}>
@@ -832,7 +862,7 @@ function Dashboard({ user }) {
           </section>
         </div>
 
-        <div>
+        <div className="dash_year_section">
           <div className="dash_title_row">
             <h1>{currentSalesYear}년도 매출정보</h1>
           </div>

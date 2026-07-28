@@ -2,7 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { Button, Modal, Spinner } from 'react-bootstrap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
+import {
+  faBars,
+  faChevronLeft,
+  faChevronRight,
+  faXmark,
+} from '@fortawesome/free-solid-svg-icons';
 import UserList from './UserList.jsx';
 import Signup from './Signup.jsx';
 import Login from './Login.jsx';
@@ -72,9 +77,10 @@ function App() {
   const [user, setUser] = useState(null);
   const [tab, setTab] = useState('login');
   const [isLoading, setIsLoading] = useState(true);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() =>
-    localStorage.getItem('admin_sidebar_collapsed') === 'true'
-  );
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    if (window.matchMedia('(max-width: 1024px)').matches) return true;
+    return localStorage.getItem('admin_sidebar_collapsed') === 'true';
+  });
   const [showSessionExpiredModal, setShowSessionExpiredModal] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -202,10 +208,32 @@ function App() {
   const handleSidebarToggle = () => {
     setIsSidebarCollapsed(prev => {
       const next = !prev;
-      localStorage.setItem('admin_sidebar_collapsed', String(next));
+      if (!window.matchMedia('(max-width: 1024px)').matches) {
+        localStorage.setItem('admin_sidebar_collapsed', String(next));
+      }
       return next;
     });
   };
+
+  const closeMobileSidebar = () => {
+    if (window.matchMedia('(max-width: 1024px)').matches) {
+      setIsSidebarCollapsed(true);
+    }
+  };
+
+  useEffect(() => {
+    const mobileMedia = window.matchMedia('(max-width: 1024px)');
+    const handleViewportChange = event => {
+      setIsSidebarCollapsed(
+        event.matches
+          ? true
+          : localStorage.getItem('admin_sidebar_collapsed') === 'true'
+      );
+    };
+
+    mobileMedia.addEventListener('change', handleViewportChange);
+    return () => mobileMedia.removeEventListener('change', handleViewportChange);
+  }, []);
 
   const isActiveNav = item => {
     if (item.to.includes('?')) {
@@ -239,9 +267,12 @@ function App() {
   if (!user) {
     return (
       <>
-        <div className="basic_wrap">
+        <div className={`basic_wrap ${location.pathname !== '/reset-password' ? (tab === 'login' ? 'auth_login_view' : 'auth_signup_view') : ''}`}>
           <div className="img_box">
-            <img src="/img/logo/logo_w.svg" alt="I&VIEW COMMUNICATION 로고" />
+            <picture>
+              <source media="(max-width: 1024px)" srcSet="/img/logo/login_logo_mobile.png" />
+              <img src="/img/logo/logo_w.svg" alt="I&VIEW COMMUNICATION 로고" />
+            </picture>
           </div>
           {location.pathname === '/reset-password' ? (
             <div className="sign_in_wrap">
@@ -271,6 +302,9 @@ function App() {
               </div>
             </div>
           )}
+          <footer className="auth_copyright">
+            Copyright 2025 <span>I&amp;VIEW Communication</span>. All Rights Reserved.
+          </footer>
         </div>
 
         <Modal
@@ -318,11 +352,17 @@ function App() {
           title={isSidebarCollapsed ? '사이드바 펼치기' : '사이드바 접기'}
         >
           <FontAwesomeIcon
+            className="admin_sidebar_desktop_icon"
             icon={isSidebarCollapsed ? faChevronRight : faChevronLeft}
             aria-hidden="true"
           />
+          <FontAwesomeIcon
+            className="admin_sidebar_mobile_icon"
+            icon={isSidebarCollapsed ? faBars : faXmark}
+            aria-hidden="true"
+          />
         </button>
-        <Link to="/" className="admin_sidebar_logo">
+        <Link to="/" className="admin_sidebar_logo" onClick={closeMobileSidebar}>
           <img src="/img/logo/logo_wr.svg" alt="I&VIEW COMMUNICATION" />
         </Link>
         <nav className="admin_sidebar_nav" aria-label="주요 메뉴">
@@ -334,6 +374,7 @@ function App() {
                 key={item.label}
                 to={item.to}
                 className={`admin_nav_item ${isActive ? 'active' : ''}`}
+                onClick={closeMobileSidebar}
               >
                 {item.icon ? (
                   <img src={isActive ? getActiveIconPath(item.icon) : item.icon} alt="" aria-hidden="true" />
@@ -353,6 +394,7 @@ function App() {
             <Link
               to="/users"
               className={`admin_nav_item ${location.pathname === '/users' ? 'active' : ''}`}
+              onClick={closeMobileSidebar}
             >
               <img
                 alt=""
@@ -362,6 +404,22 @@ function App() {
               <span>직원 관리</span>
             </Link>
           )}
+          <div className="admin_mobile_account">
+            <div className="admin_mobile_account_user">
+              <span className={`admin_avatar ${user.profileImage ? 'has_image' : ''}`}>
+                {user.profileImage ? (
+                  <img src={user.profileImage} alt={`${user.name} 프로필 사진`} />
+                ) : (
+                  user.name?.slice(0, 1) || 'I'
+                )}
+              </span>
+              <span><strong>{user.name}</strong>님 환영합니다.</span>
+            </div>
+            <button type="button" className="admin_mobile_logout" onClick={handleLogout}>
+              <img src="/img/svg/icon_logout.svg" alt="" aria-hidden="true" />
+              <span>로그아웃</span>
+            </button>
+          </div>
         </nav>
       </aside>
 

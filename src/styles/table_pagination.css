@@ -1,11 +1,11 @@
 .table_pagination { display: flex; min-width: 0; align-items: center; justify-content: center; gap: 12px; }
-.table_pagination button { display: inline-flex; width: 24px; height: 28px; flex: 0 0 24px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 4px; background: transparent; color: #333; cursor: pointer; font-size: 14px; font-weight: 700; letter-spacing: 0; transition: background 0.16s ease, color 0.16s ease, opacity 0.16s ease; }
+.table_pagination button { display: inline-flex; width: 100%; max-width: 24px; height: 28px; flex: 0 0 auto; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 4px; background: transparent; color: #333; cursor: pointer; font-size: 14px; font-weight: 700; letter-spacing: 0; transition: background 0.16s ease, color 0.16s ease, opacity 0.16s ease; }
 .table_pagination button svg { width: 12px; height: 12px; }
 .table_pagination button:hover:not(:disabled) { background: #e5edff; color: #182032; }
 .table_pagination button.active { background: #182032; color: #fff; }
 .table_pagination button:disabled { cursor: not-allowed; opacity: 0.3; }
 
-@media (max-width: 560px) {
-  .table_pagination { gap: 5px; }
-  .table_pagination button { width: 22px; flex-basis: 22px; font-size: 12px; }
+@media (max-width: 1024px) {
+  .table_pagination.table_pagination { width: 100%; gap: clamp(2px, 1vw, 5px); }
+  .table_pagination.table_pagination button { min-width: 0; max-width: 22px; flex: 1 1 0; font-size: 12px; }
 }

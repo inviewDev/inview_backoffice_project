@@ -1,7 +1,9 @@
 .basic_wrap { position: relative; display: flex; min-height: 100vh; flex-direction: column; align-items: center; justify-content: center; padding: 0 20px 72px; background: #eff3ff; }
 .basic_wrap .img_box { width: 180px; max-width: 46vw; margin: 0 0 22px; }
+.basic_wrap .img_box picture { display: block; width: 100%; height: 100%; }
 .basic_wrap .img_box img { display: block; width: 100%; height: auto; }
-.basic_wrap::after { position: absolute; bottom: 24px; left: 50%; width: max-content; max-width: calc(100% - 40px); transform: translateX(-50%); color: #333; content: "Copyright 2025 I&VIEW COMMUNICATION All Rights Reserved."; font-size: 14px; font-weight: 500; letter-spacing: 0; line-height: 24px; text-align: center; }
+.auth_copyright { position: absolute; bottom: 24px; left: 50%; width: max-content; max-width: calc(100% - 40px); transform: translateX(-50%); color: #333; font-size: 14px; font-weight: 500; letter-spacing: 0; line-height: 24px; text-align: center; }
+.auth_copyright span { color: #1962fc; }
 .sign_in_wrap { width: min(410px, 100%); max-width: 410px; margin: 0; padding-top: 0; }
 .sign_in_wrap .tabs { display: flex; gap: 4px; margin: 0 0 10px; padding: 4px; border: 1px solid #d6ddf2; border-radius: 10px; background: rgba(255, 255, 255, 0.68); user-select: none; }
 .sign_in_wrap .tab_button { display: flex; min-height: 35px; flex: 1; align-items: center; justify-content: center; padding: 5px 10px; border: 0; border-radius: 8px; background-color: transparent; color: #8a94ad; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0; line-height: 20px; opacity: 1; transition: background-color 0.3s ease, border-color 0.3s ease; }
@@ -12,10 +14,10 @@
 .login_form { display: flex; flex-direction: column; gap: 10px; }
 .login_field { display: flex; width: 100%; height: 50px; align-items: center; gap: 10px; padding: 0 20px; border: 1px solid #d6ddf2; border-radius: 10px; background: #fff; transition: border-color 0.18s ease, box-shadow 0.18s ease; }
 .login_field:focus-within { border-color: #182032; box-shadow: 0 0 0 3px rgba(25, 98, 252, 0.12); }
-.login_field_icon { width: 24px; height: 24px; flex: 0 0 24px; }
+.login_field_icon { width: 100%; max-width: 24px; height: 24px; flex: 0 0 auto; }
 .login_input { min-width: 0; flex: 1; border: 0; background: transparent; color: #333; font-size: 14px; font-weight: 500; letter-spacing: 0; line-height: 24px; outline: 0; }
 .login_input::placeholder { color: #a3a3a3; opacity: 1; }
-.login_visibility { display: flex; width: 24px; height: 24px; flex: 0 0 24px; align-items: center; justify-content: center; padding: 0; background: transparent; cursor: pointer; }
+.login_visibility { display: flex; width: 100%; max-width: 24px; height: 24px; flex: 0 0 auto; align-items: center; justify-content: center; padding: 0; background: transparent; cursor: pointer; }
 .login_visibility img { display: block; width: 22px; height: 18px; }
 .login_visibility.is_visible { opacity: 0.55; }
 .login_submit,
@@ -38,8 +40,8 @@
 .signup_auth_form { gap: 8px; }
 .signup_auth_field { display: flex; width: 100%; height: 48px; align-items: center; gap: 10px; padding: 0 16px; border: 1px solid #d6ddf2; border-radius: 10px; background: #fff; transition: border-color 0.18s ease, box-shadow 0.18s ease; }
 .signup_auth_field:focus-within { border-color: #182032; box-shadow: 0 0 0 3px rgba(25, 98, 252, 0.12); }
-.signup_auth_icon { width: 24px; height: 24px; flex: 0 0 24px; }
-.signup_auth_label { width: 55px; flex: 0 0 55px; color: #6f7890; font-size: 14px; font-weight: 600; letter-spacing: 0; line-height: 20px; text-align: left; }
+.signup_auth_icon { width: 100%; max-width: 24px; height: 24px; flex: 0 0 auto; }
+.signup_auth_label { width: 100%; max-width: 55px; flex: 0 0 auto; color: #6f7890; font-size: 14px; font-weight: 600; letter-spacing: 0; line-height: 20px; text-align: left; }
 .signup_auth_input { min-width: 0; width: 100%; flex: 1; padding: 0; border: 0; background: transparent; color: #333; font-size: 14px; font-weight: 500; letter-spacing: 0; line-height: 24px; outline: 0; }
 .signup_auth_input::placeholder { color: #a3a3a3; opacity: 1; }
 .signup_auth_input:disabled { color: #8f98ad; cursor: not-allowed; }
@@ -57,9 +59,21 @@
 .auth_header { margin: 5px 0 0; text-align: center; }
 .auth_title { margin: 0; color: #333; font-size: 20px; font-weight: 700; letter-spacing: 0; line-height: 28px; }
 .auth_desc { margin: 4px 0 0; color: #73809d; font-size: 13px; font-weight: 500; letter-spacing: 0; line-height: 20px; }
-@media (max-width: 480px) {
+@media (max-width: 1024px) {
   .basic_wrap { justify-content: flex-start; padding-top: 29vh; padding-bottom: 76px; }
   .basic_wrap .img_box { width: 160px; }
-  .basic_wrap::after { white-space: normal; }
+  .auth_copyright { white-space: normal; }
   .sign_in_wrap .tabs { margin-bottom: 10px; }
+  .basic_wrap.auth_login_view { min-height: 100dvh; padding: clamp(110px, 27vh, 200px) 20px 56px;}
+  .auth_login_view .img_box { width: 100%; max-width: 170px; height: 30px; margin: 0 0 40px; }
+  .auth_login_view .img_box img { width: 100%; height: 100%; object-fit: contain; }
+  .auth_login_view .sign_in_wrap { width: 100%; max-width: 320px; }
+  .auth_login_view .auth_copyright { bottom: 12px; max-width: calc(100% - 40px); font-size: 12px; line-height: normal; white-space: nowrap; }
+  .basic_wrap.auth_signup_view { min-height: 100dvh; padding: clamp(40px, 8vh, 68px) 20px 16px;}
+  .auth_signup_view .img_box { width: 100%; max-width: 170px; height: 30px; margin: 0 0 40px; }
+  .auth_signup_view .img_box img { width: 100%; height: 100%; object-fit: contain; }
+  .auth_signup_view .sign_in_wrap { width: 100%; max-width: 320px; }
+  .auth_signup_view .signup_auth_form { gap: 10px; }
+  .auth_signup_view .signup_auth_field { height: 50px; padding: 0 16px; }
+  .auth_signup_view .auth_copyright { position: static; width: 100%; max-width: 320px; margin: auto auto 0; padding-top: 16px; transform: none; font-size: 12px; line-height: 18px; }
 }

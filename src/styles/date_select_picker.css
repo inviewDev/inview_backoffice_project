@@ -40,7 +40,7 @@
 .mypage_calendar_datepicker .react-datepicker__time-list-item:hover { background: rgba(25, 98, 252, 0.1) !important; }
 .mypage_calendar_datepicker .react-datepicker__time-list-item--selected { background: #182032 !important; color: #fff !important; }
 
-@media (max-width: 480px) {
+@media (max-width: 1024px) {
   .date_select_picker { grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.8fr) 48px; gap: 5px; }
   .date_select_picker select,.date_select_calendar_button { font-size: 12px; }
   .mypage_calendar_datepicker .react-datepicker { min-width: 0; }
