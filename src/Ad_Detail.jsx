@@ -585,6 +585,34 @@ function AdDetail({ user }) {
     }));
   };
 
+  const handleProductSelect = (index, product) => {
+    const currentProducts = getSelectedProducts(paymentData.productName);
+    const productSlots = [currentProducts[0] || '', currentProducts[1] || ''];
+
+    if (product) {
+      productSlots[index] = product;
+    } else {
+      productSlots.splice(index, 1);
+      productSlots.push('');
+    }
+
+    const nextProducts = productSlots
+      .filter((selectedProduct, productIndex, products) => (
+        selectedProduct && products.indexOf(selectedProduct) === productIndex
+      ))
+      .slice(0, max_selected_product_count);
+
+    setPaymentData(prev => ({
+      ...prev,
+      productName: nextProducts.join(', '),
+    }));
+    setProductInfo(prev => ({
+      ...prev,
+      production1: nextProducts[0] || '',
+      production2: nextProducts[1] || '',
+    }));
+  };
+
   const updateProduct = (index, value) => {
     setProductInfo(prev => ({
       ...prev,
@@ -744,6 +772,43 @@ function AdDetail({ user }) {
                   {product}
                 </button>
               ))}
+            </div>
+
+            <div className="ad_product_selectors">
+              <select
+                value={selectedProducts[0] || ''}
+                onChange={event => handleProductSelect(0, event.target.value)}
+                disabled={isLoading.payment}
+                aria-label="상품군 첫 번째 선택"
+              >
+                <option value="">상품군 선택</option>
+                {product_options.map(product => (
+                  <option
+                    value={product}
+                    key={`mobile_primary_${product}`}
+                    disabled={selectedProducts[1] === product}
+                  >
+                    {product}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={selectedProducts[1] || ''}
+                onChange={event => handleProductSelect(1, event.target.value)}
+                disabled={isLoading.payment || !selectedProducts[0]}
+                aria-label="상품군 두 번째 선택"
+              >
+                <option value="">추가 상품군 선택</option>
+                {product_options.map(product => (
+                  <option
+                    value={product}
+                    key={`mobile_secondary_${product}`}
+                    disabled={selectedProducts[0] === product}
+                  >
+                    {product}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="ad_form_grid two">
