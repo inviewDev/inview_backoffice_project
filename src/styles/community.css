@@ -37,7 +37,7 @@
 .community_post_item {display: flex;width: 100%;min-width: 0;min-height: 80px;align-items: center;gap: 18px;padding: 0 18px;border: 0;border-bottom: 1px solid #e3e7ef;background: #fff;color: #333;cursor: pointer;text-align: left;transition: background 0.16s ease, box-shadow 0.16s ease;}
 .community_post_item:hover,
 .community_post_item:focus-visible { background: #f7f9fe; box-shadow: inset 4px 0 0 #ff2174; outline: 0; }
-.community_post_number { width: 48px; flex: 0 0 48px; color: #9aa2b3; font-size: 13px; font-weight: 800; letter-spacing: 0; text-align: center; }
+.community_post_number { width:20px; flex: 0 0 20px; color: #9aa2b3; font-size: 13px; font-weight: 800; letter-spacing: 0; text-align: center; }
 .community_post_body { display: flex; min-width: 0; flex: 1 1 auto; flex-direction: column; }
 .community_post_title_row { display: flex; min-width: 0; align-items: center; gap: 10px; }
 .community_post_title_row strong { overflow: hidden; color: #202636; font-size: 17px; font-weight: 800; letter-spacing: 0; line-height: 24px; text-overflow: ellipsis; white-space: nowrap; }
