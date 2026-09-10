@@ -1361,6 +1361,19 @@ function AdManagementDetail({ user }) {
 
   return (
     <section className="ad_view_block">
+      <form
+        id="ad_update_form"
+        className="ad_view_update_form"
+        onSubmit={event => {
+          event.preventDefault();
+          if (!event.nativeEvent.isComposing) handleUpdateClick();
+        }}
+        onKeyDown={event => {
+          if (event.key === 'Enter' && event.nativeEvent.isComposing) {
+            event.preventDefault();
+          }
+        }}
+      >
       <div className="ad_view_section_title">기본정보등록</div>
       <section className="ad_view_panel">
         <div className="ad_view_grid three">
@@ -1961,6 +1974,7 @@ function AdManagementDetail({ user }) {
           )}
         </div>
       </section>
+      </form>
 
       {canUseAdminComments && (
         <CommentSection
@@ -2116,9 +2130,9 @@ function AdManagementDetail({ user }) {
 
       <div className="ad_view_bottom_actions">
         <button
-          type="button"
+          type="submit"
+          form="ad_update_form"
           className="ad_view_update_button"
-          onClick={handleUpdateClick}
           disabled={!canSaveAdChanges || isSavingPayment}
           title={canSaveAdChanges ? '수정한 광고 정보 저장' : '광고 수정권한 또는 결제상태 수정권한이 있는 계정만 수정할 수 있습니다.'}
         >
