@@ -40,8 +40,16 @@ model User {
   communityPostViews  CommunityPostView[]   @relation("UserCommunityPostViews")
   smsSendHistories    SmsSendHistory[]     @relation("UserSmsSendHistories")
   passwordResetTokens PasswordResetToken[] @relation("UserPasswordResetTokens")
+  salesPermission     UserSalesPermission?
 
   @@map("User")
+}
+
+model UserSalesPermission {
+  userId           Int      @id
+  canViewTeamSales Boolean  @default(false)
+  updatedAt        DateTime @updatedAt
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model CommunityPost {

@@ -3207,6 +3207,149 @@ function isDashboardCompletedSaleStatus(status) {
   return text.length > 0 && !DASHBOARD_EXCLUDED_PAYMENT_STATUS_MARKERS.some(marker => text.includes(marker));
 }
 
+function isSalesPermissionStorageMissing(error) {
+  return error.code === 'P2021' || error.code === 'SALES_PERMISSION_NOT_READY';
+}
+
+function salesPermissionStore(client = prisma) {
+  if (!client.userSalesPermission) {
+    const error = new Error('Team sales permission storage is not ready');
+    error.code = 'SALES_PERMISSION_NOT_READY';
+    throw error;
+  }
+  return client.userSalesPermission;
+}
+
+async function canViewTeamSales(user) {
+  if (isMasterAccount(user)) return true;
+  try {
+    const permission = await salesPermissionStore().findUnique({ where: { userId: user.id } });
+    return permission?.canViewTeamSales === true;
+  } catch (error) {
+    if (isSalesPermissionStorageMissing(error)) return false;
+    throw error;
+  }
+}
+
+apiRouter.get('/sales-permissions', verifyToken, async (req, res) => {
+  try {
+    const user = await getCurrentUserAccess(req.user.id);
+    if (!user) return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
+    res.json({ canViewTeamSales: await canViewTeamSales(user) });
+  } catch (error) {
+    console.error('Fetch sales permission error:', error);
+    res.status(500).json({ error: '매출 통계 권한을 확인하지 못했습니다.' });
+  }
+});
+
+apiRouter.get('/users/sales-permissions', verifyToken, verifyMasterRole, async (req, res) => {
+  try {
+    const permissions = await salesPermissionStore().findMany({ select: { userId: true, canViewTeamSales: true } });
+    res.json({ ready: true, permissions });
+  } catch (error) {
+    if (isSalesPermissionStorageMissing(error)) {
+      return res.json({ ready: false, permissions: [] });
+    }
+    console.error('Fetch account sales permissions error:', error);
+    res.status(500).json({ error: '계정별 매출 통계 권한을 불러오지 못했습니다.' });
+  }
+});
+
+apiRouter.get('/team-sales', verifyToken, async (req, res) => {
+  const currentDate = getKoreanCurrentDateParts();
+  const month = String(req.query.month ?? `${currentDate.year}-${String(currentDate.month).padStart(2, '0')}`);
+  if (!/^(19|20|21)\d{2}-(0[1-9]|1[0-2])$/.test(month)) {
+    return res.status(400).json({ error: '조회 연월을 확인해주세요. (YYYY-MM)' });
+  }
+  try {
+    const user = await getCurrentUserAccess(req.user.id);
+    if (!user) return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
+    if (!await canViewTeamSales(user)) {
+      return res.status(403).json({ error: '팀별 매출 통계 열람 권한이 없습니다.' });
+    }
+    const [year, monthNumber] = month.split('-').map(Number);
+    const range = getKoreanMonthRange(year, monthNumber);
+    const groups = await prisma.payment.groupBy({
+      by: ['userId', 'paymentStatus'],
+      where: { createdAt: { gte: range.start, lt: range.end } },
+      _sum: { approvedAmount: true, netProfit: true },
+      _count: { _all: true },
+    });
+    const completedGroups = groups.filter(group => isDashboardCompletedSaleStatus(group.paymentStatus));
+    const owners = await prisma.user.findMany({
+      where: { id: { in: [...new Set(completedGroups.map(group => group.userId))] } },
+      select: { id: true, team: true, department: true },
+    });
+    const ownerById = new Map(owners.map(owner => [owner.id, owner]));
+    const totalsByTeam = new Map();
+    for (const group of completedGroups) {
+      const owner = ownerById.get(group.userId);
+      const team = owner?.team?.trim() || '미지정';
+      const department = owner?.department?.trim() || '미지정';
+      const key = JSON.stringify([department, team]);
+      const total = totalsByTeam.get(key) || { id: key, department, team, approvedAmount: 0, netProfit: 0, count: 0 };
+      total.approvedAmount += Number(group._sum.approvedAmount) || 0;
+      total.netProfit += Number(group._sum.netProfit) || 0;
+      total.count += group._count._all;
+      totalsByTeam.set(key, total);
+    }
+    const rows = [...totalsByTeam.values()].filter(row => row.count > 0)
+      .sort((a, b) => b.approvedAmount - a.approvedAmount || a.id.localeCompare(b.id, 'ko'));
+    res.json({ month, scope: 'all', rows });
+  } catch (error) {
+    console.error('Fetch team sales error:', error);
+    res.status(500).json({ error: '팀별 매출 통계를 불러오지 못했습니다.' });
+  }
+});
+
+apiRouter.get('/personal-sales', verifyToken, async (req, res) => {
+  const currentDate = getKoreanCurrentDateParts();
+  const month = String(req.query.month ?? `${currentDate.year}-${String(currentDate.month).padStart(2, '0')}`);
+  if (!/^(19|20|21)\d{2}-(0[1-9]|1[0-2])$/.test(month)) {
+    return res.status(400).json({ error: '조회 연월을 확인해주세요. (YYYY-MM)' });
+  }
+
+  try {
+    const currentUser = await getCurrentUserAccess(req.user.id);
+    if (!currentUser) return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
+
+    const [year, monthNumber] = month.split('-').map(Number);
+    const range = getKoreanMonthRange(year, monthNumber);
+    const scope = getEffectiveAdVisibilityScope(currentUser);
+    const groups = await prisma.payment.groupBy({
+      by: ['userId', 'paymentStatus'],
+      where: {
+        AND: [buildAdAccessFilter(currentUser), { createdAt: { gte: range.start, lt: range.end } }],
+      },
+      _sum: { approvedAmount: true, netProfit: true },
+      _count: { _all: true },
+    });
+    const completedGroups = groups.filter(group => isDashboardCompletedSaleStatus(group.paymentStatus));
+    // Owner IDs come only from this month's permission-filtered sales.
+    const users = await prisma.user.findMany({
+      where: { id: { in: [...new Set(completedGroups.map(group => group.userId))] } },
+      select: { id: true, name: true, department: true, team: true },
+    });
+    const totalsByUser = new Map();
+    for (const group of completedGroups) {
+      const total = totalsByUser.get(group.userId) || { approvedAmount: 0, netProfit: 0, count: 0 };
+      total.approvedAmount += Number(group._sum.approvedAmount) || 0;
+      total.netProfit += Number(group._sum.netProfit) || 0;
+      total.count += group._count._all;
+      totalsByUser.set(group.userId, total);
+    }
+    const rows = users.map(user => ({
+      ...user,
+      ...(totalsByUser.get(user.id) || { approvedAmount: 0, netProfit: 0, count: 0 }),
+    })).filter(row => row.count > 0).sort((a, b) => b.approvedAmount - a.approvedAmount || b.netProfit - a.netProfit || b.count - a.count || a.id - b.id);
+
+    res.json({ month, scope, rows });
+  } catch (error) {
+    console.error('Fetch personal sales error:', error);
+    res.status(500).json({ error: '개인별 매출 통계를 불러오지 못했습니다.' });
+  }
+});
+
 apiRouter.get('/dashboard/my-monthly-sales', verifyToken, async (req, res) => {
   const currentDate = getKoreanCurrentDateParts();
   const monthRange = getKoreanMonthRange(currentDate.year, currentDate.month);
@@ -4064,6 +4207,10 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
   const canDeleteAds = req.body.canDeleteAds === true;
   const hasCanWritePostsInput = Object.prototype.hasOwnProperty.call(req.body, 'canWritePosts');
   const canWritePosts = req.body.canWritePosts === true;
+  const hasTeamSalesInput = Object.prototype.hasOwnProperty.call(req.body, 'canViewTeamSales');
+  if (hasTeamSalesInput && typeof req.body.canViewTeamSales !== 'boolean') {
+    return res.status(400).json({ error: '팀별 매출 통계 권한 값이 올바르지 않습니다.' });
+  }
 
   if (!Number.isInteger(targetUserId)) {
     return res.status(400).json({ error: '사용자 ID가 올바르지 않습니다.' });
@@ -4103,6 +4250,16 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
 
     if (!targetUser) {
       return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+    }
+    if (isMasterAccount(targetUser) && !isMasterAccount(actor)) {
+      return res.status(403).json({ error: '마스터 계정은 마스터만 변경할 수 있습니다.' });
+    }
+    if ((isMasterAccount(targetUser) && loginId !== targetUser.email)
+      || (!isMasterAccount(targetUser) && isMasterAccount({ email: loginId }))) {
+      return res.status(400).json({ error: '마스터 계정 아이디는 변경하거나 다른 계정에 지정할 수 없습니다.' });
+    }
+    if (hasTeamSalesInput && !isMasterAccount(actor)) {
+      return res.status(403).json({ error: '팀별 매출 통계 권한은 마스터 계정만 변경할 수 있습니다.' });
     }
     if (hasAdVisibilityScopeInput && !isMasterAccount(actor)) {
       return res.status(403).json({ error: '광고 열람권한 설정은 마스터 계정만 변경할 수 있습니다.' });
@@ -4169,7 +4326,7 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
       updateData.passwordHash = await bcrypt.hash('1111', 10);
     }
 
-    const updatedUser = await prisma.user.update({
+    const saveAccount = async client => client.user.update({
       where: { id: targetUserId },
       data: updateData,
       select: {
@@ -4192,6 +4349,17 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
       },
     });
 
+    const updatedUser = hasTeamSalesInput
+      ? await prisma.$transaction(async tx => {
+        await salesPermissionStore(tx).upsert({
+          where: { userId: targetUserId },
+          create: { userId: targetUserId, canViewTeamSales: isMasterAccount(targetUser) || req.body.canViewTeamSales },
+          update: { canViewTeamSales: isMasterAccount(targetUser) || req.body.canViewTeamSales },
+        });
+        return saveAccount(tx);
+      })
+      : await saveAccount(prisma);
+
     res.json({
       message: resetPassword
         ? '계정 설정이 저장되었으며 비밀번호가 1111로 초기화되었습니다.'
@@ -4201,6 +4369,9 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
     });
   } catch (error) {
     console.error('Update account settings error:', error);
+    if (isSalesPermissionStorageMissing(error)) {
+      return res.status(503).json({ error: '팀별 매출 통계 권한 저장소가 준비되지 않았습니다. DB 마이그레이션 후 다시 시도해주세요.' });
+    }
     if (error.code === 'P2002') {
       return res.status(400).json({ error: '이미 사용 중인 아이디입니다.' });
     }

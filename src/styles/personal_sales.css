@@ -1,0 +1,52 @@
+.personal_sales { min-width: 0; color: #333; letter-spacing: 0; }
+.personal_sales_heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 20px 20px 0; }
+.personal_sales h1 { margin: 0; font-size: 22px; font-weight: 700; }
+.personal_sales_heading p { margin: 8px 0 0; color: #687386; font-size: 14px; }
+.personal_sales_scope { font-size: 13px; color: #687386; }
+.personal_sales_filters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin: 20px; }
+.personal_sales_filter { display: flex; min-width: 130px; flex-direction: column; gap: 8px; }
+.personal_sales_filter label { font-size: 13px; font-weight: 600; }
+.personal_sales_filters :is(input, select, button), .personal_sales_results_heading button, .personal_sales .alert button { height: 40px; min-width: 0; padding: 0 12px; border: 1px solid #d8dce6; border-radius: 6px; background: #fff; color: #333; font-size: 14px; letter-spacing: 0; }
+.personal_sales_filters button, .personal_sales_results_heading button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; white-space: nowrap; }
+.personal_sales button:disabled { opacity: 0.45; cursor: not-allowed; }
+.personal_sales button:hover:not(:disabled) { border-color: #1962fc; }
+.personal_sales :is(button, input, select):focus-visible { outline: 2px solid #1962fc; outline-offset: 2px; }
+.personal_sales_month { display: flex; gap: 6px; }
+.personal_sales_month input { width: 168px; }
+.personal_sales_month button { width: 36px; padding: 0; }
+.personal_sales_search { flex: 1 1 180px; }
+.personal_sales .personal_sales_primary { border-color: #182032; background: #182032; color: #fff; }
+.personal_sales_summary { display: grid; grid-template-columns: 0.8fr 1.4fr 1.4fr 0.8fr; gap: 24px; margin: 0 20px; padding: 24px 0; border-top: 1px solid #e6eaf2; border-bottom: 1px solid #e6eaf2; }
+.personal_sales_summary > div { min-width: 0; padding-left: 16px; border-left: 3px solid #c4cad6; }
+.personal_sales_summary > div:nth-child(2) { border-color: #ff2174; }
+.personal_sales_summary > div:nth-child(3) { border-color: #20a477; }
+.personal_sales_summary span { display: block; margin-bottom: 8px; font-size: 13px; color: #687386; }
+.personal_sales_summary strong { display: block; overflow-wrap: anywhere; font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.personal_sales_summary small { margin-left: 6px; color: #687386; font-size: 13px; font-weight: 400; }
+.personal_sales_results_heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 0; }
+.personal_sales_results_heading h2 { margin: 0; font-size: 17px; font-weight: 700; }
+.personal_sales_table_wrap { height: auto; max-height: 595px; min-height: 320px; }
+.personal_sales_table { min-width: 720px; font-variant-numeric: tabular-nums; }
+.personal_sales_table th { padding: 0; }
+.personal_sales_table th button { display: flex; width: 100%; height: 36px; align-items: center; justify-content: center; padding: 0 10px; border: 0; border-radius: 0; background: transparent; color: #fff; font-size: 15px; font-weight: 500; cursor: pointer; }
+.personal_sales_table th:first-child { border-radius: 6px 0 0; }
+.personal_sales_table th:last-child { border-radius: 0 6px 0 0; }
+.personal_sales_table .personal_sales_amount_heading { width: 22%; }
+.personal_sales_table th:last-child { width: 10%; }
+.personal_sales_table .personal_sales_state { height: 280px; color: #73809d; white-space: normal; }
+@media (max-width: 1100px) {
+  .personal_sales_summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .personal_sales .ad_manage_panel { padding: 16px 12px 24px; }
+  .personal_sales_heading { margin: 0 0 20px; }
+  .personal_sales_filters { margin: 0 0 20px; }
+  .personal_sales_summary { margin: 0; }
+  .personal_sales h1 { font-size: 20px; }
+  .personal_sales_filter { min-width: 0; flex: 1 1 calc(50% - 12px); }
+  .personal_sales_filter:first-child, .personal_sales_search { flex-basis: 100%; }
+  .personal_sales_month input { flex: 1; width: 100%; }
+  .personal_sales_summary { gap: 20px 12px; }
+  .personal_sales_summary strong { font-size: 18px; }
+  .personal_sales_summary > div { padding-left: 10px; }
+}

@@ -9,6 +9,7 @@ import {
   faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 import UserList from './UserList.jsx';
+import AccountSettings from './AccountSettings.jsx';
 import Signup from './Signup.jsx';
 import Login from './Login.jsx';
 import Dashboard from './Dashboard.jsx';
@@ -16,7 +17,7 @@ import MyPage from './Mypage.jsx';
 import AdDetail from './Ad_Detail.jsx';
 import AdManagement from './AdManagement.jsx';
 import AdManagementDetail from './AdManagementDetail.jsx';
-import Paystub from './Paystub.jsx';
+import PersonalSales from './PersonalSales.jsx';
 import Community from './Community.jsx';
 import ResetPassword from './ResetPassword.jsx';
 import {
@@ -35,6 +36,7 @@ const nav_items = [
   { label: '광고 관리', to: '/contracts/ad-management', icon: '/img/svg/icon_manage.svg' },
   { label: '광고 등록', to: '/contracts/ad-detail', icon: '/img/svg/icon_register.svg' },
   { label: '개인 별 매출 통계', to: '/paystub', icon: '/img/svg/icon_chart.svg' },
+  { label: '팀별 매출 통계', to: '/team-sales', icon: '/img/svg/icon_chart.svg', permission: 'teamSales' },
   { label: '공지사항', to: '/community?tab=notice', icon: '/img/svg/icon_notice.svg' },
   { label: '자유게시판', to: '/community?tab=board', icon: '/img/svg/icon_board.svg' },
 ];
@@ -75,6 +77,7 @@ function getActiveIconPath(iconPath) {
 
 function App() {
   const [user, setUser] = useState(null);
+  const [salesAccess, setSalesAccess] = useState(null);
   const [tab, setTab] = useState('login');
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
@@ -84,6 +87,35 @@ function App() {
   const [showSessionExpiredModal, setShowSessionExpiredModal] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    let controller;
+    const refreshAccess = async () => {
+      controller?.abort();
+      controller = new AbortController();
+      const requestController = controller;
+      setSalesAccess(null);
+      if (!user?.id) return;
+      try {
+        const response = await fetch('/api/sales-permissions', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` },
+          signal: requestController.signal,
+        });
+        const result = await response.json();
+        if (!requestController.signal.aborted) setSalesAccess({ userId: user.id, allowed: response.ok && result.canViewTeamSales === true });
+      } catch {
+        if (!requestController.signal.aborted) setSalesAccess({ userId: user.id, allowed: false });
+      }
+    };
+    refreshAccess();
+    window.addEventListener('focus', refreshAccess);
+    window.addEventListener('account-permissions:updated', refreshAccess);
+    return () => {
+      controller?.abort();
+      window.removeEventListener('focus', refreshAccess);
+      window.removeEventListener('account-permissions:updated', refreshAccess);
+    };
+  }, [user?.id]);
 
   const clearSession = useCallback(() => {
     localStorage.removeItem('access_token');
@@ -366,7 +398,7 @@ function App() {
           <img src="/img/logo/logo_wr.svg" alt="I&VIEW COMMUNICATION" />
         </Link>
         <nav className="admin_sidebar_nav" aria-label="주요 메뉴">
-          {nav_items.map(item => {
+          {nav_items.filter(item => !item.permission || (salesAccess?.userId === user.id && salesAccess.allowed)).map(item => {
             const isActive = isActiveNav(item);
 
             return (
@@ -393,13 +425,13 @@ function App() {
           {isAdmin && (
             <Link
               to="/users"
-              className={`admin_nav_item ${location.pathname === '/users' ? 'active' : ''}`}
+              className={`admin_nav_item ${location.pathname.startsWith('/users') ? 'active' : ''}`}
               onClick={closeMobileSidebar}
             >
               <img
                 alt=""
                 aria-hidden="true"
-                src={location.pathname === '/users' ? '/img/svg/icon_person_active.svg' : '/img/svg/icon_person.svg'}
+                src={location.pathname.startsWith('/users') ? '/img/svg/icon_person_active.svg' : '/img/svg/icon_person.svg'}
               />
               <span>직원 관리</span>
             </Link>
@@ -452,6 +484,7 @@ function App() {
               path="/users"
               element={isAdmin ? <UserList user={user} /> : <Navigate replace to="/" />}
             />
+            <Route path="/users/account-settings" element={user.role === '전체관리자' ? <AccountSettings user={user} /> : <Navigate replace to="/users" />} />
             <Route path="/contracts/ad-management" element={<AdManagement user={user} />} />
             <Route path="/contracts/ad-management/:id" element={<AdManagementDetail user={user} />} />
             <Route path="/contracts/ad-detail" element={<AdDetail user={user} />} />
@@ -464,7 +497,8 @@ function App() {
                 />
               }
             />
-            <Route path="/paystub" element={<Paystub user={user} />} />
+            <Route path="/paystub" element={<PersonalSales user={user} />} />
+            <Route path="/team-sales" element={<PersonalSales key="team-sales" user={user} mode="team" />} />
             <Route path="/community" element={<Community user={user} mode="list" />} />
             <Route path="/community/write" element={<Community user={user} mode="write" />} />
             <Route path="/community/:id/edit" element={<Community user={user} mode="edit" />} />
