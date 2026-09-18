@@ -4,8 +4,8 @@ import { Button, Modal, Spinner } from 'react-bootstrap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faBars,
-  faChevronLeft,
-  faChevronRight,
+  faOutdent,
+  faIndent,
   faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 import UserList from './UserList.jsx';
@@ -376,28 +376,10 @@ function App() {
   return (
     <div className={`admin_shell ${isSidebarCollapsed ? 'sidebar_collapsed' : ''}`}>
       <aside className="admin_sidebar">
-        <button
-          type="button"
-          className="admin_sidebar_toggle"
-          onClick={handleSidebarToggle}
-          aria-label={isSidebarCollapsed ? '사이드바 펼치기' : '사이드바 접기'}
-          title={isSidebarCollapsed ? '사이드바 펼치기' : '사이드바 접기'}
-        >
-          <FontAwesomeIcon
-            className="admin_sidebar_desktop_icon"
-            icon={isSidebarCollapsed ? faChevronRight : faChevronLeft}
-            aria-hidden="true"
-          />
-          <FontAwesomeIcon
-            className="admin_sidebar_mobile_icon"
-            icon={isSidebarCollapsed ? faBars : faXmark}
-            aria-hidden="true"
-          />
-        </button>
         <Link to="/" className="admin_sidebar_logo" onClick={closeMobileSidebar}>
-          <img src="/img/logo/logo_wr.svg" alt="I&VIEW COMMUNICATION" />
+          <img src="/img/logo/logo_w.svg" alt="I&VIEW COMMUNICATION" />
         </Link>
-        <nav className="admin_sidebar_nav" aria-label="주요 메뉴">
+        <nav id="admin_sidebar_navigation" className="admin_sidebar_nav" aria-label="주요 메뉴">
           {nav_items.filter(item => !item.permission || (salesAccess?.userId === user.id && salesAccess.allowed)).map(item => {
             const isActive = isActiveNav(item);
 
@@ -453,6 +435,30 @@ function App() {
             </button>
           </div>
         </nav>
+        <div className="admin_sidebar_tools">
+          <button
+            type="button"
+            className="admin_sidebar_toggle"
+            onClick={handleSidebarToggle}
+            aria-label={isSidebarCollapsed ? '사이드바 펼치기' : '사이드바 접기'}
+            aria-expanded={!isSidebarCollapsed}
+            aria-controls="admin_sidebar_navigation"
+          >
+            <FontAwesomeIcon
+              className="admin_sidebar_desktop_icon"
+              icon={isSidebarCollapsed ? faIndent : faOutdent}
+              aria-hidden="true"
+            />
+            <FontAwesomeIcon
+              className="admin_sidebar_mobile_icon"
+              icon={isSidebarCollapsed ? faBars : faXmark}
+              aria-hidden="true"
+            />
+            <span className="admin_sidebar_toggle_hint" aria-hidden="true">
+              {isSidebarCollapsed ? '메뉴 펼치기' : '메뉴 접기'}
+            </span>
+          </button>
+        </div>
       </aside>
 
       <div className="admin_main">

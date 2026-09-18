@@ -1,0 +1,344 @@
+/* Presentation only. Keep component state, responsive controls and document geometry intact. */
+:root { --ui-font: 'NanumSquareNeo', sans-serif; --ui-bg: #f6f7f9; --ui-surface: #fff; --ui-soft: #f8f9fb; --ui-border: #e3e6eb; --ui-text: #252931; --ui-muted: #727985; --ui-primary: #246be2; --ui-primary-hover: #1858c5; --ui-blue-soft: #edf4ff; --ui-danger: #c5434b; --ui-green: #188057; --bs-font-sans-serif: var(--ui-font); --bs-body-font-family: var(--ui-font); --bs-body-color: var(--ui-text); --bs-primary: var(--ui-primary); --bs-primary-rgb: 36, 107, 226; --bs-link-color: var(--ui-primary); --default-text--01--: var(--ui-text); }
+:root { --ui-text-body: 13px; --ui-text-caption: 12px; --ui-text-section: 16px; --ui-text-title: 18px; --ui-space-panel: 16px; }
+html, body { font-family: var(--ui-font); background: var(--ui-bg); color: var(--ui-text); }
+body :is(button, input, select, textarea, pre, code, kbd, samp, svg text), body .community_prose code, body .react-datepicker { font-family: var(--ui-font); letter-spacing: 0; }
+body :is(h1, h2, h3, h4, p, label, legend, a, span, th, td) { letter-spacing: 0; }
+body :is(button, a, input, select, textarea):focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 3px; }
+body :is(input, textarea)::placeholder { color: #8d949e; }
+body :is(button, input, select, textarea):disabled { cursor: not-allowed; }
+
+/* Shell and navigation. */
+.admin_shell, .admin_loading { background: var(--ui-bg); }
+.admin_shell .admin_sidebar { max-width: 208px; padding: 0 16px; border-right: 1px solid var(--ui-border); background: var(--ui-surface); }
+.admin_shell.sidebar_collapsed .admin_sidebar { max-width: 72px; }
+.admin_shell .admin_sidebar_logo { height: 56px; }
+.admin_shell .admin_sidebar_logo img { width: 174px; max-width: 100%; }
+.admin_shell .admin_sidebar_tools { display: flex; flex: 0 0 auto; justify-content: flex-end; margin-top: auto; padding: 12px 0; border-top: 1px solid var(--ui-border); }
+.admin_shell .admin_sidebar_toggle { position: relative; top: auto; right: auto; width: 36px; height: 36px; flex: 0 0 auto; border: 1px solid transparent; border-radius: 6px; background: #f4f6f8; color: #606873; box-shadow: none; }
+.admin_shell .admin_sidebar_toggle svg { width: 18px; height: 18px; }
+.admin_shell .admin_sidebar_toggle:hover svg { transform: none; }
+.admin_shell .admin_sidebar_toggle_hint { position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 40; width: max-content; padding: 7px 10px; border-radius: 4px; background: #252931; color: #fff; font-size: 12px; line-height: 18px; white-space: nowrap; pointer-events: none; visibility: hidden; opacity: 0; }
+.admin_shell .admin_sidebar_toggle:is(:hover, :focus-visible) .admin_sidebar_toggle_hint { visibility: visible; opacity: 1; }
+.admin_shell.sidebar_collapsed .admin_sidebar_tools { justify-content: center; }
+.admin_shell.sidebar_collapsed .admin_sidebar_toggle_hint { right: auto; left: calc(100% + 10px); bottom: 0; }
+.admin_shell .admin_sidebar_toggle:hover { border-color: #b8cef4; background: var(--ui-blue-soft); color: var(--ui-primary); box-shadow: none; transform: none; }
+.admin_shell .admin_sidebar_nav, .admin_shell.sidebar_collapsed .admin_sidebar_nav { gap: 4px; padding-top: 16px; }
+.admin_shell .admin_nav_item { height: 44px; gap: 12px; padding: 0 12px; border-radius: 6px; color: #505966; font-size: var(--ui-text-body); font-weight: 400; line-height: 20px; }
+.admin_shell .admin_nav_item img { max-width: 20px; height: 20px; filter: brightness(0) saturate(100%); opacity: 0.56; }
+.admin_shell .admin_nav_item:hover { background: var(--ui-soft); color: var(--ui-text); }
+.admin_shell .admin_nav_item.active, .admin_shell .admin_nav_item.active:hover { background: var(--ui-blue-soft); color: var(--ui-primary); font-weight: 700; box-shadow: inset 3px 0 var(--ui-primary); }
+.admin_shell .admin_nav_item.active img { filter: brightness(0) saturate(100%) invert(36%) sepia(85%) saturate(1671%) hue-rotate(204deg) brightness(90%); opacity: 1; }
+.admin_shell .admin_topbar { min-height: 56px; gap: 20px; padding: 0 24px; border-bottom: 1px solid var(--ui-border); background: var(--ui-surface); }
+.admin_shell .admin_topbar_user { gap: 10px; font-size: 13px; font-weight: 400; }
+.admin_shell .admin_avatar { width: 34px; height: 34px; flex-shrink: 0; background: #e7f1ff; color: var(--ui-primary); font-size: 15px; font-weight: 700; }
+.admin_shell .admin_topbar_divider { width: 1px; height: 18px; background: var(--ui-border); }
+.admin_shell .admin_logout_button { font-size: 12px; color: #525a66; }
+.admin_shell .admin_logout_button img { width: 18px; height: 18px; opacity: 0.7; }
+.admin_shell .admin_footer { min-height: 40px; height: auto; padding: 10px 20px; border-top: 1px solid var(--ui-border); background: #fff; color: var(--ui-muted); font-size: var(--ui-text-caption); line-height: 1.5; text-align: center; }
+
+/* Quiet, full-width work surfaces. */
+.admin_shell :is(.dashboard_block, .ad_manage_block, .ad_detail_block, .ad_view_block, .userlist_block, .community_block, .mypage_block) { padding: 20px 24px 40px; background: var(--ui-bg); }
+.admin_shell :is(.dash_card, .dash_panel, .dash_sales_card, .ad_manage_panel, .ad_panel, .ad_view_panel, .userlist_filter, .userlist_table_card, .mypage_panel, .community_panel, .admin_placeholder) { border: 1px solid var(--ui-border); border-radius: 8px; background: #fff; box-shadow: none; }
+.admin_shell :is(.userlist_state, .ad_view_state, .ad_manage_state, .account_settings_empty) { box-shadow: none; color: var(--ui-muted); font-weight: 400; }
+.admin_shell :is(.ad_detail_header, .mypage_header, .personal_sales_heading, .account_settings_heading, .community_header, .community_write_header) h1 { font-size: var(--ui-text-title); font-weight: 700; color: var(--ui-text); line-height: 1.5; }
+.admin_shell :is(.ad_section_title, .ad_view_section_title, .dash_section_title, .dash_title_row h1, .mypage_panel_head h2, .personal_sales_results_heading h2) { font-size: var(--ui-text-section); font-weight: 700; color: var(--ui-text); }
+.admin_shell :is(.personal_sales_heading, .personal_sales_filters) { margin-left: 0; margin-right: 0; }
+.admin_shell .personal_sales_heading { margin-top: 0; }
+.admin_shell .personal_sales_summary { margin: 0; border-color: var(--ui-border); }
+.admin_shell .personal_sales_summary strong { font-size: 22px; color: var(--ui-text); }
+.admin_shell .personal_sales_summary > div:nth-child(2) { border-color: #327fff; }
+.admin_shell .personal_sales_summary > div:nth-child(3) { border-color: #28a66b; }
+
+/* Shared actions; destructive, disabled and permission states remain distinct. */
+body .btn-primary { --bs-btn-bg: var(--ui-primary); --bs-btn-border-color: var(--ui-primary); --bs-btn-hover-bg: var(--ui-primary-hover); --bs-btn-hover-border-color: var(--ui-primary-hover); --bs-btn-active-bg: var(--ui-primary-hover); --bs-btn-active-border-color: var(--ui-primary-hover); --bs-btn-disabled-bg: #a6bfe9; --bs-btn-disabled-border-color: #a6bfe9; }
+.admin_shell :is(.ad_manage_search_button, .ad_manage_add_button, .ad_primary_button, .ad_view_update_button, .ad_view_list_button, .community_primary_button, .community_edit_button, .community_search button, .mypage_primary_button, .dash_search_box button, .ad_view_comment_form button, .personal_sales_primary, .account_settings_actions .btn-primary) { border: 1px solid var(--ui-primary); background: var(--ui-primary); color: #fff; border-radius: 6px; box-shadow: none; font-size: 13px; font-weight: 700; }
+.admin_shell :is(.ad_manage_search_button, .ad_manage_add_button, .community_primary_button, .community_search button) span { font-size: inherit; }
+.admin_shell :is(.ad_manage_search_button, .ad_manage_add_button, .ad_primary_button, .ad_view_update_button, .community_primary_button, .community_edit_button, .mypage_primary_button, .personal_sales_primary):hover:not(:disabled) { background: var(--ui-primary-hover); border-color: var(--ui-primary-hover); transform: none; }
+.admin_shell :is(.ad_secondary_button, .community_secondary_button, .mypage_secondary_button, .personal_sales_results_heading button) { border: 1px solid #d5dae1; background: #fff; color: #4a5360; box-shadow: none; font-size: 13px; }
+.admin_shell :is(.ad_secondary_button, .community_secondary_button, .mypage_secondary_button, .personal_sales_results_heading button):hover:not(:disabled) { border-color: #adc6ef; background: var(--ui-blue-soft); color: var(--ui-primary); transform: none; }
+.admin_shell :is(.ad_primary_button, .ad_view_update_button, .ad_view_comment_form button, .ad_manage_add_button):disabled { background: #a6bfe9; border-color: #a6bfe9; }
+.admin_shell :is(.ad_view_delete_button, .community_delete_button) { font-size: 13px; }
+.admin_shell .ad_view_list_button { background: #fff; border-color: #d5dae1; color: #505966; }
+.admin_shell :is(.form-control, .form-select, .personal_sales_filters input, .personal_sales_filters select, .community_search input, .ad_manage_toolbar input) { border-color: #d9dde4; font-size: 13px; font-weight: 400; color: var(--ui-text); }
+.admin_shell :is(.form-control, .form-select, .community_search input, .ad_manage_toolbar input):focus { border-color: #80acf1; box-shadow: 0 0 0 3px rgba(50, 127, 255, 0.1); }
+body .form-check-input:checked { border-color: var(--ui-primary); background-color: var(--ui-primary); }
+.admin_shell .userlist_table .form-check-input:checked, .admin_shell .account_settings .form-check-input:checked { border-color: var(--ui-primary); background-color: var(--ui-primary); }
+
+/* One table treatment across ads, reports and staff. Keep widths and scrolling. */
+.admin_shell :is(.ad_manage_table, .dash_sales_table, .userlist_table) { border-collapse: collapse; }
+.admin_shell :is(.ad_manage_table, .dash_sales_table, .userlist_table) thead th,
+.admin_shell .userlist_table.table > thead > tr > th { height: 44px; border: 1px solid var(--ui-border); border-radius: 0; background: #f8f9fb; color: #46505e; font-size: 12px; font-weight: 700; }
+.admin_shell .personal_sales_table th button { height: 44px; padding: 0 10px; background: transparent; color: #46505e; font-size: 12px; font-weight: 700; }
+.admin_shell :is(.ad_manage_sort, .userlist_sort_mark) { color: #8b949f; }
+.admin_shell :is(.ad_manage_table, .dash_sales_table, .userlist_table) tbody td,
+.admin_shell .userlist_table.table > tbody > tr > td { height: 52px; border: 1px solid var(--ui-border); background: #fff; color: #333b46; font-size: 13px; font-weight: 400; line-height: 1.5; }
+.admin_shell :is(.ad_manage_table, .dash_sales_table, .userlist_table) tbody tr:hover > td { background: #f7faff; }
+.admin_shell .ad_manage_table tbody tr.payment_approved > td, .admin_shell .dash_sales_table tbody tr.status_approved > td { background: #eff9f3; border-color: #dceee3; }
+.admin_shell .ad_manage_table tbody tr.payment_cancelled > td, .admin_shell .dash_sales_table tbody tr.status_cancel > td { background: #fff2f2; border-color: #f2dfdf; }
+.admin_shell .ad_manage_table tbody tr.payment_partial > td, .admin_shell .dash_sales_table tbody tr.status_partial > td { background: #f6f1fc; border-color: #e9dff2; }
+.admin_shell .ad_manage_table tbody tr.payment_approved > td:first-child, .admin_shell .dash_sales_table tbody tr.status_approved > td:first-child { box-shadow: inset 3px 0 #29a56a; }
+.admin_shell .ad_manage_table tbody tr.payment_cancelled > td:first-child, .admin_shell .dash_sales_table tbody tr.status_cancel > td:first-child { box-shadow: inset 3px 0 #dd6370; }
+.admin_shell .ad_manage_table tbody tr.payment_partial > td:first-child, .admin_shell .dash_sales_table tbody tr.status_partial > td:first-child { box-shadow: inset 3px 0 #9870be; }
+.admin_shell .ad_manage_table tbody tr.ad_manage_clickable_row:hover { box-shadow: none; }
+.admin_shell .ad_manage_table tbody tr.ad_manage_clickable_row:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: -2px; }
+.admin_shell :is(.ad_manage_footer, .dash_table_footer, .userlist_pager, .ad_view_comment_footer) { min-height: 50px; border: 1px solid var(--ui-border); border-radius: 6px; background: #fafbfc; }
+.admin_shell .table_pagination button.active { background: var(--ui-primary); color: #fff; }
+.admin_shell .table_pagination button:hover:not(:disabled):not(.active) { background: var(--ui-blue-soft); color: var(--ui-primary); }
+.admin_shell :is(.ad_manage_table_wrap, .dash_table_wrap, .userlist_table_wrap) { scrollbar-width: thin; scrollbar-color: #bcc3cc #f6f7f9; border-radius: 0; }
+.admin_shell :is(.ad_manage_table_wrap, .dash_table_wrap, .userlist_table_wrap)::-webkit-scrollbar { width: 10px; height: 10px; }
+.admin_shell :is(.ad_manage_table_wrap, .dash_table_wrap, .userlist_table_wrap)::-webkit-scrollbar-track { background: #f6f7f9; }
+.admin_shell :is(.ad_manage_table_wrap, .dash_table_wrap, .userlist_table_wrap)::-webkit-scrollbar-thumb { border: 2px solid #f6f7f9; border-radius: 6px; background: #bcc3cc; }
+.admin_shell .userlist_table .form-select { font-size: 12px; font-weight: 400; }
+.admin_shell .userlist_table .btn { font-size: 12px; font-weight: 700; }
+
+/* Form labels, grouped inputs, product choices and calendars. */
+.admin_shell :is(.ad_field_label, .ad_basic_grid .ad_field_label, .ad_view_label, .dash_profile_table strong, .dash_profile_stats dt, .mypage_field > span, .ad_view_sms_table th) { border-color: var(--ui-border); background: var(--ui-soft); color: #555e6b; font-size: 13px; font-weight: 400; }
+.admin_shell :is(.ad_field_control, .ad_basic_grid .ad_field_control, .ad_view_value, .ad_segmented_control, .dash_profile_table span, .dash_profile_stats dd) { border-color: var(--ui-border); font-size: 13px; }
+.admin_shell :is(.ad_field_control input, .ad_field_control select, .ad_basic_grid .ad_field_control input, .ad_view_value.editable input, .ad_view_value.editable select, .ad_segmented_control input) { font-size: 13px; font-weight: 400; }
+.admin_shell :is(.ad_field_control.readonly, .ad_view_value:not(.editable), .account_settings input[readonly]) { background: #fafbfc; }
+.admin_shell :is(.ad_field_control, .ad_view_value.editable):focus-within { border-color: #80acf1; box-shadow: 0 0 0 3px rgba(50, 127, 255, 0.1); }
+.admin_shell :is(.ad_compact_address_control button, .ad_address_control button, .ad_file_control label, .ad_view_address_control button, .ad_view_value button) { background: var(--ui-blue-soft); color: var(--ui-primary); font-weight: 700; }
+.admin_shell :is(.ad_product_picker button, .ad_view_product_chip) { border-color: var(--ui-border); background: #fff; color: #687281; font-size: 13px; font-weight: 400; }
+.admin_shell :is(.ad_product_picker button.active, .ad_view_product_chip.active) { border-color: #8db7f5; background: var(--ui-blue-soft); color: var(--ui-primary); font-weight: 700; }
+.admin_shell .ad_product_picker button:hover:not(:disabled) { border-color: #8db7f5; background: var(--ui-blue-soft); color: var(--ui-primary); }
+.date_select_calendar_button { border-color: #a9c5f0; background: var(--ui-blue-soft); color: var(--ui-primary); border-radius: 6px; }
+.date_select_calendar .react-datepicker { border-color: var(--ui-border); border-radius: 8px; box-shadow: 0 6px 24px rgba(35, 47, 65, 0.12); }
+.date_select_calendar .react-datepicker__header { background: var(--ui-soft); border-color: var(--ui-border); }
+.date_select_calendar .react-datepicker__day--selected, .date_select_calendar .react-datepicker__day--keyboard-selected { background: var(--ui-primary); border-radius: 6px; }
+.date_select_calendar .react-datepicker__day--today { color: var(--ui-primary); box-shadow: inset 0 0 0 1px #8db7f5; }
+.admin_shell .rbc-event { background: var(--ui-primary); }
+.admin_shell .rbc-today { background: #eff5ff; }
+.admin_shell .rbc-toolbar button.rbc-active { border-color: #b8cef4; background: var(--ui-blue-soft); color: var(--ui-primary); box-shadow: none; }
+
+/* Dashboard keeps all charts, filters and interactions. */
+.admin_shell .dash_profile_card { padding: 28px; }
+.admin_shell .dash_profile_avatar, .admin_shell .ad_view_comment_avatar, .admin_shell .mypage_avatar { background: #e7f1ff; color: var(--ui-primary); }
+.admin_shell .dash_profile_table :is(strong, span), .admin_shell .dash_profile_stats :is(dt, dd) { font-size: 13px; }
+.admin_shell .dash_sales_section { margin: 24px 0 0; padding: 0; background: transparent; }
+.admin_shell .dash_sales_card { padding: var(--ui-space-panel); }
+.admin_shell .dash_bar { border-radius: 4px 4px 0 0; }
+.admin_shell .dash_bar.pink { background: #327fff; }
+.admin_shell .dash_bar.blue { background: #28ac72; }
+.admin_shell .dash_bar_scale { max-width: 96px; font-size: 12px; }
+.admin_shell .dash_grid_line { stroke: #e9ecf0; stroke-dasharray: 3 4; }
+.admin_shell .dash_axis_line { stroke: #cbd1da; stroke-width: 1; }
+.admin_shell .dash_month_axis { font-size: 12px; }
+.admin_shell .dash_chart_legend button { font-size: 12px; }
+.admin_shell .dash_bar_grid { background: transparent; border-top: 1px dashed #e3e7ee; }
+.admin_shell .dash_bar_grid:nth-child(5) { height: 1px; background: #d9dee6; border: 0; }
+.admin_shell .dash_notice_head { background: #f8f9fb; color: #555e6b; border-bottom: 1px solid var(--ui-border); }
+.admin_shell .dash_notice_row { background: #fff; border-bottom: 1px solid #edf0f3; }
+.admin_shell .dash_notice_row:hover { background: var(--ui-blue-soft); }
+.admin_shell .dash_range_buttons { background: #f1f3f6; }
+.admin_shell .dash_range_buttons button.active, .admin_shell .dash_range_buttons button:hover { background: #fff; color: var(--ui-primary); box-shadow: 0 1px 4px rgba(36, 48, 68, 0.08); }
+.admin_shell .dash_total_sales { background: #edf4ff; border-color: #d5e4fa; }
+.admin_shell .dash_total_cancel { background: #fff2f2; border-color: #f2dfdf; }
+.admin_shell .dash_total_sales :is(span, strong), .admin_shell .dash_total_cancel :is(span, strong) { font-size: 13px; }
+
+/* Staff, account settings and community. */
+.admin_shell .userlist_tabs .nav-link { border-color: var(--ui-border); background: #fff; color: #636d7b; font-size: 13px; font-weight: 400; }
+.admin_shell .userlist_tabs .nav-link.active { border-color: #b8cff4; background: var(--ui-blue-soft); color: var(--ui-primary); box-shadow: none; font-weight: 700; }
+.admin_shell .userlist_summary span { background: var(--ui-primary); font-weight: 700; }
+.admin_shell .userlist_summary strong { color: var(--ui-muted); box-shadow: inset 0 0 0 1px var(--ui-border); font-weight: 400; }
+.admin_shell .account_settings_layout { border: 1px solid var(--ui-border); }
+.admin_shell .account_settings_directory { background: #fff; border-color: var(--ui-border); }
+.admin_shell .account_settings_accounts button.active { background: var(--ui-blue-soft); box-shadow: inset 3px 0 var(--ui-primary); }
+.admin_shell .account_settings legend { color: #46505e; font-size: 14px; }
+.admin_shell .account_settings .form-check-input:checked { background-color: var(--ui-primary); border-color: var(--ui-primary); }
+.admin_shell .community_tabs button.active { background: var(--ui-blue-soft); color: var(--ui-primary); }
+.admin_shell .community_list_summary strong span { color: var(--ui-primary); }
+.admin_shell .community_post_list { border-top: 1px solid var(--ui-border); }
+.admin_shell .community_post_title_row strong { font-size: var(--ui-text-body); font-weight: 700; }
+.admin_shell .community_post_item:hover, .admin_shell .community_post_item:focus-visible { background: #f8faff; box-shadow: inset 3px 0 #8eb8ff; }
+.admin_shell .community_post_type.notice { background: var(--ui-blue-soft); color: var(--ui-primary); }
+.admin_shell .community_post_item:hover .community_post_arrow { color: var(--ui-primary); }
+.admin_shell .community_author_avatar { background: #e7f1ff; color: var(--ui-primary); }
+.admin_shell .community_editor_toolbar { background: var(--ui-soft); border-color: var(--ui-border); }
+.admin_shell .community_editor_toolbar button.active { background: var(--ui-blue-soft); color: var(--ui-primary); }
+.admin_shell .community_board_badge { background: var(--ui-blue-soft); color: var(--ui-primary); }
+.admin_shell .community_title_field input:focus, .admin_shell .community_editor:focus-within { border-color: #80acf1; box-shadow: 0 0 0 3px rgba(50, 127, 255, 0.1); }
+.admin_shell .community_editor.readonly:focus-within { box-shadow: none; }
+.admin_shell .community_prose blockquote { border-color: #8db7f5; background: var(--ui-blue-soft); }
+.admin_shell .community_prose a { color: var(--ui-primary); }
+
+/* Profile tools keep their fields and calendar views at narrow widths. */
+.admin_shell .mypage_user_badge { border: 1px solid var(--ui-border); border-radius: 6px; box-shadow: none; }
+.admin_shell .mypage_side_stack { min-width: 0; }
+.admin_shell .mypage_avatar > span { color: var(--ui-primary) !important; }
+.admin_shell .mypage_info_row > strong { background: var(--ui-soft); color: #555e6b; font-weight: 400; }
+.admin_shell .mypage_info_row > :is(strong, span, form) { border-color: var(--ui-border); font-size: 13px; }
+.admin_shell :is(.mypage_edit_button, .mypage_text_button, .ad_view_value a) { color: var(--ui-primary); }
+.admin_shell :is(.mypage_text_button.danger, .mypage_avatar_remove) { color: var(--ui-danger); }
+.admin_shell .mypage_table th { border-color: var(--ui-border); background: var(--ui-soft); color: #46505e; font-size: 12px; }
+.admin_shell .mypage_table td { border-color: var(--ui-border); }
+.admin_shell .mypage_event_form { display: flex; flex-wrap: wrap; gap: 12px; }
+.admin_shell .mypage_event_form > label { min-width: 140px; flex: 1 1 140px; }
+.admin_shell .mypage_event_form > button { margin-left: auto; }
+.admin_shell .mypage_calendar_wrap .rbc-toolbar button:is(.rbc-active, :active, :focus) { border-color: #b8cef4; background: var(--ui-blue-soft); color: var(--ui-primary); }
+.admin_shell :is(.mypage_input, .mypage_textarea):focus { border-color: #80acf1; box-shadow: 0 0 0 3px rgba(50, 127, 255, 0.1); }
+
+/* Auth and portal dialogs use the same type and control palette. */
+.basic_wrap, .basic_wrap:is(.auth_login_view, .auth_signup_view) { min-height: 100dvh; justify-content: flex-start; padding: 64px 24px 24px; background: var(--ui-bg); }
+.basic_wrap .img_box { flex: 0 0 auto; width: 180px; max-width: 100%; height: auto; margin: auto 0 28px; }
+.basic_wrap .img_box img { height: auto; object-fit: contain; }
+.basic_wrap .sign_in_wrap { width: 100%; max-width: 420px; padding: 28px; border: 1px solid var(--ui-border); border-radius: 8px; background: #fff; }
+.basic_wrap .auth_copyright { position: static; width: 100%; max-width: 440px; margin: auto 0 0; padding-top: 40px; transform: none; line-height: 1.7; white-space: normal; }
+.sign_in_wrap .tabs { gap: 0; margin: 0 0 28px; padding: 0; border: 0; border-bottom: 1px solid var(--ui-border); border-radius: 0; background: transparent; }
+.sign_in_wrap .tab_button { min-height: 44px; margin-bottom: -1px; padding: 10px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: var(--ui-muted); font-size: 13px; font-weight: 700; }
+.sign_in_wrap .tab_button.active { margin-bottom: -1px; border: 0; border-bottom: 2px solid var(--ui-primary); background: transparent; color: var(--ui-primary); box-shadow: none; }
+.sign_in_wrap .tab_button:hover { color: var(--ui-primary); background: #f8faff; }
+.basic_wrap :is(.login_form, .signup_form, .signup_auth_form) { gap: 12px; }
+.basic_wrap :is(.login_field, .signup_auth_field) { min-width: 0; height: auto; min-height: 46px; gap: 10px; margin: 0; padding: 0 12px; }
+.basic_wrap :is(.login_field_icon, .signup_auth_icon) { width: 20px; height: 20px; flex: 0 0 20px; opacity: 0.7; }
+.basic_wrap :is(.login_input, .signup_auth_input) { height: 44px; font-size: 13px; font-weight: 400; }
+.basic_wrap :is(.login_input, .signup_auth_input):focus-visible { outline: none; box-shadow: none; }
+.basic_wrap .signup_auth_label { font-size: 12px; }
+.basic_wrap .signup_auth_select { appearance: auto; }
+.basic_wrap .login_visibility { width: 36px; max-width: 36px; height: 36px; flex: 0 0 36px; margin-right: -6px; border-radius: 4px; }
+.basic_wrap .login_visibility:hover { background: var(--ui-blue-soft); }
+.basic_wrap :is(.login_submit, .signup_button) { height: 44px; margin-top: 8px; font-size: 13px; font-weight: 700; }
+.basic_wrap :is(.login_forgot, .auth_secondary_button) { min-height: 36px; margin: 0; padding: 8px 12px; font-size: 12px; }
+.basic_wrap :is(.login_alert, .signup_message) { margin: 4px 0 0; padding: 12px; border-radius: 6px; font-size: 12px; overflow-wrap: anywhere; }
+.basic_wrap .auth_header { margin: 0 0 12px; text-align: left; }
+.basic_wrap .auth_title { font-size: 18px; }
+.basic_wrap .auth_desc { margin-top: 8px; font-size: 12px; }
+.basic_wrap .signup_date_select { min-width: 0; grid-template-columns: minmax(0, 1.3fr) repeat(2, minmax(0, 1fr)) 30px; gap: 3px; }
+.basic_wrap .signup_date_select select { padding: 0 2px; font-size: 12px; }
+.basic_wrap .signup_date_select .date_select_calendar_button { padding: 0; }
+@media (max-width: 600px) {
+  .basic_wrap, .basic_wrap:is(.auth_login_view, .auth_signup_view) { padding: 40px 16px 20px; }
+  .basic_wrap .img_box { width: 170px; margin-bottom: 24px; }
+  .basic_wrap .sign_in_wrap { max-width: 380px; padding: 24px 20px; }
+  .basic_wrap .auth_copyright { padding-top: 28px; }
+  .basic_wrap .signup_auth_field { gap: 8px; padding: 0 10px; }
+  .basic_wrap .signup_auth_label { max-width: 48px; }
+}
+@media (max-width: 360px) {
+  .basic_wrap, .basic_wrap:is(.auth_login_view, .auth_signup_view) { padding-right: 12px; padding-left: 12px; }
+  .basic_wrap .sign_in_wrap { padding: 20px 14px; }
+  .signup_auth_form .signup_auth_field:last-of-type { flex-wrap: wrap; gap: 4px; padding-top: 8px; padding-bottom: 8px; }
+  .signup_auth_form .signup_auth_field:last-of-type .signup_auth_label { max-width: 100%; flex-basis: 100%; }
+}
+.login_field, .signup_auth_field { border-color: #d9dde4; border-radius: 6px; }
+.login_field:focus-within, .signup_auth_field:focus-within { border-color: #80acf1; box-shadow: 0 0 0 3px rgba(50, 127, 255, 0.1); }
+.login_submit, .sign_in_wrap .signup_button { border-radius: 6px; background: var(--ui-primary); color: #fff; }
+.login_submit:hover, .sign_in_wrap .signup_button:hover:not(:disabled) { background: var(--ui-primary-hover); }
+.auth_copyright { color: var(--ui-muted); font-size: 12px; }
+.auth_copyright span { color: var(--ui-primary); }
+.modal .modal-content { border: 1px solid var(--ui-border); border-radius: 8px; box-shadow: 0 16px 48px rgba(22, 33, 50, 0.15); }
+.modal :is(.modal-title, .modal-body strong) { font-weight: 700; }
+.modal .modal-header, .modal .modal-footer { border-color: var(--ui-border); }
+.modal :is(.ad_view_modal_confirm, .ad_primary_button), .modal.admin_session_modal .btn { background: var(--ui-primary); box-shadow: none; }
+.modal .ad_view_modal_cancel { background: #f1f3f6; color: #596474; }
+
+/* Shared type scale excludes authored content and the contract document. */
+.admin_shell { font-size: var(--ui-text-body); }
+.admin_shell :is(.ad_manage_toolbar label span, .dash_filter_grid label, .dash_search_box input, .dash_range_buttons button, .dash_bar_label, .dash_center_state, .dash_empty_chart, .ad_manage_state, .ad_view_state, .userlist_state, .account_settings_empty, .account_settings .form-label, .account_settings .form-check-label, .account_settings_accounts strong, .account_settings_subject span, .community_tabs button, .community_search label span, .community_title_field input, .community_field_label, .mypage_input, .mypage_textarea, .mypage_user_badge span, .mypage_user_badge strong, .ad_product_selectors select, .ad_file_control span, .ad_view_value a, .personal_sales_filters button, .account_settings_actions .btn, .userlist_table .form-select, .userlist_table .btn) { font-size: var(--ui-text-body); }
+.admin_shell :is(.personal_sales_heading p, .personal_sales_scope, .personal_sales_summary span, .personal_sales_summary small, .account_settings_heading > span, .account_settings_accounts span, .account_settings_accounts small, .community_post_meta, .community_post_meta span, .community_post_meta time, .community_title_count, .mypage_header p, .mypage_profile_summary span, .ad_detail_header p, .dash_bar_scale, .dash_bar_tooltip strong, .dash_chart_tooltip text, .dash_chart_tooltip text:last-child) { font-size: var(--ui-text-caption); }
+.admin_shell :is(.account_settings_subject h2, .mypage_profile_summary strong) { font-size: var(--ui-text-title); }
+.admin_shell .community_detail_header h1 { font-size: var(--ui-text-title); }
+.admin_shell :is(.community_title_field > span, .community_content_field > span, .community_list_state, .community_page_state) { font-size: var(--ui-text-body); }
+.admin_shell :is(.community_post_type, .community_post_number, .community_author_avatar, .mypage_avatar em, .dash_bar_tooltip span) { font-size: var(--ui-text-caption); }
+.admin_shell .account_settings legend { font-size: 15px; }
+.modal :is(.modal-body, .modal-body p, .btn) { font-size: var(--ui-text-body); }
+.modal :is(.modal-title, .ad_top_alert_content strong) { font-size: var(--ui-text-section); }
+.auth_copyright, .auth_login_view .auth_copyright { font-size: var(--ui-text-caption); }
+
+/* Compact desktop surfaces retain the existing chart coordinate systems. */
+@media (min-width: 1025px) {
+  .admin_shell .admin_sidebar_logo { flex-shrink: 0; }
+  .admin_shell .admin_sidebar_nav { min-height: 0; overflow-y: auto; overflow-x: hidden; padding-bottom: 16px; }
+  .admin_shell .admin_sidebar_nav .admin_nav_item { flex-shrink: 0; }
+  .admin_shell :is(.ad_manage_panel, .ad_panel, .ad_basic_panel, .ad_view_panel, .community_panel, .userlist_filter, .userlist_table_card, .mypage_profile_panel, .mypage_todo_panel, .mypage_calendar_panel) { padding: var(--ui-space-panel); }
+  .admin_shell .ad_manage_toolbar { margin: 0 0 16px; }
+  .admin_shell :is(.ad_manage_toolbar label, .ad_manage_toolbar input, .ad_manage_search_button, .ad_manage_add_button, .community_search input, .community_search button, .community_primary_button, .community_secondary_button, .personal_sales_filters input, .personal_sales_filters select, .personal_sales_filters button, .personal_sales_results_heading button, .account_settings_actions .btn) { height: 36px; }
+  .admin_shell :is(.ad_manage_search_button, .ad_manage_add_button, .dash_search_box button, .community_search button, .community_primary_button) { max-width: 104px; }
+  .admin_shell :is(.ad_manage_search_button, .ad_manage_add_button, .dash_search_box button, .community_search button) svg { width: 16px; height: 16px; }
+  .admin_shell :is(.ad_manage_table, .dash_sales_table, .userlist_table) thead th, .admin_shell .userlist_table.table > thead > tr > th { height: 40px; padding: 0 8px; }
+  .admin_shell .personal_sales_table th button { height: 38px; }
+  .admin_shell :is(.ad_manage_table, .dash_sales_table, .userlist_table) tbody td, .admin_shell .userlist_table.table > tbody > tr > td { height: 44px; padding: 5px 8px; }
+  .admin_shell .ad_manage_table_wrap:not(.personal_sales_table_wrap) { height: 500px; }
+  .admin_shell :is(.ad_manage_footer, .dash_table_footer, .userlist_pager) { min-height: 44px; margin-top: 16px; padding: 6px 12px; }
+  .admin_shell :is(.ad_detail_block, .ad_view_block) { gap: 20px; }
+  .admin_shell :is(.ad_section_title, .ad_view_section_title) { margin-bottom: 10px; }
+  .admin_shell .personal_sales_filters { margin-top: 16px; margin-bottom: 16px; }
+  .admin_shell .personal_sales_summary { gap: 20px; padding: 18px 0; }
+  .admin_shell .personal_sales_results_heading { padding: 16px 0; }
+  .admin_shell .account_settings_heading { margin: 18px 0; }
+  .admin_shell .account_settings_directory { width: 248px; padding: 16px; }
+  .admin_shell .account_settings_editor { padding: 20px 24px; }
+  .admin_shell .account_settings_accounts button { gap: 4px; padding: 12px 10px; }
+  .admin_shell .account_settings_subject { margin-bottom: 20px; }
+  .admin_shell .account_settings fieldset { margin-bottom: 20px; padding-bottom: 20px; }
+  .admin_shell .account_settings_fields { gap: 12px 20px; }
+  .admin_shell .account_settings_permissions { gap: 14px; }
+  .admin_shell .account_settings :is(.form-control, .form-select) { min-height: 36px; }
+  .admin_shell .dash_title_row { margin-bottom: 12px; }
+  .admin_shell .dash_profile_card { min-height: 256px; padding: 20px; }
+  .admin_shell .dash_profile_top { gap: 18px; }
+  .admin_shell .dash_profile_avatar { max-width: 64px; height: 64px; flex-basis: 64px; font-size: 24px; }
+  .admin_shell .dash_profile_table :is(strong, span) { min-height: 36px; padding: 0 10px; }
+  .admin_shell .dash_profile_stats { gap: 8px; margin-top: 14px; padding-top: 14px; }
+  .admin_shell .dash_profile_stats :is(dt, dd) { min-height: 36px; padding: 0 12px; }
+  .admin_shell .dash_year_card { min-height: 256px; padding: 10px 24px 10px 100px; }
+  .admin_shell .dashboard_middle_grid { margin-top: 20px; }
+  .admin_shell :is(.dash_bar_section, .dash_notice_section, .dash_calendar_section) { height: 306px; }
+  .admin_shell .dash_bar_panel { height: 272px; padding: 20px 24px 20px 20px; }
+  .admin_shell :is(.dash_notice_panel, .dash_calendar_panel) { height: 272px; padding: 16px; }
+  .admin_shell .dash_notice_row { min-height: 38px; padding: 0 10px; gap: 8px; }
+  .admin_shell .dash_notice_head { min-height: 36px; padding: 0 10px; gap: 8px; font-size: var(--ui-text-caption); }
+  .admin_shell .dash_table_wrap { margin-top: 20px; }
+  .admin_shell .dash_sales_section > .dash_section_title { margin-bottom: 12px; }
+}
+
+/* Contract content, signature geometry and print behavior are preserved. */
+@media screen {
+  .agreement_page { background: var(--ui-bg); }
+  .agreement_shell { border-color: var(--ui-border); border-radius: 8px; box-shadow: none; }
+  .agreement_terms_box, .agreement_contract_card { background: #fafbfc; border-color: var(--ui-border); }
+  .agreement_contract_table th, .agreement_contract_table .agreement_contract_section, .agreement_contract_field span { background: #f1f3f6; border-color: #dfe3e9; }
+  .agreement_notice { background: var(--ui-blue-soft); }
+  .agreement_contract_disclaimer { background: #fafbfc; }
+  .agreement_actions button:not(:disabled) { background: var(--ui-primary); }
+}
+@media (max-width: 1200px) {
+  .admin_shell .mypage_grid { display: flex; flex-direction: column; }
+  .admin_shell .mypage_grid > * { width: 100%; }
+}
+@media (max-width: 1024px) {
+  .admin_shell .admin_sidebar, .admin_shell.sidebar_collapsed .admin_sidebar { width: 100%; max-width: none; height: 60px; min-height: 60px; padding: 0 18px; border-right: 0; border-bottom: 1px solid var(--ui-border); }
+  .admin_shell .admin_sidebar_logo { height: 60px; }
+  .admin_shell .admin_sidebar_tools { position: absolute; top: 8px; right: 10px; margin: 0; padding: 0; border: 0; }
+  .admin_shell .admin_sidebar_toggle { top: auto; right: auto; width: 44px; height: 44px; background: transparent; color: #57616d; border: 0; }
+  .admin_shell .admin_sidebar_toggle svg { width: 22px; height: 22px; }
+  .admin_shell .admin_sidebar_toggle_hint { display: none; }
+  .admin_shell .admin_sidebar_nav, .admin_shell.sidebar_collapsed .admin_sidebar_nav { padding: 12px 18px 20px; background: #fff; border-bottom: 1px solid var(--ui-border); box-shadow: 0 12px 24px rgba(32, 44, 60, 0.08); }
+  .admin_shell .admin_mobile_account { color: var(--ui-text); border-color: var(--ui-border); }
+  .admin_shell .admin_mobile_account_user > span:last-child, .admin_shell .admin_mobile_logout { color: #535e6c; }
+  .admin_shell .admin_mobile_logout img { filter: none; opacity: 0.7; }
+  .admin_shell :is(.dashboard_block, .ad_manage_block, .ad_detail_block, .ad_view_block, .userlist_block, .community_block, .mypage_block) { padding: 20px 18px 48px; }
+  .admin_shell .dash_sales_card { padding: 18px; }
+  .admin_shell .dash_profile_card { padding: 20px; }
+  .admin_shell .personal_sales_summary strong { font-size: 20px; }
+  .admin_shell .dash_bar_scale { max-width: 84px; font-size: var(--ui-text-caption); }
+  .admin_shell .dash_bar_label { max-width: 14px; font-size: var(--ui-text-caption); }
+  .auth_login_view .auth_copyright { white-space: normal; font-size: var(--ui-text-caption); line-height: 1.6; }
+}
+@media (max-width: 600px) {
+  .admin_shell :is(.dashboard_block, .ad_manage_block, .ad_detail_block, .ad_view_block, .userlist_block, .community_block, .mypage_block) { padding-left: 12px; padding-right: 12px; }
+  .admin_shell .personal_sales_summary strong { font-size: 18px; }
+  .admin_shell :is(.ad_field_label, .ad_basic_grid .ad_field_label, .ad_view_label) { font-size: 12px; }
+  .admin_shell .userlist_tabs .nav-link { min-width: 0; padding: 0 12px; }
+  .admin_shell .dash_profile_card { padding: 16px; }
+  .admin_shell .mypage_header { flex-wrap: wrap; gap: 12px; }
+  .admin_shell :is(.mypage_profile_panel, .mypage_todo_panel, .mypage_calendar_panel) { padding: 18px 14px; }
+  .admin_shell .mypage_info_row { grid-template-columns: 86px minmax(0, 1fr); }
+  .admin_shell .mypage_info_row > span { padding: 8px; gap: 6px; overflow-wrap: anywhere; }
+  .admin_shell .mypage_info_row > strong { padding: 4px; font-size: 12px; }
+  .admin_shell .mypage_inline_form, .admin_shell .mypage_inline_form.password { grid-template-columns: minmax(0, 1fr); }
+  .admin_shell .mypage_date_select { flex-wrap: wrap; }
+  .admin_shell .mypage_event_form > label { flex-basis: 100%; }
+  .admin_shell .mypage_calendar_wrap .rbc-toolbar { justify-content: center; }
+  .admin_shell .mypage_calendar_wrap .rbc-toolbar button { padding: 6px 8px; font-size: 12px; }
+}

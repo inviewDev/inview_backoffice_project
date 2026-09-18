@@ -35,7 +35,7 @@ const calendar_events = [
 ];
 
 const months = ['01월', '02월', '03월', '04월', '05월', '06월', '07월', '08월', '09월', '10월', '11월', '12월'];
-const salesSeriesColors = ['#182032', '#ff3b5c', '#20b26b'];
+const salesSeriesColors = ['#327fff', '#21a66a', '#e39a27'];
 
 function getKoreanCurrentYear() {
   return Number(new Intl.DateTimeFormat('en-US', {

@@ -83,7 +83,7 @@ summary,
 time,
 mark,
 audio,
-video { margin: 0; padding: 0; border: 0; font-size: 100%; font: inherit; vertical-align: baseline; box-sizing: border-box; font-family:"Pretendard", "Segoe-UI","맑은 고딕","malgun gothic","돋움","dotum",sans-serif; word-break:keep-all; } 
+video { margin: 0; padding: 0; border: 0; font-size: 100%; font: inherit; vertical-align: baseline; box-sizing: border-box; font-family: 'NanumSquareNeo', sans-serif; word-break:keep-all; }
 li,
 ul,
 ol { list-style:none; } 
@@ -109,7 +109,7 @@ td,
 b,
 i,
 li,
-a { word-break:keep-all; letter-spacing:-0.05em; color:var(--default-text--01--); } 
+a { word-break:keep-all; letter-spacing: 0; color:var(--default-text--01--); }
 .txt_hidden { font-size:0; line-height:0; overflow:hidden; text-indent:-999999px; } 
 .text_center { text-align:center !important; } 
 .text_right { text-align:right !important; } 
