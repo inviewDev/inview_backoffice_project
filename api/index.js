@@ -3580,6 +3580,7 @@ apiRouter.get('/dashboard/sales', verifyToken, async (req, res) => {
               is: {
                 OR: [
                   { name: { contains: search, mode: 'insensitive' } },
+                  { department: { contains: search, mode: 'insensitive' } },
                   { team: { contains: search, mode: 'insensitive' } },
                 ],
               },
@@ -3630,6 +3631,7 @@ apiRouter.get('/dashboard/sales', verifyToken, async (req, res) => {
           user: {
             select: {
               name: true,
+              department: true,
               team: true,
             },
           },
@@ -3661,6 +3663,7 @@ apiRouter.get('/dashboard/sales', verifyToken, async (req, res) => {
         paymentMethod: payment.paymentMethod || '-',
         approvedAmount: payment.approvedAmount || 0,
         paymentStatus: payment.paymentStatus === '위약금' ? '부분취소' : payment.paymentStatus,
+        department: payment.user?.department || '-',
         team: payment.managerTeam || payment.user?.team || '-',
         manager: payment.manager || payment.user?.name || '-',
         period: `${toDateString(payment.startDate)} ~ ${toDateString(payment.endDate)}`,

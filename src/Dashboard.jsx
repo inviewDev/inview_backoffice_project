@@ -81,6 +81,13 @@ function formatNumber(value) {
   return Number(value || 0).toLocaleString('ko-KR');
 }
 
+function formatDepartmentTeam(department, team) {
+  const values = [department, team]
+    .map(value => String(value || '').trim())
+    .filter(value => value && value !== '-');
+  return [...new Set(values)].join(' / ') || '-';
+}
+
 const sales_excluded_status_markers = ['\uCDE8\uC18C', '\uB300\uAE30'];
 
 function isCompletedSalesStatus(status) {
@@ -1048,7 +1055,7 @@ function Dashboard({ user }) {
                       setSalesSearch(searchText.trim());
                     }
                   }}
-                  placeholder="상품명, 담당자, 팀 검색"
+                  placeholder="상품명, 담당자, 부서, 팀 검색"
                 />
                 <button
                   type="button"
@@ -1093,7 +1100,7 @@ function Dashboard({ user }) {
                 <col style={{ width: 100 }} />
                 <col style={{ width: 200 }} />
                 <col style={{ width: 100 }} />
-                <col style={{ width: 95 }} />
+                <col style={{ width: 130 }} />
                 <col style={{ width: 95 }} />
                 <col style={{ width: 140 }} />
               </colgroup>
@@ -1108,7 +1115,7 @@ function Dashboard({ user }) {
                   <th>결제구분</th>
                   <th>결제금액</th>
                   <th>결제상태</th>
-                  <th>팀</th>
+                  <th>부서+팀</th>
                   <th>담당자</th>
                   <th>계약기간</th>
                 </tr>
@@ -1156,7 +1163,7 @@ function Dashboard({ user }) {
                     <td>{row.paymentMethod}</td>
                     <td>{formatNumber(row.approvedAmount)}</td>
                     <td>{row.paymentStatus}</td>
-                    <td>{row.team}</td>
+                    <td>{formatDepartmentTeam(row.department, row.team)}</td>
                     <td>{row.manager}</td>
                     <td>{row.period}</td>
                   </tr>

@@ -10,7 +10,7 @@ const output = path.join(os.tmpdir(), 'inview-theme-qa');
 const actor = { id: 1, name: '디자인검증', email: 'cchee', role: '전체관리자', team: '개발관리부', department: '운영부서', level: '사원', status: '재직', canWritePosts: true, canEditAds: true, canEditAdPaymentStatus: true };
 const accounts = [actor, ...['김담당', '이담당', '박담당'].map((name, i) => ({ id: i + 2, name, email: `staff${i}`, role: '사용자', team: `${i + 1}팀`, department: '1부서', level: '대리', status: '재직' }))];
 const ad = { id: 1, companyName: '아이앤뷰 테스트 업체', ceoName: '김대표', businessRegNumber: '000-00-00000', tel: '02-0000-0000', mobile: '010-0000-0000', address: '서울특별시 테스트로 10', detailAddress: '3층', companyEmail: 'test@example.com', companyUrl: 'https://example.com', manager: '김담당', managerUserId: 2, team: '1팀', productName: 'G패키지', approvedAmount: 3300000, spendingCost: 1000000, netProfit: 2000000, vat: 300000, paymentStatus: '결제승인', paymentMethod: '카드', cardCompany: '신한', taxInvoice: '발행', contractStartDate: '2026-09-01', contractEndDate: '2026-09-30', createdAt: '2026-09-01T03:00:00.000Z', smsContractStatus: '미발송', agreementStatus: '미동의', canEditAd: true, canEditPaymentStatus: true, canDeleteAd: true, canUseAdminComments: true, comments: [], adminComments: [], smsHistories: [], productItems: ['검색광고', '브랜드 관리'], adProgress: 'ON', production1: '검색광고', production2: '브랜드 관리', memo: '디자인 확인용 테스트 데이터' };
-const ads = Array.from({ length: 10 }, (_, i) => ({ ...ad, id: i + 1, companyName: `테스트 광고주 ${i + 1}`, manager: accounts[1 + i % 3].name, team: `${1 + i % 3}팀`, paymentStatus: ['결제대기', '결제승인', '매출취소', '부분취소'][i % 4] }));
+const ads = Array.from({ length: 10 }, (_, i) => ({ ...ad, id: i + 1, companyName: `테스트 광고주 ${i + 1}`, manager: accounts[1 + i % 3].name, department: accounts[1 + i % 3].department, team: `${1 + i % 3}팀`, paymentStatus: ['결제대기', '결제승인', '매출취소', '부분취소'][i % 4] }));
 const post = { id: 1, title: '9월 업무 일정 및 공지사항', boardType: 'notice', authorName: '디자인검증', authorTeam: '개발관리부', createdAt: '2026-09-01T03:00:00.000Z', viewCount: 27, canEdit: true, canDelete: true, content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: '9월 업무 일정 안내입니다. 광고 등록과 계약 정보를 확인해주세요.' }] }] } };
 const token = ['e30', Buffer.from(JSON.stringify({ ...actor, exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url'), 'test-only'].join('.');
 
@@ -113,6 +113,11 @@ const token = ['e30', Buffer.from(JSON.stringify({ ...actor, exp: Math.floor(Dat
       await page.setViewportSize({ width: 1440, height: 1000 });
       await page.goto(origin + url);
       await expect(page.locator(ready).first()).toBeVisible();
+      if (name === 'dashboard') {
+        await expect(page.locator('.dash_sales_table thead th').nth(9)).toHaveText('부서+팀');
+        await expect(page.locator('.dash_sales_table tbody tr').first().locator('td').nth(9)).toHaveText('1부서 / 1팀');
+        await expect(page.getByPlaceholder('상품명, 담당자, 부서, 팀 검색')).toBeVisible();
+      }
       await capture(name, 1440);
       if (name === 'ads') {
         const cdp = await context.newCDPSession(page);
