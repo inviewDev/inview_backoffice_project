@@ -13,7 +13,7 @@
 .admin_sidebar_logo { display: flex; height: 88px; align-items: center; justify-content: center; } 
 .admin_sidebar_logo img { display: block; width: 164px; height: auto; } 
 .admin_sidebar_nav { display: flex; flex-direction: column; padding-top: 40px; } 
-.admin_nav_item {display: flex;height: 50px;align-items: center;gap: 20px;padding: 0 20px;color: #fff;font-size: 17px;font-weight: 500;letter-spacing: 0;line-height: 20px;transition: background 0.18s ease, color 0.18s ease;border-radius: 8px;} 
+.admin_nav_item {display: flex;height: 50px;align-items: center;gap: 20px;padding: 0 20px;color: #fff;font-size: 17px;font-weight: 500;letter-spacing: 0;line-height: 20px;transition: background 0.18s ease, color 0.18s ease;} 
 .admin_nav_text {white-space: nowrap; transition: opacity 0.16s ease, width 0.16s ease; } 
 .admin_nav_item span{color:inherit; font-size:inherit;}
 .admin_nav_item img { width: 100%; max-width: 24px; height: 24px; flex: 0 0 auto; } 

@@ -24,7 +24,7 @@ body :is(button, input, select, textarea):disabled { cursor: not-allowed; }
 .admin_shell.sidebar_collapsed .admin_sidebar_toggle_hint { right: auto; left: calc(100% + 10px); bottom: 0; }
 .admin_shell .admin_sidebar_toggle:hover { border-color: #b8cef4; background: var(--ui-blue-soft); color: var(--ui-primary); box-shadow: none; transform: none; }
 .admin_shell .admin_sidebar_nav, .admin_shell.sidebar_collapsed .admin_sidebar_nav { gap: 4px; padding-top: 16px; }
-.admin_shell .admin_nav_item { height: 44px; gap: 12px; padding: 0 12px; border-radius: 6px; color: #505966; font-size: var(--ui-text-body); font-weight: 400; line-height: 20px; }
+.admin_shell .admin_nav_item { height: 44px; gap: 12px; padding: 0 12px; color: #505966; font-size: var(--ui-text-body); font-weight: 400; line-height: 20px; }
 .admin_shell .admin_nav_item img { max-width: 20px; height: 20px; filter: brightness(0) saturate(100%); opacity: 0.56; }
 .admin_shell .admin_nav_item:hover { background: var(--ui-soft); color: var(--ui-text); }
 .admin_shell .admin_nav_item.active, .admin_shell .admin_nav_item.active:hover { background: var(--ui-blue-soft); color: var(--ui-primary); font-weight: 700; box-shadow: inset 3px 0 var(--ui-primary); }
