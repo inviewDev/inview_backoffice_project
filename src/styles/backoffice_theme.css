@@ -75,8 +75,8 @@ body .form-check-input:checked { border-color: var(--ui-primary); background-col
 .admin_shell .userlist_table.table > tbody > tr > td { height: 52px; border: 1px solid var(--ui-border); background: #fff; color: #333b46; font-size: 13px; font-weight: 400; line-height: 1.5; }
 .admin_shell :is(.ad_manage_table, .dash_sales_table, .userlist_table) tbody tr:hover > td { background: #f7faff; }
 .admin_shell .ad_manage_table tbody tr.payment_approved > td, .admin_shell .dash_sales_table tbody tr.status_approved > td { background: #a8ffcb; border-color: #45ff8e; }
-.admin_shell .ad_manage_table tbody tr.payment_cancelled > td, .admin_shell .dash_sales_table tbody tr.status_cancel > td { background: #fff2f2; border-color: #f2dfdf; }
-.admin_shell .ad_manage_table tbody tr.payment_partial > td, .admin_shell .dash_sales_table tbody tr.status_partial > td { background: #f6f1fc; border-color: #e9dff2; }
+.admin_shell .ad_manage_table tbody tr.payment_cancelled > td, .admin_shell .dash_sales_table tbody tr.status_cancel > td {background: #ff81819e;border-color: #ff8c8c;}
+.admin_shell .ad_manage_table tbody tr.payment_partial > td, .admin_shell .dash_sales_table tbody tr.status_partial > td {background: #e2c9ff;border-color: #d2a0ff;}
 .admin_shell .ad_manage_table tbody tr.payment_approved > td:first-child, .admin_shell .dash_sales_table tbody tr.status_approved > td:first-child { box-shadow: inset 3px 0 #29a56a; }
 .admin_shell .ad_manage_table tbody tr.payment_cancelled > td:first-child, .admin_shell .dash_sales_table tbody tr.status_cancel > td:first-child { box-shadow: inset 3px 0 #dd6370; }
 .admin_shell .ad_manage_table tbody tr.payment_partial > td:first-child, .admin_shell .dash_sales_table tbody tr.status_partial > td:first-child { box-shadow: inset 3px 0 #9870be; }
