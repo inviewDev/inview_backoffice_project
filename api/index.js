@@ -7,6 +7,11 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { Resend } = require('resend');
 const { findPaymentsByStatusOrder } = require('./paymentStatusSort');
+const {
+  isExclusiveAdManager,
+  canDeleteAdPayment,
+  canManageAdComment,
+} = require('./restrictedPermissions');
 
 const SECRET = process.env.JWT_SECRET;
 const prisma = new PrismaClient();
@@ -497,10 +502,6 @@ function canEditAdPaymentStatus(user) {
   return isMasterAccount(user) || user?.canEditAdPaymentStatus === true;
 }
 
-function canDeleteAdPayment(user) {
-  return isMasterAccount(user) || user?.canDeleteAds === true;
-}
-
 function canWriteCommunityPosts(user) {
   return isMasterAccount(user) || user?.canWritePosts === true;
 }
@@ -755,7 +756,7 @@ function serializeAdComment(comment, currentUser) {
     content: comment.content,
     createdAt: comment.createdAt.toISOString(),
     updatedAt: comment.updatedAt.toISOString(),
-    canManage: comment.userId === currentUser.id || isAdminRole(currentUser.role),
+    canManage: canManageAdComment(currentUser),
   };
 }
 
@@ -2333,7 +2334,7 @@ apiRouter.patch('/ads/:adId/comments/:commentId', verifyToken, async (req, res) 
     if (existingComment.isAdminOnly && !canAccessAdminComments(currentUser)) {
       return res.status(403).json({ error: '관리자 댓글을 수정할 권한이 없습니다.' });
     }
-    if (existingComment.userId !== currentUser.id && !isAdminRole(currentUser.role)) {
+    if (!canManageAdComment(currentUser)) {
       return res.status(403).json({ error: '댓글을 수정할 권한이 없습니다.' });
     }
 
@@ -2409,7 +2410,7 @@ apiRouter.delete('/ads/:adId/comments/:commentId', verifyToken, async (req, res)
     if (existingComment.isAdminOnly && !canAccessAdminComments(currentUser)) {
       return res.status(403).json({ error: '관리자 댓글을 삭제할 권한이 없습니다.' });
     }
-    if (existingComment.userId !== currentUser.id && !isAdminRole(currentUser.role)) {
+    if (!canManageAdComment(currentUser)) {
       return res.status(403).json({ error: '댓글을 삭제할 권한이 없습니다.' });
     }
 
@@ -4288,8 +4289,8 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
     if (hasCanEditAdPaymentStatusInput && !isMasterAccount(actor)) {
       return res.status(403).json({ error: '결제상태 수정권한 설정은 마스터 계정만 변경할 수 있습니다.' });
     }
-    if (hasCanDeleteAdsInput && !isMasterAccount(actor)) {
-      return res.status(403).json({ error: '광고 삭제권한 설정은 마스터 계정만 변경할 수 있습니다.' });
+    if (hasCanDeleteAdsInput && canDeleteAds && !isExclusiveAdManager(targetUser)) {
+      return res.status(400).json({ error: '광고 삭제권한은 cchee 계정에만 부여할 수 있습니다.' });
     }
     if (hasCanWritePostsInput && !isMasterAccount(actor)) {
       return res.status(403).json({ error: '게시글 작성권한 설정은 마스터 계정만 변경할 수 있습니다.' });
@@ -4333,9 +4334,7 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
     if (hasCanEditAdPaymentStatusInput) {
       updateData.canEditAdPaymentStatus = isMasterAccount(targetUser) ? true : canEditAdPaymentStatusValue;
     }
-    if (hasCanDeleteAdsInput) {
-      updateData.canDeleteAds = isMasterAccount(targetUser) ? true : canDeleteAds;
-    }
+    updateData.canDeleteAds = isExclusiveAdManager(targetUser);
     if (hasCanWritePostsInput) {
       updateData.canWritePosts = isMasterAccount(targetUser) ? true : canWritePosts;
     }
