@@ -298,7 +298,7 @@ function ContractContent({ contract }) {
               <td>{contractPeriod}</td>
             </tr>
             <tr>
-              <th className="agreement_contract_section" scope="row" colSpan={4}>문의 / 담당</th>
+              <th className="agreement_contract_section" scope="row" colSpan={4}>담당자</th>
             </tr>
             <tr>
               <th scope="row">소속</th>
@@ -311,6 +311,15 @@ function ContractContent({ contract }) {
               <td>{contract.manager || '-'}</td>
               <th scope="row">E-mail</th>
               <td>{contract.managerEmail || '-'}</td>
+            </tr>
+            <tr>
+              <th className="agreement_contract_section" scope="row" colSpan={4}>담당팀장</th>
+            </tr>
+            <tr>
+              <th scope="row">담당팀장</th>
+              <td>{contract.teamLeadName || '-'}</td>
+              <th scope="row">직통번호</th>
+              <td>{contract.teamLeadPhone || '-'}</td>
             </tr>
           </tbody>
         </table>
@@ -379,6 +388,8 @@ function mapAdToContract(ad) {
     manager: ad.manager || '',
     managerPhone: ad.managerPhone || '',
     managerEmail: ad.managerEmail || '',
+    teamLeadName: ad.teamLeadName || '',
+    teamLeadPhone: ad.teamLeadPhone || '',
     memo: ad.memo || '',
     productItems: productItems.length
       ? productItems

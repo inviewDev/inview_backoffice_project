@@ -12,6 +12,10 @@ const {
   canDeleteAdPayment,
   canManageAdComment,
 } = require('./restrictedPermissions');
+const {
+  TEAM_DEPARTMENT_MAPPING: teamDepartmentMapping,
+  findAgreementTeamLead,
+} = require('./agreementTeamLead');
 
 const SECRET = process.env.JWT_SECRET;
 const prisma = new PrismaClient();
@@ -262,7 +266,7 @@ function getClientIp(req) {
   return req.socket?.remoteAddress || req.ip || '';
 }
 
-function mapPaymentToAgreement(payment) {
+function mapPaymentToAgreement(payment, teamLead = {}) {
   const productItems = getPaymentProductItems(payment);
 
   return {
@@ -291,6 +295,8 @@ function mapPaymentToAgreement(payment) {
     manager: payment.manager || payment.user?.name || '',
     managerPhone: payment.user?.officePhoneNumber || payment.user?.phoneNumber || '',
     managerEmail: payment.user?.email || '',
+    teamLeadName: teamLead.teamLeadName || '',
+    teamLeadPhone: teamLead.teamLeadPhone || '',
     memo: payment.memo || '',
     productItems: productItems.length
       ? productItems
@@ -795,16 +801,6 @@ async function verifyMasterRole(req, res, next) {
     res.status(500).json({ error: '권한 확인 중 오류가 발생했습니다.' });
   }
 }
-
-const teamDepartmentMapping = {
-  '1팀': '1부서',
-  '3팀': '1부서',
-  '4팀': '1부서',
-  '2팀': '2부서',
-  '5팀': '2부서',
-  '6팀': '2부서',
-  '개발관리부': '운영부서',
-};
 
 function getTeamsByDepartment(department) {
   const targetDepartment = String(department || '').trim();
@@ -1928,11 +1924,13 @@ apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
       { id: 'desc' },
     ];
     const [
+      teamLead,
       publicCommentTotal,
       publicComments,
       adminCommentTotal,
       adminComments,
     ] = await Promise.all([
+      findAgreementTeamLead(payment, prisma.user),
       prisma.adComment.count({
         where: { paymentId: payment.id, isAdminOnly: false },
       }),
@@ -1966,6 +1964,8 @@ apiRouter.get('/ads/:id', verifyToken, async (req, res) => {
         department: payment.user?.department || '',
         managerPhone: payment.user?.officePhoneNumber || payment.user?.phoneNumber || '',
         managerEmail: payment.user?.email || '',
+        teamLeadName: teamLead.teamLeadName,
+        teamLeadPhone: teamLead.teamLeadPhone,
         companyName: payment.company?.companyName || '',
         ceoName: payment.company?.ceoName || '',
         businessRegNumber: payment.company?.businessRegNumber || '',
@@ -3064,6 +3064,7 @@ apiRouter.get('/agreements/:token', async (req, res) => {
                 email: true,
                 name: true,
                 team: true,
+                department: true,
                 phoneNumber: true,
                 officePhoneNumber: true,
               },
@@ -3082,12 +3083,14 @@ apiRouter.get('/agreements/:token', async (req, res) => {
       return res.status(410).json({ error: '만료된 계약서 링크입니다.' });
     }
 
+    const teamLead = await findAgreementTeamLead(consentToken.payment, prisma.user);
+
     res.json({
       token: consentToken.token,
       isAgreed: isAlreadyAgreed,
       agreedAt: consentToken.usedAt ? consentToken.usedAt.toISOString() : null,
       expiresAt: consentToken.expiresAt.toISOString(),
-      contract: mapPaymentToAgreement(consentToken.payment),
+      contract: mapPaymentToAgreement(consentToken.payment, teamLead),
     });
   } catch (error) {
     console.error('Get agreement error:', error);
