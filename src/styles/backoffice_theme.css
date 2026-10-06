@@ -65,12 +65,11 @@ body .btn-primary { --bs-btn-bg: var(--ui-primary); --bs-btn-border-color: var(-
 body .form-check-input:checked { border-color: var(--ui-primary); background-color: var(--ui-primary); }
 .admin_shell .userlist_table .form-check-input:checked, .admin_shell .account_settings .form-check-input:checked { border-color: var(--ui-primary); background-color: var(--ui-primary); }
 
-/* One table treatment across ads, reports and staff. Keep widths and scrolling. */
 .admin_shell :is(.ad_manage_table, .dash_sales_table, .userlist_table) { border-collapse: collapse; }
 .admin_shell :is(.ad_manage_table, .dash_sales_table, .userlist_table) thead th,
 .admin_shell .userlist_table.table > thead > tr > th { height: 44px; border: 1px solid var(--ui-border); border-radius: 0; background: #f8f9fb; color: #46505e; font-size: 12px; font-weight: 700; }
 .admin_shell .personal_sales_table th button { height: 44px; padding: 0 10px; background: transparent; color: #46505e; font-size: 12px; font-weight: 700; }
-.admin_shell :is(.ad_manage_sort, .userlist_sort_mark) { color: #8b949f; }
+.admin_shell :is(.ad_manage_sort, .userlist_sort_mark) {display:none;}
 .admin_shell :is(.ad_manage_table, .dash_sales_table, .userlist_table) tbody td,
 .admin_shell .userlist_table.table > tbody > tr > td { height: 52px; border: 1px solid var(--ui-border); background: #fff; color: #333b46; font-size: 13px; font-weight: 400; line-height: 1.5; }
 .admin_shell :is(.ad_manage_table, .dash_sales_table, .userlist_table) tbody tr:hover > td { background: #f7faff; }

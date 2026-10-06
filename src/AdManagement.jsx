@@ -23,6 +23,13 @@ const DEFAULT_PAGINATION = {
   pageIndex: 0,
   pageSize: 10,
 };
+const PAYMENT_STATUS_SORT_SEQUENCE = ['결제대기', '결제승인', '매출취소', '위약금'];
+const PAYMENT_STATUS_SORT_LABELS = {
+  결제대기: '대기',
+  결제승인: '승인',
+  매출취소: '취소',
+  위약금: '부분취소',
+};
 
 function getAdManagementStateKey(userId) {
   return `${AD_MANAGEMENT_STATE_KEY}:${userId || 'anonymous'}`;
@@ -36,12 +43,20 @@ function readAdManagementState(userId) {
       ? Number(cached.pagination.pageSize)
       : DEFAULT_PAGINATION.pageSize;
 
+    const statusPriority = PAYMENT_STATUS_SORT_SEQUENCE.includes(cached.statusPriority)
+      ? cached.statusPriority
+      : '';
+    const cachedSorting = Array.isArray(cached.sorting) && cached.sorting.length > 0
+      ? cached.sorting.slice(0, 1)
+      : DEFAULT_SORTING;
+
     return {
       query: typeof cached.query === 'string' ? cached.query : '',
       globalFilter: typeof cached.globalFilter === 'string' ? cached.globalFilter : '',
-      sorting: Array.isArray(cached.sorting) && cached.sorting.length > 0
-        ? cached.sorting.slice(0, 1)
-        : DEFAULT_SORTING,
+      sorting: cachedSorting[0]?.id === 'paymentStatus' && !statusPriority
+        ? DEFAULT_SORTING
+        : cachedSorting,
+      statusPriority,
       pagination: {
         pageIndex,
         pageSize,
@@ -52,6 +67,7 @@ function readAdManagementState(userId) {
       query: '',
       globalFilter: '',
       sorting: DEFAULT_SORTING,
+      statusPriority: '',
       pagination: DEFAULT_PAGINATION,
     };
   }
@@ -132,6 +148,7 @@ function AdManagement({ user }) {
   const [query, setQuery] = useState(initialListState.query);
   const [globalFilter, setGlobalFilter] = useState(initialListState.globalFilter);
   const [sorting, setSorting] = useState(initialListState.sorting);
+  const [statusPriority, setStatusPriority] = useState(initialListState.statusPriority);
   const [pagination, setPagination] = useState(initialListState.pagination);
   const [totalCount, setTotalCount] = useState(0);
   const [pageCount, setPageCount] = useState(1);
@@ -146,13 +163,14 @@ function AdManagement({ user }) {
           query,
           globalFilter,
           sorting,
+          statusPriority,
           pagination,
         })
       );
     } catch (cacheError) {
       console.warn('Save ad management list state error:', cacheError);
     }
-  }, [globalFilter, pagination, query, sorting, user?.id]);
+  }, [globalFilter, pagination, query, sorting, statusPriority, user?.id]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -173,6 +191,9 @@ function AdManagement({ user }) {
         if (activeSort) {
           params.set('sortBy', activeSort.id);
           params.set('sortOrder', activeSort.desc ? 'desc' : 'asc');
+        }
+        if (activeSort?.id === 'paymentStatus' && statusPriority) {
+          params.set('statusPriority', statusPriority);
         }
 
         const res = await fetch(`/api/ads?${params.toString()}`, {
@@ -203,7 +224,21 @@ function AdManagement({ user }) {
 
     fetchAds();
     return () => controller.abort();
-  }, [globalFilter, pagination.pageIndex, pagination.pageSize, sorting]);
+  }, [globalFilter, pagination.pageIndex, pagination.pageSize, sorting, statusPriority]);
+
+  const handleHeaderSort = (header, event) => {
+    if (header.column.id !== 'paymentStatus') {
+      setStatusPriority('');
+      header.column.getToggleSortingHandler()?.(event);
+      return;
+    }
+
+    const currentIndex = PAYMENT_STATUS_SORT_SEQUENCE.indexOf(statusPriority);
+    const nextPriority = PAYMENT_STATUS_SORT_SEQUENCE[currentIndex + 1] || '';
+    setStatusPriority(nextPriority);
+    setSorting(nextPriority ? [{ id: 'paymentStatus', desc: false }] : DEFAULT_SORTING);
+    setPagination(prev => ({ ...prev, pageIndex: 0 }));
+  };
 
   const table = useReactTable({
     data: ads,
@@ -294,12 +329,21 @@ function AdManagement({ user }) {
                         <th
                           key={header.id}
                           style={{ width: header.getSize() }}
-                          onClick={header.column.getToggleSortingHandler()}
+                          onClick={event => handleHeaderSort(header, event)}
                           className={header.column.getCanSort() ? 'sortable' : ''}
+                          title={header.column.id === 'paymentStatus'
+                            ? '클릭할 때마다 결제 상태 우선순위가 변경됩니다.'
+                            : undefined}
                         >
                           {flexRender(header.column.columnDef.header, header.getContext())}
-                          {header.column.getIsSorted() === 'asc' && <span className="ad_manage_sort">▲</span>}
-                          {header.column.getIsSorted() === 'desc' && <span className="ad_manage_sort">▼</span>}
+                          {header.column.id === 'paymentStatus' && statusPriority ? (
+                            <span className="ad_manage_sort">{PAYMENT_STATUS_SORT_LABELS[statusPriority]}</span>
+                          ) : (
+                            <>
+                              {header.column.getIsSorted() === 'asc' && <span className="ad_manage_sort">▲</span>}
+                              {header.column.getIsSorted() === 'desc' && <span className="ad_manage_sort">▼</span>}
+                            </>
+                          )}
                         </th>
                       ))}
                     </tr>

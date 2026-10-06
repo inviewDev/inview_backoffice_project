@@ -20,6 +20,7 @@ const token = ['e30', Buffer.from(JSON.stringify({ ...actor, exp: Math.floor(Dat
   const errors = [];
   const unexpected = [];
   const results = [];
+  const adListQueries = [];
   try {
     const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
     await context.addInitScript(value => localStorage.setItem('access_token', value), token);
@@ -39,7 +40,10 @@ const token = ['e30', Buffer.from(JSON.stringify({ ...actor, exp: Math.floor(Dat
         case '/api/users/pending': json = []; break;
         case '/api/users/sales-permissions': json = { ready: true, permissions: [] }; break;
         case '/api/staff-options': json = { staff: accounts }; break;
-        case '/api/ads': json = { ads, total: 24, pageCount: 3 }; break;
+        case '/api/ads':
+          adListQueries.push(Object.fromEntries(url.searchParams));
+          json = { ads, total: 24, pageCount: 3 };
+          break;
         case '/api/ads/1': json = { ad }; break;
         case '/api/community/posts': json = { posts: [post, { ...post, id: 2, title: '광고 운영 및 정산 안내' }], pagination: { total: 2, totalPages: 1 }, permissions: { canWrite: true } }; break;
         case '/api/community/posts/1': json = { post }; break;
@@ -120,6 +124,22 @@ const token = ['e30', Buffer.from(JSON.stringify({ ...actor, exp: Math.floor(Dat
       }
       await capture(name, 1440);
       if (name === 'ads') {
+        const statusHeader = page.locator('.ad_manage_table thead th').nth(18);
+        for (const [status, label] of [
+          ['결제대기', '대기'],
+          ['결제승인', '승인'],
+          ['매출취소', '취소'],
+          ['위약금', '부분취소'],
+        ]) {
+          await statusHeader.click();
+          await expect(statusHeader.locator('.ad_manage_sort')).toHaveText(label);
+          await expect.poll(() => adListQueries.at(-1)?.statusPriority).toBe(status);
+        }
+        await statusHeader.click();
+        await expect(statusHeader.locator('.ad_manage_sort')).toHaveText('▼');
+        await expect.poll(() => adListQueries.at(-1)?.sortBy).toBe('createdAt');
+        assert.equal(adListQueries.at(-1)?.statusPriority, undefined);
+
         const cdp = await context.newCDPSession(page);
         await cdp.send('DOM.enable');
         await cdp.send('CSS.enable');

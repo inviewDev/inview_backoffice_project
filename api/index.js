@@ -6,6 +6,7 @@ const { PrismaClient } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { Resend } = require('resend');
+const { findPaymentsByStatusOrder } = require('./paymentStatusSort');
 
 const SECRET = process.env.JWT_SECRET;
 const prisma = new PrismaClient();
@@ -1664,6 +1665,7 @@ apiRouter.get('/ads', verifyToken, async (req, res) => {
   const search = String(req.query.search || '').trim();
   const sortBy = String(req.query.sortBy || 'createdAt');
   const sortOrder = req.query.sortOrder === 'asc' ? 'asc' : 'desc';
+  const statusPriority = String(req.query.statusPriority || '');
 
   try {
     const currentUser = await getCurrentUserAccess(req.user.id);
@@ -1722,7 +1724,6 @@ apiRouter.get('/ads', verifyToken, async (req, res) => {
       'netProfit',
       'paymentMethod',
       'cardCompany',
-      'paymentStatus',
       'production1',
       'production2',
       'adProgress',
@@ -1797,10 +1798,24 @@ apiRouter.get('/ads', verifyToken, async (req, res) => {
       paymentQuery.take = pageSize;
     }
 
-    const [total, payments] = await prisma.$transaction([
-      prisma.payment.count({ where }),
-      prisma.payment.findMany(paymentQuery),
-    ]);
+    let total;
+    let payments;
+    if (sortBy === 'paymentStatus') {
+      ({ total, payments } = await findPaymentsByStatusOrder({
+        paymentModel: prisma.payment,
+        where,
+        select: paymentQuery.select,
+        direction: sortOrder,
+        priorityStatus: statusPriority,
+        skip: isPaginatedRequest ? (page - 1) * pageSize : 0,
+        take: isPaginatedRequest ? pageSize : undefined,
+      }));
+    } else {
+      [total, payments] = await prisma.$transaction([
+        prisma.payment.count({ where }),
+        prisma.payment.findMany(paymentQuery),
+      ]);
+    }
 
     const ads = payments.map(payment => ({
       id: payment.id,
