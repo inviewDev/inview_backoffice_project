@@ -281,9 +281,22 @@ body .form-check-input:checked { border-color: var(--ui-primary); background-col
   .admin_shell .dash_profile_stats { gap: 8px; margin-top: 14px; padding-top: 14px; }
   .admin_shell .dash_profile_stats :is(dt, dd) { min-height: 36px; padding: 0 12px; }
   .admin_shell .dash_year_card { min-height: 256px; padding: 10px 24px 10px 100px; }
+  .admin_shell .dash_line_chart { display: grid; height: 234px; grid-template-rows: 206px 28px; }
+  .admin_shell .dash_line_chart svg { height: 100%; }
+  .admin_shell .dash_month_axis { height: 28px; }
   .admin_shell .dashboard_middle_grid { margin-top: 20px; }
   .admin_shell :is(.dash_bar_section, .dash_notice_section, .dash_calendar_section) { height: 306px; }
   .admin_shell .dash_bar_panel { height: 272px; padding: 20px 24px 20px 20px; }
+  .admin_shell .dash_bar_items, .admin_shell .dash_bar_item { height: 232px; }
+  .admin_shell .dash_bar_track { height: 208px; }
+  .admin_shell .dash_bar { height: calc(var(--bar-height-ratio, 0) * 202px); }
+  .admin_shell .dash_bar_label { height: 24px; padding-top: 6px; }
+  .admin_shell .dash_bar_scale { padding-bottom: 14px; }
+  .admin_shell .dash_bar_grid:nth-child(2) { top: 52px; }
+  .admin_shell .dash_bar_grid:nth-child(3) { top: 104px; }
+  .admin_shell .dash_bar_grid:nth-child(4) { top: 156px; }
+  .admin_shell .dash_bar_grid:nth-child(5) { top: 208px; }
+  .admin_shell .dash_empty_chart { bottom: 24px; }
   .admin_shell :is(.dash_notice_panel, .dash_calendar_panel) { height: 272px; padding: 16px; }
   .admin_shell .dash_notice_row { min-height: 38px; padding: 0 10px; gap: 8px; }
   .admin_shell .dash_notice_head { min-height: 36px; padding: 0 10px; gap: 8px; font-size: var(--ui-text-caption); }

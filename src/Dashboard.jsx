@@ -264,10 +264,10 @@ function getNiceScaleMax(values) {
 function MiniLineChart({ series, yearOptions, selectedYears, onYearToggle }) {
   const chartRef = useRef(null);
   const [hoveredPoint, setHoveredPoint] = useState(null);
-  const [renderWidth, setRenderWidth] = useState(910);
+  const [renderSize, setRenderSize] = useState({ width: 910, height: 186 });
   const maxValue = getMaxValue(series.flatMap(item => item.values));
-  const width = renderWidth;
-  const height = 186;
+  const width = renderSize.width;
+  const height = renderSize.height;
   const isCompactChart = width < 600;
   const left = isCompactChart ? 20 : 44;
   const right = isCompactChart ? 20 : 44;
@@ -305,14 +305,18 @@ function MiniLineChart({ series, yearOptions, selectedYears, onYearToggle }) {
     const chartElement = chartRef.current;
     if (!chartElement) return undefined;
 
-    const updateWidth = () => {
+    const updateSize = () => {
       const nextWidth = Math.max(Math.round(chartElement.getBoundingClientRect().width), 240);
-      setRenderWidth(currentWidth => currentWidth === nextWidth ? currentWidth : nextWidth);
+      const nextHeight = Math.max(Math.round(chartElement.querySelector('svg').getBoundingClientRect().height), 120);
+      setRenderSize(current => current.width === nextWidth && current.height === nextHeight
+        ? current
+        : { width: nextWidth, height: nextHeight });
     };
 
-    updateWidth();
-    const resizeObserver = new ResizeObserver(updateWidth);
+    updateSize();
+    const resizeObserver = new ResizeObserver(updateSize);
     resizeObserver.observe(chartElement);
+    resizeObserver.observe(chartElement.querySelector('svg'));
 
     return () => resizeObserver.disconnect();
   }, []);
@@ -457,6 +461,7 @@ function TopBarChart({ title, values, color }) {
                       <span
                         className={`dash_bar ${color === 'blue' ? 'blue' : 'pink'}`}
                         style={{
+                          '--bar-height-ratio': heightRatio,
                           '--bar-height': `${heightRatio * 178}px`,
                           '--bar-height-mobile': `${Math.max(heightRatio * 125, 4)}px`,
                         }}
