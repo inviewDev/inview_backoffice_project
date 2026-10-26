@@ -11,7 +11,7 @@ const departments = { '1팀': '1부서', '3팀': '1부서', '4팀': '1부서', '
 const roles = ['전체관리자', '관리자', '팀장', '사용자'];
 const scopes = [['own', '본인 광고만'], ['team', '소속팀 광고'], ['department', '소속부서 광고'], ['all', '전체 광고']];
 const permissionFields = [['canEditAds', '광고상품 수정'], ['canEditAdPaymentStatus', '결제상태 수정'], ['canWritePosts', '게시글 작성'], ['canViewTeamSales', '팀별 매출 통계 열람']];
-const isRoot = user => ['cchee', 'cchee@gmail.com'].includes(String(user?.email || '').trim().toLowerCase());
+const isRoot = user => ['cchee', 'cchee@gmail.com'].includes(user?.email);
 const accountForm = user => ({
   loginId: user.email, team: user.level === '대표' ? '대표' : user.team,
   role: user.role, adVisibilityScope: isRoot(user) ? 'all' : user.adVisibilityScope || 'own',

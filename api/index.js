@@ -5,9 +5,10 @@ const bcrypt = require('bcrypt');
 const { PrismaClient } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { Resend } = require('resend');
 const { findPaymentsByStatusOrder } = require('./paymentStatusSort');
 const {
+  isMasterAccount,
+  isReservedMasterLoginId,
   isExclusiveAdManager,
   canDeleteAdPayment,
   canManageAdComment,
@@ -21,7 +22,6 @@ const SECRET = process.env.JWT_SECRET;
 const prisma = new PrismaClient();
 const app = express();
 const apiRouter = express.Router();
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 app.use(express.json({ limit: '8mb' }));
 
@@ -42,7 +42,6 @@ const ROLE_OPTIONS = ['전체관리자', '관리자', '팀장', '사용자'];
 const STATUS_OPTIONS = ['가입대기', '재직', '퇴사'];
 const LEVEL_OPTIONS = ['대표', '파트장', '팀장', '과장', '대리', '주임', '사원'];
 const ADMIN_COMMENT_LEVELS = new Set(['대표', '파트장', '팀장']);
-const MASTER_LOGIN_IDS = new Set(['cchee', 'cchee@gmail.com']);
 const AD_VISIBILITY_SCOPE_OPTIONS = ['own', 'team', 'department', 'all'];
 const COMMUNITY_BOARD_TYPES = new Set(['notice', 'board']);
 const COMMUNITY_POST_TITLE_MAX_LENGTH = 200;
@@ -60,10 +59,6 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 function isAdminRole(role) {
   return role === '전체관리자' || role === '관리자';
-}
-
-function isMasterAccount(user) {
-  return MASTER_LOGIN_IDS.has(String(user?.email || '').trim().toLowerCase());
 }
 
 function normalizeAdVisibilityScope(scope) {
@@ -104,10 +99,6 @@ function validateProfileImageDataUrl(profileImage) {
   }
 
   return { value: profileImage };
-}
-
-function hashResetToken(token) {
-  return crypto.createHash('sha256').update(token).digest('hex');
 }
 
 function toOptionalString(value) {
@@ -420,55 +411,45 @@ async function sendNiceSms({ phoneNumber, message, subject }) {
   return { resultCode: 'OK', resultText };
 }
 
-async function sendPasswordResetEmail({ to, name, resetUrl }) {
-  const from = process.env.RESEND_FROM_EMAIL;
-
-  if (!resend || !from) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('메일 발송 설정이 필요합니다.');
-    }
-    console.warn(`Password reset email is not configured. Reset URL for ${to}: ${resetUrl}`);
-    return { configured: false };
-  }
-
-  const { error } = await resend.emails.send({
-    from,
-    to,
-    subject: '[아이앤뷰 백오피스] 비밀번호 재설정 안내',
-    html: `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #222;">
-        <h2>비밀번호 재설정</h2>
-        <p>${name || '사용자'}님, 비밀번호 재설정을 요청하셨습니다.</p>
-        <p>아래 버튼을 눌러 30분 안에 새 비밀번호를 설정해주세요.</p>
-        <p>
-          <a href="${resetUrl}" style="display:inline-block;padding:12px 18px;background:#ff2174;color:#fff;text-decoration:none;border-radius:4px;">
-            비밀번호 재설정
-          </a>
-        </p>
-        <p>버튼이 열리지 않으면 아래 주소를 브라우저에 붙여넣어 주세요.</p>
-        <p style="word-break: break-all;">${resetUrl}</p>
-        <p>요청하지 않았다면 이 메일은 무시하셔도 됩니다.</p>
-      </div>
-    `,
-  });
-
-  if (error) {
-    throw new Error(error.message || '메일 발송에 실패했습니다.');
-  }
-
-  return { configured: true };
-}
-
-function verifyToken(req, res, next) {
+async function verifyToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
   if (!token) return res.status(401).json({ error: '토큰이 필요합니다.' });
 
-  jwt.verify(token, SECRET, (err, decoded) => {
-    if (err) return res.status(403).json({ error: '유효하지 않은 토큰입니다.' });
-    req.user = decoded;
+  let decoded;
+  try {
+    decoded = jwt.verify(token, SECRET);
+    if (!Number.isInteger(decoded?.id) || decoded.id <= 0) {
+      return res.status(403).json({ error: '유효하지 않은 토큰입니다.' });
+    }
+  } catch {
+    return res.status(403).json({ error: '유효하지 않은 토큰입니다.' });
+  }
+
+  try {
+    const account = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        level: true,
+        team: true,
+        department: true,
+        status: true,
+      },
+    });
+    if (!account || account.status !== '재직') {
+      return res.status(401).json({ error: '재직 중인 승인된 계정만 이용할 수 있습니다.' });
+    }
+
+    req.user = { ...decoded, ...account };
     next();
-  });
+  } catch (error) {
+    console.error('Verify account status error:', error);
+    res.status(500).json({ error: '사용자 인증 상태를 확인하지 못했습니다.' });
+  }
 }
 
 async function getCurrentUserRole(userId) {
@@ -865,11 +846,14 @@ apiRouter.get('/me', verifyToken, async (req, res) => {
 
 apiRouter.post('/signup', async (req, res) => {
   try {
-    const { password, name, team, level, phoneNumber, birthDate } = req.body;
+    const { password, name, team, phoneNumber, birthDate } = req.body;
     const loginId = String(req.body.loginId || req.body.email || '').trim();
 
     if (!loginId || !password || !name || !team || !phoneNumber || !birthDate) {
       return res.status(400).json({ error: '아이디, 비밀번호, 이름, 소속팀, 휴대전화번호, 생년월일은 필수입니다.' });
+    }
+    if (isReservedMasterLoginId(loginId)) {
+      return res.status(400).json({ error: '마스터 계정 아이디는 사용할 수 없습니다.' });
     }
     if (/\s/.test(loginId)) {
       return res.status(400).json({ error: '아이디에는 공백을 사용할 수 없습니다.' });
@@ -892,35 +876,12 @@ apiRouter.post('/signup', async (req, res) => {
         department: mappedDepartment,
         role: '사용자',
         status: '가입대기',
-        level: level || '사원',
+        level: '사원',
         phoneNumber,
         birthDate: new Date(birthDate),
         officePhoneNumber: null,
       },
     });
-
-    const token = jwt.sign(
-      {
-        id: newUser.id,
-        email: newUser.email,
-        name: newUser.name,
-        role: newUser.role,
-        level: newUser.level,
-        team: newUser.team,
-        department: newUser.department,
-        phoneNumber: newUser.phoneNumber,
-        birthDate: newUser.birthDate.toISOString(),
-        officePhoneNumber: newUser.officePhoneNumber,
-        profileImage: newUser.profileImage || '',
-        adVisibilityScope: normalizeAdVisibilityScope(newUser.adVisibilityScope),
-        canEditAds: Boolean(newUser.canEditAds),
-        canEditAdPaymentStatus: Boolean(newUser.canEditAdPaymentStatus),
-        canDeleteAds: Boolean(newUser.canDeleteAds),
-        canWritePosts: Boolean(newUser.canWritePosts),
-      },
-      SECRET,
-      { expiresIn: ACCESS_TOKEN_EXPIRES_IN }
-    );
 
     res.status(201).json({
       message: '회원가입 신청이 완료되었습니다. 관리자 승인을 기다려 주세요.',
@@ -943,7 +904,6 @@ apiRouter.post('/signup', async (req, res) => {
         canDeleteAds: Boolean(newUser.canDeleteAds),
         canWritePosts: Boolean(newUser.canWritePosts),
       },
-      token,
     });
   } catch (error) {
     console.error('Signup error:', error);
@@ -1018,120 +978,25 @@ apiRouter.post('/login', async (req, res) => {
   }
 });
 
-apiRouter.post('/password-reset/request', async (req, res) => {
-  const { email } = req.body;
-  const genericMessage = '가입된 이메일이라면 비밀번호 재설정 링크를 발송했습니다.';
+const ADMIN_PASSWORD_RESET_MESSAGE = '비밀번호 초기화는 관리자가 진행합니다. 관리자에게 아이디를 전달하여 초기화를 요청해주세요.';
 
-  if (!email) {
-    return res.status(400).json({ error: '이메일을 입력해주세요.' });
+apiRouter.post('/password-reset/request', (req, res) => {
+  const loginId = String(req.body.loginId || req.body.email || '').trim();
+  if (!loginId) {
+    return res.status(400).json({ error: '아이디를 입력해주세요.' });
   }
 
-  try {
-    const user = await prisma.user.findUnique({
-      where: { email },
-      select: { id: true, email: true, name: true },
-    });
-
-    if (!user) {
-      return res.json({ message: genericMessage });
-    }
-
-    const token = crypto.randomBytes(32).toString('hex');
-    const tokenHash = hashResetToken(token);
-    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
-    const resetUrl = `${getAppUrl(req).replace(/\/$/, '')}/reset-password?token=${token}`;
-
-    await prisma.$transaction([
-      prisma.passwordResetToken.updateMany({
-        where: {
-          userId: user.id,
-          usedAt: null,
-        },
-        data: { usedAt: new Date() },
-      }),
-      prisma.passwordResetToken.create({
-        data: {
-          userId: user.id,
-          tokenHash,
-          expiresAt,
-        },
-      }),
-    ]);
-
-    let emailResult;
-    try {
-      emailResult = await sendPasswordResetEmail({
-        to: user.email,
-        name: user.name,
-        resetUrl,
-      });
-    } catch (emailError) {
-      console.error('Password reset email error:', emailError);
-      return res.status(500).json({ error: '비밀번호 재설정 메일 발송에 실패했습니다. 관리자에게 문의해주세요.' });
-    }
-
-    const response = { message: genericMessage };
-    if (!emailResult.configured && process.env.NODE_ENV !== 'production') {
-      response.devResetUrl = resetUrl;
-    }
-    res.json(response);
-  } catch (error) {
-    console.error('Password reset request error:', error);
-    res.status(500).json({ error: '비밀번호 재설정 요청 중 오류가 발생했습니다.' });
-  }
+  res.json({
+    message: ADMIN_PASSWORD_RESET_MESSAGE,
+    recoveryMethod: 'admin',
+  });
 });
 
-apiRouter.post('/password-reset/confirm', async (req, res) => {
-  const { token, password } = req.body;
-
-  if (!token || !password) {
-    return res.status(400).json({ error: '토큰과 새 비밀번호가 필요합니다.' });
-  }
-  if (password.length < 8 || !/[!@#$%^&*]/.test(password)) {
-    return res.status(400).json({ error: '비밀번호는 8자 이상이며 특수문자를 포함해야 합니다.' });
-  }
-
-  try {
-    const tokenHash = hashResetToken(token);
-    const resetToken = await prisma.passwordResetToken.findUnique({
-      where: { tokenHash },
-      select: {
-        id: true,
-        userId: true,
-        expiresAt: true,
-        usedAt: true,
-      },
-    });
-
-    if (!resetToken || resetToken.usedAt || resetToken.expiresAt < new Date()) {
-      return res.status(400).json({ error: '유효하지 않거나 만료된 재설정 링크입니다.' });
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: resetToken.userId },
-        data: { passwordHash },
-      }),
-      prisma.passwordResetToken.update({
-        where: { id: resetToken.id },
-        data: { usedAt: new Date() },
-      }),
-      prisma.passwordResetToken.updateMany({
-        where: {
-          userId: resetToken.userId,
-          usedAt: null,
-          id: { not: resetToken.id },
-        },
-        data: { usedAt: new Date() },
-      }),
-    ]);
-
-    res.json({ message: '비밀번호가 재설정되었습니다. 새 비밀번호로 로그인해주세요.' });
-  } catch (error) {
-    console.error('Password reset confirm error:', error);
-    res.status(500).json({ error: '비밀번호 재설정 중 오류가 발생했습니다.' });
-  }
+apiRouter.post('/password-reset/confirm', (_req, res) => {
+  res.status(410).json({
+    error: ADMIN_PASSWORD_RESET_MESSAGE,
+    recoveryMethod: 'admin',
+  });
 });
 
 apiRouter.patch('/users/:id', verifyToken, async (req, res) => {
@@ -1149,6 +1014,10 @@ apiRouter.patch('/users/:id', verifyToken, async (req, res) => {
       const loginId = String(requestedLoginId).trim();
       if (!loginId) {
         return res.status(400).json({ error: '아이디를 입력해주세요.' });
+      }
+      if ((isMasterAccount(req.user) && loginId !== req.user.email)
+        || (isReservedMasterLoginId(loginId) && loginId !== req.user.email)) {
+        return res.status(400).json({ error: '마스터 계정 아이디는 변경하거나 다른 계정에 지정할 수 없습니다.' });
       }
       if (!/^[A-Za-z0-9]+$/.test(loginId)) {
         return res.status(400).json({ error: '아이디는 영문과 숫자만 사용할 수 있습니다.' });
@@ -4277,7 +4146,7 @@ apiRouter.patch('/users/:id/account-settings', verifyToken, verifyMasterRole, as
       return res.status(403).json({ error: '마스터 계정은 마스터만 변경할 수 있습니다.' });
     }
     if ((isMasterAccount(targetUser) && loginId !== targetUser.email)
-      || (!isMasterAccount(targetUser) && isMasterAccount({ email: loginId }))) {
+      || (!isMasterAccount(targetUser) && isReservedMasterLoginId(loginId))) {
       return res.status(400).json({ error: '마스터 계정 아이디는 변경하거나 다른 계정에 지정할 수 없습니다.' });
     }
     if (hasTeamSalesInput && !isMasterAccount(actor)) {
