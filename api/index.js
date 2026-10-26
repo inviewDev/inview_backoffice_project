@@ -6,6 +6,7 @@ const { PrismaClient } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { findPaymentsByStatusOrder } = require('./paymentStatusSort');
+const { createRoomUsageRouter } = require('./roomUsage');
 const {
   isMasterAccount,
   isReservedMasterLoginId,
@@ -4529,6 +4530,8 @@ apiRouter.get('/users', verifyToken, verifyAdminRole, async (req, res) => {
     res.status(500).json({ error: '서버 오류가 발생했습니다.' });
   }
 });
+
+apiRouter.use('/rooms', verifyToken, createRoomUsageRouter(prisma));
 
 app.use('/api', apiRouter);
 

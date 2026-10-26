@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Spinner } from 'react-bootstrap';
-import { Calendar, momentLocalizer } from 'react-big-calendar';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -11,28 +10,10 @@ import {
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { ko } from 'date-fns/locale';
-import moment from 'moment';
-import 'moment/locale/ko';
-import 'react-big-calendar/lib/css/react-big-calendar.css';
 import TablePagination from './components/TablePagination';
+import RoomUsage from './components/RoomUsage';
 import './styles/dashboard.css';
 import './styles/date_select_picker.css';
-
-moment.locale('ko');
-const localizer = momentLocalizer(moment);
-
-const calendar_events = [
-  {
-    title: '팀 미팅',
-    start: new Date(2025, 8, 10, 10, 0),
-    end: new Date(2025, 8, 10, 11, 0),
-  },
-  {
-    title: '프로젝트 검토',
-    start: new Date(2025, 8, 12, 14, 0),
-    end: new Date(2025, 8, 12, 15, 30),
-  },
-];
 
 const months = ['01월', '02월', '03월', '04월', '05월', '06월', '07월', '08월', '09월', '10월', '11월', '12월'];
 const salesSeriesColors = ['#327fff', '#21a66a', '#e39a27'];
@@ -910,6 +891,7 @@ function Dashboard({ user }) {
         </div>
 
         <aside className="dashboard_side_stack">
+          <RoomUsage user={user} />
           <section className="dash_notice_section">
             <h2 className="dash_section_title">공지사항</h2>
             <div className="dash_panel dash_notice_panel">
@@ -937,30 +919,6 @@ function Dashboard({ user }) {
                 )}
               </div>
               <button type="button" className="dash_more_button" onClick={() => navigate('/community?tab=notice')}>더보기 ›</button>
-            </div>
-          </section>
-
-          <section className="dash_calendar_section">
-            <h2 className="dash_section_title">일정</h2>
-            <div className="dash_panel dash_calendar_panel">
-              <Calendar
-                localizer={localizer}
-                events={calendar_events}
-                startAccessor="start"
-                endAccessor="end"
-                style={{ height: 260 }}
-                defaultView="month"
-                views={['month']}
-                messages={{
-                  date: '날짜',
-                  time: '시간',
-                  event: '일정',
-                  month: '월',
-                  previous: '이전',
-                  next: '다음',
-                  today: '오늘',
-                }}
-              />
             </div>
           </section>
         </aside>
