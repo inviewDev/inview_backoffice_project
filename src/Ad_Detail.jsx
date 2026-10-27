@@ -378,28 +378,6 @@ function AdDetail({ user }) {
     if (getDigits(value).length >= 2) focusInput(expiryYearInputRef);
   };
 
-  const validateCompanyData = () => {
-    const businessRegNumber = String(formData.businessRegNumber ?? '').trim();
-    const tel = String(formData.tel ?? '').trim();
-    const mobile = String(formData.mobile ?? '').trim();
-    const companyEmail = String(formData.companyEmail ?? '').trim();
-
-    if (businessRegNumber && !/^\d{3}-\d{2}-\d{5}$/.test(businessRegNumber)) {
-      return '사업자등록번호 형식이 올바르지 않습니다. (예: 123-45-67890)';
-    }
-    if (tel && !/^\d{2,4}-\d{3,4}-\d{4}$/.test(tel)) {
-      return '전화번호 형식이 올바르지 않습니다. (예: 02-1234-5678, 0507-1234-5678)';
-    }
-    if (mobile && !/^\d{3}-\d{4}-\d{4}$/.test(mobile)) {
-      return '휴대전화번호 형식이 올바르지 않습니다. (예: 010-1234-5678)';
-    }
-    if (companyEmail && !companyEmail.includes('@')) {
-      return '유효한 이메일 주소를 입력해주세요.';
-    }
-
-    return '';
-  };
-
   const validatePaymentData = () => {
     const missingFields = getMissingFieldLabels([
       { label: '상품명', value: paymentData.productName },
@@ -482,12 +460,6 @@ function AdDetail({ user }) {
 
   const handlePaymentSubmit = async e => {
     e.preventDefault();
-
-    const companyValidationMessage = validateCompanyData();
-    if (companyValidationMessage) {
-      showAlert({ message: companyValidationMessage });
-      return;
-    }
 
     const paymentValidationMessage = validatePaymentData();
     if (paymentValidationMessage) {
@@ -700,7 +672,7 @@ function AdDetail({ user }) {
             </AdField>
             <AdField label="업체 URL">
               <input
-                type="url"
+                type="text"
                 value={formData.companyUrl}
                 onChange={e => setFormData(prev => ({ ...prev, companyUrl: e.target.value }))}
                 disabled={isLoading.company}
@@ -726,7 +698,7 @@ function AdDetail({ user }) {
             </AdField>
             <AdField label="업체 E-Mail">
               <input
-                type={formData.companyEmail.trim() ? 'email' : 'text'}
+                type="text"
                 value={formData.companyEmail}
                 onChange={e => setFormData(prev => ({ ...prev, companyEmail: e.target.value }))}
                 disabled={isLoading.company}

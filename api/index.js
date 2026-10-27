@@ -1333,18 +1333,6 @@ apiRouter.post('/company', verifyToken, async (req, res) => {
   if (!canAccessUser(req, targetUserId)) {
     return res.status(403).json({ error: '해당 사용자 정보에 접근할 권한이 없습니다.' });
   }
-  if (normalizedBusinessRegNumber && !/^\d{3}-\d{2}-\d{5}$/.test(normalizedBusinessRegNumber)) {
-    return res.status(400).json({ error: '사업자등록번호 형식이 올바르지 않습니다.' });
-  }
-  if (tel && !/^\d{2,4}-\d{3,4}-\d{4}$/.test(tel)) {
-    return res.status(400).json({ error: '전화번호 형식이 올바르지 않습니다.' });
-  }
-  if (mobile && !/^\d{3}-\d{4}-\d{4}$/.test(mobile)) {
-    return res.status(400).json({ error: '휴대전화번호 형식이 올바르지 않습니다.' });
-  }
-  if (companyEmail && !companyEmail.includes('@')) {
-    return res.status(400).json({ error: '유효한 이메일 주소를 입력해주세요.' });
-  }
 
   try {
     const company = await prisma.company.create({
@@ -2417,21 +2405,6 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
     if (!canEditPaymentInfo && !canEditPaymentStatusInfo) {
       return res.status(403).json({ error: '전체관리자 또는 대표만 결제정보를 수정할 수 있습니다.' });
     }
-    if (canEditPaymentInfo) {
-      if (businessRegNumber && !/^\d{3}-\d{2}-\d{5}$/.test(businessRegNumber)) {
-        return res.status(400).json({ error: '사업자등록번호 형식이 올바르지 않습니다.' });
-      }
-      if (tel && !/^\d{2,4}-\d{3,4}-\d{4}$/.test(tel)) {
-        return res.status(400).json({ error: '전화번호 형식이 올바르지 않습니다.' });
-      }
-      if (mobile && !/^\d{3}-\d{4}-\d{4}$/.test(mobile)) {
-        return res.status(400).json({ error: '휴대전화번호 형식이 올바르지 않습니다.' });
-      }
-      if (companyEmail && !companyEmail.includes('@')) {
-        return res.status(400).json({ error: '유효한 이메일 주소를 입력해주세요.' });
-      }
-    }
-
     payment = await prisma.payment.findUnique({
       where: { id: adId },
       select: {

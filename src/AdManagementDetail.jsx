@@ -855,30 +855,6 @@ function AdManagementDetail({ user }) {
     setShowPostcodeModal(false);
   };
 
-  const getBasicInfoEditValidation = () => {
-    const businessRegNumber = String(basicInfoEditForm.businessRegNumber ?? '').trim();
-    const tel = String(basicInfoEditForm.tel ?? '').trim();
-    const mobile = String(basicInfoEditForm.mobile ?? '').trim();
-    const companyEmail = String(basicInfoEditForm.companyEmail ?? '').trim();
-    if (
-      businessRegNumber &&
-      !/^\d{3}-\d{2}-\d{5}$/.test(businessRegNumber)
-    ) {
-      return '사업자등록번호 형식이 올바르지 않습니다.';
-    }
-    if (tel && !/^\d{2,4}-\d{3,4}-\d{4}$/.test(tel)) {
-      return '전화번호 형식이 올바르지 않습니다.';
-    }
-    if (mobile && !/^\d{3}-\d{4}-\d{4}$/.test(mobile)) {
-      return '휴대전화번호 형식이 올바르지 않습니다.';
-    }
-    if (companyEmail && !companyEmail.includes('@')) {
-      return '유효한 이메일 주소를 입력해주세요.';
-    }
-
-    return '';
-  };
-
   const getPaymentEditValidation = () => {
     if (!canEditPayment && canEditPaymentStatus) {
       if (!PAYMENT_STATUSES.includes(paymentEditForm.paymentStatus)) {
@@ -887,9 +863,6 @@ function AdManagementDetail({ user }) {
 
       return '';
     }
-
-    const basicInfoValidation = getBasicInfoEditValidation();
-    if (basicInfoValidation) return basicInfoValidation;
 
     if (detailEditForm.productNames.length === 0) {
       return '상품군을 선택해주세요.';
@@ -1414,7 +1387,7 @@ function AdManagementDetail({ user }) {
               </EditableField>
               <EditableField label="업체 URL">
                 <input
-                  type="url"
+                  type="text"
                   value={basicInfoEditForm.companyUrl}
                   onChange={event => handleBasicInfoChange('companyUrl', event.target.value)}
                   disabled={isSavingPayment}
@@ -1440,7 +1413,7 @@ function AdManagementDetail({ user }) {
               </EditableField>
               <EditableField label="업체 E-Mail">
                 <input
-                  type={basicInfoEditForm.companyEmail.trim() ? 'email' : 'text'}
+                  type="text"
                   value={basicInfoEditForm.companyEmail}
                   onChange={event => handleBasicInfoChange('companyEmail', event.target.value)}
                   disabled={isSavingPayment}
