@@ -379,32 +379,21 @@ function AdDetail({ user }) {
   };
 
   const validateCompanyData = () => {
-    const missingFields = getMissingFieldLabels([
-      { label: '상호명', value: formData.companyName },
-      { label: '대표자', value: formData.ceoName },
-      { label: '업체 E-Mail', value: formData.companyEmail },
-    ]);
+    const businessRegNumber = String(formData.businessRegNumber ?? '').trim();
+    const tel = String(formData.tel ?? '').trim();
+    const mobile = String(formData.mobile ?? '').trim();
+    const companyEmail = String(formData.companyEmail ?? '').trim();
 
-    if (missingFields.length) {
-      return formatMissingFieldMessage('회사 필수정보를 입력해주세요.', missingFields);
-    }
-
-    if (!formData.companyName) {
-      return '상호명을 입력해주세요.';
-    }
-    if (!formData.ceoName) {
-      return '대표자 이름을 입력해주세요.';
-    }
-    if (formData.businessRegNumber && !/^\d{3}-\d{2}-\d{5}$/.test(formData.businessRegNumber)) {
+    if (businessRegNumber && !/^\d{3}-\d{2}-\d{5}$/.test(businessRegNumber)) {
       return '사업자등록번호 형식이 올바르지 않습니다. (예: 123-45-67890)';
     }
-    if (formData.tel && !/^\d{2,4}-\d{3,4}-\d{4}$/.test(formData.tel)) {
+    if (tel && !/^\d{2,4}-\d{3,4}-\d{4}$/.test(tel)) {
       return '전화번호 형식이 올바르지 않습니다. (예: 02-1234-5678, 0507-1234-5678)';
     }
-    if (formData.mobile && !/^\d{3}-\d{4}-\d{4}$/.test(formData.mobile)) {
+    if (mobile && !/^\d{3}-\d{4}-\d{4}$/.test(mobile)) {
       return '휴대전화번호 형식이 올바르지 않습니다. (예: 010-1234-5678)';
     }
-    if (!formData.companyEmail.includes('@')) {
+    if (companyEmail && !companyEmail.includes('@')) {
       return '유효한 이메일 주소를 입력해주세요.';
     }
 
@@ -737,7 +726,7 @@ function AdDetail({ user }) {
             </AdField>
             <AdField label="업체 E-Mail">
               <input
-                type="email"
+                type={formData.companyEmail.trim() ? 'email' : 'text'}
                 value={formData.companyEmail}
                 onChange={e => setFormData(prev => ({ ...prev, companyEmail: e.target.value }))}
                 disabled={isLoading.company}

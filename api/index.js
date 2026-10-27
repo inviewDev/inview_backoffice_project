@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { findPaymentsByStatusOrder } = require('./paymentStatusSort');
 const { createRoomUsageRouter } = require('./roomUsage');
+const { canonicalCommunityAssetUrl, signCommunityContentAssets, createCommunityAssetRouter } = require('./communityAssets');
 const {
   isMasterAccount,
   isReservedMasterLoginId,
@@ -513,6 +514,8 @@ function getKoreanDateKey(date = new Date()) {
 function sanitizeCommunityLinkHref(value) {
   const href = String(value || '').trim();
   if (!href) return null;
+  const assetUrl = canonicalCommunityAssetUrl(href);
+  if (assetUrl) return assetUrl;
 
   if (/^(https?:\/\/|mailto:|tel:)/i.test(href)) return href;
   if (href.startsWith('/') && !href.startsWith('//')) return href;
@@ -521,6 +524,8 @@ function sanitizeCommunityLinkHref(value) {
 
 function sanitizeCommunityImageSrc(value) {
   const src = String(value || '').trim();
+  const assetUrl = canonicalCommunityAssetUrl(src);
+  if (assetUrl && !assetUrl.includes('?')) return assetUrl;
   if (/^https:\/\//i.test(src)) return src;
 
   const match = src.match(/^data:(image\/(?:jpeg|png|webp|gif));base64,([A-Za-z0-9+/=]+)$/i);
@@ -1310,35 +1315,23 @@ apiRouter.get('/staff-options', verifyToken, async (_req, res) => {
 apiRouter.post('/company', verifyToken, async (req, res) => {
   const {
     userId,
-    companyName,
-    ceoName,
     businessRegNumber,
     birthDate,
-    tel,
-    mobile,
     postcode,
     address,
     detailAddress,
     companyUrl,
-    companyEmail,
   } = req.body;
+  const companyName = toOptionalString(req.body.companyName) || '';
+  const ceoName = toOptionalString(req.body.ceoName) || '';
+  const companyEmail = toOptionalString(req.body.companyEmail) || '';
+  const tel = toOptionalString(req.body.tel) || '';
+  const mobile = toOptionalString(req.body.mobile) || '';
   const targetUserId = parseInt(userId || req.user.id, 10);
   const normalizedBusinessRegNumber = String(businessRegNumber || '').trim();
 
   if (!canAccessUser(req, targetUserId)) {
     return res.status(403).json({ error: '해당 사용자 정보에 접근할 권한이 없습니다.' });
-  }
-  const missingCompanyFields = [
-    { label: '상호명', value: companyName },
-    { label: '대표자', value: ceoName },
-    { label: '업체 E-Mail', value: companyEmail },
-  ].filter(field => !String(field.value ?? '').trim()).map(field => field.label);
-
-  if (missingCompanyFields.length) {
-    return res.status(400).json({
-      error: `회사 필수 정보를 모두 입력해주세요. 누락 항목: ${missingCompanyFields.join(', ')}`,
-      missingFields: missingCompanyFields,
-    });
   }
   if (normalizedBusinessRegNumber && !/^\d{3}-\d{2}-\d{5}$/.test(normalizedBusinessRegNumber)) {
     return res.status(400).json({ error: '사업자등록번호 형식이 올바르지 않습니다.' });
@@ -1349,7 +1342,7 @@ apiRouter.post('/company', verifyToken, async (req, res) => {
   if (mobile && !/^\d{3}-\d{4}-\d{4}$/.test(mobile)) {
     return res.status(400).json({ error: '휴대전화번호 형식이 올바르지 않습니다.' });
   }
-  if (!companyEmail.includes('@')) {
+  if (companyEmail && !companyEmail.includes('@')) {
     return res.status(400).json({ error: '유효한 이메일 주소를 입력해주세요.' });
   }
 
@@ -2425,18 +2418,6 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
       return res.status(403).json({ error: '전체관리자 또는 대표만 결제정보를 수정할 수 있습니다.' });
     }
     if (canEditPaymentInfo) {
-      const missingCompanyFields = [
-        { label: '상호명', value: companyName },
-        { label: '대표자', value: ceoName },
-        { label: '업체 E-Mail', value: companyEmail },
-      ].filter(field => !String(field.value ?? '').trim()).map(field => field.label);
-
-      if (missingCompanyFields.length) {
-        return res.status(400).json({
-          error: `회사 필수 정보를 모두 입력해주세요. 누락 항목: ${missingCompanyFields.join(', ')}`,
-          missingFields: missingCompanyFields,
-        });
-      }
       if (businessRegNumber && !/^\d{3}-\d{2}-\d{5}$/.test(businessRegNumber)) {
         return res.status(400).json({ error: '사업자등록번호 형식이 올바르지 않습니다.' });
       }
@@ -2446,7 +2427,7 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
       if (mobile && !/^\d{3}-\d{4}-\d{4}$/.test(mobile)) {
         return res.status(400).json({ error: '휴대전화번호 형식이 올바르지 않습니다.' });
       }
-      if (!companyEmail.includes('@')) {
+      if (companyEmail && !companyEmail.includes('@')) {
         return res.status(400).json({ error: '유효한 이메일 주소를 입력해주세요.' });
       }
     }
@@ -2551,8 +2532,8 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
     const nextDepartmentHead = departmentHeadUser ? departmentHeadUser.name : fallbackDepartmentHead;
     const companyUpdateData = canEditPaymentInfo
       ? {
-          companyName,
-          ceoName,
+          companyName: companyName || '',
+          ceoName: ceoName || '',
           businessRegNumber: businessRegNumber || '',
           birthDate: payment.company?.birthDate || '',
           tel: tel || '',
@@ -2561,7 +2542,7 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
           address: address || '',
           detailAddress: detailAddress || null,
           companyUrl: companyUrl || null,
-          companyEmail,
+          companyEmail: companyEmail || '',
         }
       : null;
     const { updatedPayment, updatedCompany } = await prisma.$transaction(async tx => {
@@ -3691,6 +3672,7 @@ apiRouter.get('/community/posts', verifyToken, async (req, res) => {
               { title: { contains: search, mode: 'insensitive' } },
               { contentText: { contains: search, mode: 'insensitive' } },
               { author: { name: { contains: search, mode: 'insensitive' } } },
+              { authorNameSnapshot: { contains: search, mode: 'insensitive' } },
             ],
           }
         : {}),
@@ -3709,6 +3691,7 @@ apiRouter.get('/community/posts', verifyToken, async (req, res) => {
           contentText: true,
           viewCount: true,
           authorId: true,
+          authorNameSnapshot: true,
           createdAt: true,
           updatedAt: true,
           author: {
@@ -3726,7 +3709,7 @@ apiRouter.get('/community/posts', verifyToken, async (req, res) => {
     res.json({
       posts: posts.map(post => ({
         ...post,
-        authorName: post.author?.name || '탈퇴 사용자',
+        authorName: post.authorNameSnapshot || post.author?.name || '탈퇴 사용자',
         authorTeam: post.author?.team || '',
         canEdit: isMasterAccount(currentUser) || post.authorId === currentUser.id,
         canDelete: isMasterAccount(currentUser) || post.authorId === currentUser.id,
@@ -3808,8 +3791,9 @@ apiRouter.get('/community/posts/:id', verifyToken, async (req, res) => {
     res.json({
       post: {
         ...post,
+        content: signCommunityContentAssets(post.content, currentUser.id, SECRET),
         viewCount: nextViewCount,
-        authorName: post.author?.name || '탈퇴 사용자',
+        authorName: post.authorNameSnapshot || post.author?.name || '탈퇴 사용자',
         authorTeam: post.author?.team || '',
         authorDepartment: post.author?.department || '',
         canEdit: isMasterAccount(currentUser) || post.authorId === currentUser.id,
@@ -4532,6 +4516,7 @@ apiRouter.get('/users', verifyToken, verifyAdminRole, async (req, res) => {
 });
 
 apiRouter.use('/rooms', verifyToken, createRoomUsageRouter(prisma));
+apiRouter.use('/community/assets', createCommunityAssetRouter(prisma, SECRET));
 
 app.use('/api', apiRouter);
 

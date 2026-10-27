@@ -252,7 +252,7 @@ body .form-check-input:checked { border-color: var(--ui-primary); background-col
   .admin_shell :is(.ad_manage_panel, .ad_panel, .ad_basic_panel, .ad_view_panel, .community_panel, .userlist_filter, .userlist_table_card, .mypage_profile_panel, .mypage_todo_panel, .mypage_calendar_panel) { padding: var(--ui-space-panel); }
   .admin_shell .ad_manage_toolbar { margin: 0 0 16px; }
   .admin_shell :is(.ad_manage_toolbar label, .ad_manage_toolbar input, .ad_manage_search_button, .ad_manage_add_button, .community_search input, .community_search button, .community_primary_button, .community_secondary_button, .personal_sales_filters input, .personal_sales_filters select, .personal_sales_filters button, .personal_sales_results_heading button, .account_settings_actions .btn) { height: 36px; }
-  .admin_shell :is(.ad_manage_search_button, .ad_manage_add_button, .dash_search_box button, .community_search button, .community_primary_button) { max-width: 104px; }
+  .admin_shell :is(.ad_manage_search_button, .ad_manage_add_button, .dash_search_box button, .community_search button, .community_primary_button) { max-width: 120px; }
   .admin_shell :is(.ad_manage_search_button, .ad_manage_add_button, .dash_search_box button, .community_search button) svg { width: 16px; height: 16px; }
   .admin_shell :is(.ad_manage_table, .dash_sales_table, .userlist_table) thead th, .admin_shell .userlist_table.table > thead > tr > th { height: 40px; padding: 0 8px; }
   .admin_shell .personal_sales_table th button { height: 38px; }

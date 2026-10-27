@@ -74,6 +74,8 @@ model CommunityPost {
   contentText String   @db.Text
   viewCount   Int      @default(0)
   authorId    Int?
+  authorNameSnapshot String?
+  legacySourceId String? @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   author      User?    @relation("UserCommunityPosts", fields: [authorId], references: [id], onDelete: SetNull)
@@ -82,6 +84,15 @@ model CommunityPost {
   @@index([boardType, createdAt])
   @@index([authorId])
   @@map("CommunityPost")
+}
+
+model CommunityAsset {
+  id        String   @id
+  fileName  String
+  mimeType  String
+  byteSize  Int
+  data      Bytes
+  createdAt DateTime @default(now())
 }
 
 model CommunityPostView {

@@ -856,31 +856,23 @@ function AdManagementDetail({ user }) {
   };
 
   const getBasicInfoEditValidation = () => {
-    const requiredFields = [
-      { label: '상호명', value: basicInfoEditForm.companyName },
-      { label: '대표자', value: basicInfoEditForm.ceoName },
-      { label: '업체 E-Mail', value: basicInfoEditForm.companyEmail },
-    ];
-    const missingFields = requiredFields
-      .filter(field => !String(field.value ?? '').trim())
-      .map(field => field.label);
-
-    if (missingFields.length) {
-      return `기본정보 필수항목을 입력해주세요. 누락 항목: ${missingFields.join(', ')}`;
-    }
+    const businessRegNumber = String(basicInfoEditForm.businessRegNumber ?? '').trim();
+    const tel = String(basicInfoEditForm.tel ?? '').trim();
+    const mobile = String(basicInfoEditForm.mobile ?? '').trim();
+    const companyEmail = String(basicInfoEditForm.companyEmail ?? '').trim();
     if (
-      basicInfoEditForm.businessRegNumber &&
-      !/^\d{3}-\d{2}-\d{5}$/.test(basicInfoEditForm.businessRegNumber)
+      businessRegNumber &&
+      !/^\d{3}-\d{2}-\d{5}$/.test(businessRegNumber)
     ) {
       return '사업자등록번호 형식이 올바르지 않습니다.';
     }
-    if (basicInfoEditForm.tel && !/^\d{2,4}-\d{3,4}-\d{4}$/.test(basicInfoEditForm.tel)) {
+    if (tel && !/^\d{2,4}-\d{3,4}-\d{4}$/.test(tel)) {
       return '전화번호 형식이 올바르지 않습니다.';
     }
-    if (basicInfoEditForm.mobile && !/^\d{3}-\d{4}-\d{4}$/.test(basicInfoEditForm.mobile)) {
+    if (mobile && !/^\d{3}-\d{4}-\d{4}$/.test(mobile)) {
       return '휴대전화번호 형식이 올바르지 않습니다.';
     }
-    if (!basicInfoEditForm.companyEmail.includes('@')) {
+    if (companyEmail && !companyEmail.includes('@')) {
       return '유효한 이메일 주소를 입력해주세요.';
     }
 
@@ -1448,7 +1440,7 @@ function AdManagementDetail({ user }) {
               </EditableField>
               <EditableField label="업체 E-Mail">
                 <input
-                  type="email"
+                  type={basicInfoEditForm.companyEmail.trim() ? 'email' : 'text'}
                   value={basicInfoEditForm.companyEmail}
                   onChange={event => handleBasicInfoChange('companyEmail', event.target.value)}
                   disabled={isSavingPayment}
