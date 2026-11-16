@@ -126,6 +126,7 @@ body .form-check-input:checked { border-color: var(--ui-primary); background-col
 .admin_shell .dash_chart_legend button { font-size: 12px; }
 .admin_shell .dash_bar_grid { background: transparent; border-top: 1px dashed #e3e7ee; }
 .admin_shell .dash_bar_grid:nth-child(5) { height: 1px; background: #d9dee6; border: 0; }
+.admin_shell :is(.ad_manage_table, .dash_sales_table) td.company_name_cell { white-space: normal; overflow-wrap: anywhere; word-break: normal; text-overflow: clip; }
 .admin_shell .dash_notice_head { background: #f8f9fb; color: #555e6b; border-bottom: 1px solid var(--ui-border); }
 .admin_shell .dash_notice_row { background: #fff; border-bottom: 1px solid #edf0f3; }
 .admin_shell .dash_notice_row:hover { background: var(--ui-blue-soft); }

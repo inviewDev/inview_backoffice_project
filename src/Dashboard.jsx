@@ -1120,7 +1120,7 @@ function Dashboard({ user }) {
                     <td>{row.sequence}</td>
                     <td>{row.registrationDate}</td>
                     <td>{row.product}</td>
-                    <td>{row.companyName}</td>
+                    <td className="company_name_cell" title={row.companyName}>{row.companyName}</td>
                     <td>{row.ceoName}</td>
                     <td>{row.approvedCompany}</td>
                     <td>{row.paymentMethod}</td>

@@ -375,7 +375,12 @@ function AdManagement({ user }) {
                         }}
                       >
                         {row.getVisibleCells().map(cell => (
-                          <td key={cell.id} style={{ width: cell.column.getSize() }} title={String(cell.getValue() || '')}>
+                          <td
+                            key={cell.id}
+                            className={cell.column.id === 'companyName' ? 'company_name_cell' : undefined}
+                            style={{ width: cell.column.getSize() }}
+                            title={String(cell.getValue() || '')}
+                          >
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </td>
                         ))}

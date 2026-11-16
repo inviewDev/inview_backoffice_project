@@ -744,7 +744,7 @@ function serializeAdComment(comment, currentUser) {
     id: comment.id,
     userId: comment.userId,
     isAdminOnly: Boolean(comment.isAdminOnly),
-    author: comment.user?.name || '사용자',
+    author: comment.authorNameSnapshot ?? (comment.user?.name || '사용자'),
     authorProfileImage: comment.user?.profileImage || '',
     content: comment.content,
     createdAt: comment.createdAt.toISOString(),
