@@ -670,15 +670,7 @@ function validateCommunityPostInput(body) {
 
 function getEffectiveAdVisibilityScope(user) {
   if (isMasterAccount(user)) return 'all';
-
-  const configuredScope = normalizeAdVisibilityScope(user?.adVisibilityScope);
-  if (configuredScope !== 'own') return configuredScope;
-
-  if (user?.level === '대표') return 'all';
-  if (user?.level === '파트장') return 'department';
-  if (user?.level === '팀장' || user?.role === '팀장') return 'team';
-
-  return 'own';
+  return normalizeAdVisibilityScope(user?.adVisibilityScope);
 }
 
 function buildTeamAdAccessFilter(user) {
@@ -721,9 +713,7 @@ function buildAdAccessFilter(user, targetUserId = null) {
     filters.push({ userId: user.id });
   }
 
-  if (targetUserId && scope === 'all') {
-    filters.push({ userId: targetUserId });
-  } else if (targetUserId && targetUserId === user.id) {
+  if (targetUserId !== null) {
     filters.push({ userId: targetUserId });
   }
 
@@ -732,11 +722,25 @@ function buildAdAccessFilter(user, targetUserId = null) {
 
 function canViewAd(user, payment) {
   if (!user?.id || !payment?.id) return false;
-  return true;
-}
 
-function canViewAllAdsInList(user) {
-  return getEffectiveAdVisibilityScope(user) === 'all';
+  const scope = getEffectiveAdVisibilityScope(user);
+  if (scope === 'all' || payment.userId === user.id) return true;
+
+  if (scope === 'team') {
+    const team = String(user.team || '').trim();
+    return Boolean(team && team !== '미지정' && (
+      payment.managerTeam === team || payment.user?.team === team
+    ));
+  }
+
+  if (scope === 'department') {
+    const department = String(user.department || '').trim();
+    if (!department || department === '미지정') return false;
+    return payment.user?.department === department ||
+      getTeamsByDepartment(department).includes(payment.managerTeam);
+  }
+
+  return false;
 }
 
 function serializeAdComment(comment, currentUser) {
@@ -1506,7 +1510,7 @@ apiRouter.get('/system/outbound-ip', verifyToken, verifyAdminRole, async (_req, 
 });
 
 apiRouter.get('/ads', verifyToken, async (req, res) => {
-  const targetUserId = req.query.userId ? parseInt(req.query.userId, 10) : null;
+  const targetUserId = req.query.userId !== undefined ? Number(req.query.userId) : null;
   const isPaginatedRequest = req.query.page !== undefined || req.query.pageSize !== undefined;
   const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
   const pageSize = Math.min(Math.max(parseInt(req.query.pageSize, 10) || 10, 1), 100);
@@ -1515,13 +1519,17 @@ apiRouter.get('/ads', verifyToken, async (req, res) => {
   const sortOrder = req.query.sortOrder === 'asc' ? 'asc' : 'desc';
   const statusPriority = String(req.query.statusPriority || '');
 
+  if (targetUserId !== null && (!Number.isSafeInteger(targetUserId) || targetUserId <= 0)) {
+    return res.status(400).json({ error: '사용자 ID가 올바르지 않습니다.' });
+  }
+
   try {
     const currentUser = await getCurrentUserAccess(req.user.id);
     if (!currentUser) {
       return res.status(401).json({ error: '사용자 계정을 찾을 수 없습니다.' });
     }
 
-    const accessFilter = targetUserId ? { userId: targetUserId } : {};
+    const accessFilter = buildAdAccessFilter(currentUser, targetUserId);
     const searchFilter = search
       ? {
           OR: [
@@ -2441,6 +2449,9 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
         advertiserAccount: true,
         memo: true,
         fileName: true,
+        user: {
+          select: { team: true, department: true },
+        },
         company: {
           select: {
             companyName: true,
@@ -2460,6 +2471,10 @@ apiRouter.patch('/ads/:id/payment-info', verifyToken, async (req, res) => {
     });
     if (!payment) {
       return res.status(404).json({ error: '광고 정보를 찾을 수 없습니다.' });
+    }
+
+    if (!canViewAd(currentUser, payment)) {
+      return res.status(403).json({ error: '해당 광고 정보를 수정할 권한이 없습니다.' });
     }
 
     const [managerUser, teamLeadUser, departmentHeadUser] = canEditPaymentInfo
